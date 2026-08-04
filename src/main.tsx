@@ -99,12 +99,13 @@ class RootErrorBoundary extends React.Component<
 
 /**
  * URL deployment Convex. Di lingkungan Freebuff nilai ini diinjeksi otomatis ke
- * proses dev-server sebagai VITE_CONVEX_URL. Bila kosong, aplikasi menampilkan
- * layar konfigurasi yang jelas alih-alih halaman putih (tidak boleh crash).
+ * proses dev-server sebagai VITE_CONVEX_URL. Untuk build produksi (web publish)
+ * dipakai fallback ke deployment cloud proyek agar halaman tidak pernah putih
+ * meskipun variabel lingkungan tidak tersedia saat build.
  */
-const convexUrl: string | undefined = (
-  import.meta.env.VITE_CONVEX_URL as string | undefined
-)?.trim();
+const FALLBACK_CONVEX_URL = "https://resilient-hawk-825.convex.cloud";
+
+const convexUrl: string = (import.meta.env.VITE_CONVEX_URL as string | undefined)?.trim() || FALLBACK_CONVEX_URL;
 
 function ConvexConfigScreen() {
   return (
