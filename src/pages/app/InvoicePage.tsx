@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2 } from "lucide-react";
+import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
+import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
+import { daysUntil } from "@/lib/business";
 import {
   computeInvoiceTotals,
   INVOICE_TIPES,
@@ -43,8 +44,43 @@ function emptyItem(): InvoiceItem {
   return { kodeBarang: "", namaBarang: "", hargaModal: 0, qty: 1, hargaJual: 0, subtotal: 0 };
 }
 
+/** Badge sisa hari menuju jatuh tempo (Reseller/Supplier). */
+function DueBadge({ tenggat }: { tenggat?: string }) {
+  if (!tenggat) return <span className="text-muted-foreground">—</span>;
+  const d = daysUntil(tenggat);
+  if (Number.isNaN(d)) return <span className="text-muted-foreground">—</span>;
+  if (d < 0)
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+        <CalendarClock className="size-3" />
+        Lewat {Math.abs(d)} hari
+      </span>
+    );
+  if (d === 0)
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+        <CalendarClock className="size-3" />
+        Jatuh tempo hari ini
+      </span>
+    );
+  if (d <= 3)
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+        <CalendarClock className="size-3" />
+        H-{d}
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+      <CheckCircle2 className="size-3" />
+      H-{d}
+    </span>
+  );
+}
+
 export default function InvoicePage() {
   const invoices = useQuery(api.queries.listInvoice, {});
+  const pihakList = useQuery(api.queries.listInvoicePihak);
   const barang = useQuery(api.queries.listBarang);
   const suppliers = useQuery(api.queries.listSupplier);
   const resellers = useQuery(api.queries.listReseller);
@@ -58,9 +94,11 @@ export default function InvoicePage() {
   const [tanggal, setTanggal] = useState(todayStr());
   const [idInvoice, setIdInvoice] = useState(() => genId("INV"));
   const [namaPihak, setNamaPihak] = useState("");
+  const [tenggat, setTenggat] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([emptyItem()]);
   const [saving, setSaving] = useState(false);
   const [filterTipe, setFilterTipe] = useState<string>("");
+  const [filterPihak, setFilterPihak] = useState<string>("");
   const [printInv, setPrintInv] = useState<any>(null);
 
   const pihakOptions = useMemo(() => {
@@ -70,13 +108,23 @@ export default function InvoicePage() {
     return pasars?.map((s: any) => s.namaPasar) ?? [];
   }, [tipe, suppliers, resellers, dpls, pasars]);
 
+  // Opsi pihak yang sudah punya invoice (untuk pengelompokan per pihak)
+  const filterPihakOptions = useMemo(() => {
+    return (pihakList ?? [])
+      .filter((p: any) => !filterTipe || p.tipe === filterTipe)
+      .map((p: any) => p.namaPihak);
+  }, [pihakList, filterTipe]);
+
   const totals = useMemo(() => computeInvoiceTotals(tipe, items), [tipe, items]);
 
   const filtered = useMemo(() => {
     if (!invoices) return invoices;
-    if (!filterTipe) return invoices;
-    return invoices.filter((i: any) => i.tipe === filterTipe);
-  }, [invoices, filterTipe]);
+    return invoices.filter((i: any) => {
+      if (filterTipe && i.tipe !== filterTipe) return false;
+      if (filterPihak && i.namaPihak !== filterPihak) return false;
+      return true;
+    });
+  }, [invoices, filterTipe, filterPihak]);
 
   const selectBarang = (idx: number, kode: string) => {
     const b = barang?.find((x: any) => x.kode === kode);
@@ -100,6 +148,7 @@ export default function InvoicePage() {
     setTanggal(todayStr());
     setIdInvoice(genId("INV"));
     setNamaPihak("");
+    setTenggat("");
     setItems([emptyItem()]);
   };
 
@@ -120,6 +169,7 @@ export default function InvoicePage() {
           tanggal,
           tipe,
           namaPihak,
+          tenggat,
           items: cleanItems,
         },
       });
@@ -144,6 +194,19 @@ export default function InvoicePage() {
     { key: "tanggal", label: "Tanggal", sortValue: (r) => r.tanggal, render: (r) => formatDate(r.tanggal) },
     { key: "tipe", label: "Tipe", render: (r) => <BadgeStatus status={r.tipe} /> },
     { key: "namaPihak", label: "Pihak", render: (r) => r.namaPihak },
+    {
+      key: "tenggat",
+      label: "Tenggat",
+      render: (r) => {
+        if (!r.tenggat) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">{formatDate(r.tenggat)}</p>
+            <DueBadge tenggat={r.tenggat} />
+          </div>
+        );
+      },
+    },
     {
       key: "total",
       label: "Total",
@@ -197,7 +260,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier."
         icon={FileText}
         actions={
           <Button onClick={() => setOpen(true)}>
@@ -207,20 +270,39 @@ export default function InvoicePage() {
         }
       />
 
-      <div className="mb-4 w-48">
-        <Select value={filterTipe} onValueChange={setFilterTipe}>
-          <SelectTrigger>
-            <SelectValue placeholder="Semua tipe" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all">Semua tipe</SelectItem>
-            {INVOICE_TIPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 sm:max-w-lg">
+        <div>
+          <Label className="text-xs font-medium">Filter Tipe</Label>
+          <Select value={filterTipe} onValueChange={(v) => { setFilterTipe(v === "__all" ? "" : v); setFilterPihak(""); }}>
+            <SelectTrigger className="mt-1.5">
+              <SelectValue placeholder="Semua tipe" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">Semua tipe</SelectItem>
+              {INVOICE_TIPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs font-medium">Kelompokkan per Pihak</Label>
+          <Select value={filterPihak} onValueChange={(v) => setFilterPihak(v === "__all" ? "" : v)}>
+            <SelectTrigger className="mt-1.5">
+              <SelectValue placeholder="Semua pihak" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">Semua pihak</SelectItem>
+              {filterPihakOptions.map((p: string) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <DataTable
@@ -250,6 +332,7 @@ export default function InvoicePage() {
                 onValueChange={(v) => {
                   setTipe(v as InvoiceTipe);
                   setNamaPihak("");
+                  setTenggat("");
                   setItems([emptyItem()]);
                 }}
               >
@@ -275,22 +358,43 @@ export default function InvoicePage() {
             </div>
           </div>
 
-          <div>
-            <Label className="text-xs font-medium">Nama {tipe === "Supplier" ? "Supplier" : "Pihak"} *</Label>
-            <div className="mt-1.5 flex gap-2">
-              <Input
-                className="flex-1"
-                list="pihak-options"
-                placeholder={tipe === "Supplier" ? "CV Samudra Jaya" : tipe === "Pasar" ? "Victoria / Tunas" : "Nama pihak"}
-                value={namaPihak}
-                onChange={(e) => setNamaPihak(e.target.value)}
-              />
-              <datalist id="pihak-options">
-                {pihakOptions.map((p: string) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs font-medium">Nama {tipe === "Supplier" ? "Supplier" : "Pihak"} *</Label>
+              <div className="mt-1.5 flex gap-2">
+                <Input
+                  className="flex-1"
+                  list="pihak-options"
+                  placeholder={tipe === "Supplier" ? "CV Samudra Jaya" : tipe === "Pasar" ? "Victoria / Tunas" : "Nama pihak"}
+                  value={namaPihak}
+                  onChange={(e) => setNamaPihak(e.target.value)}
+                />
+                <datalist id="pihak-options">
+                  {pihakOptions.map((p: string) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </div>
             </div>
+            {(tipe === "Reseller" || tipe === "Supplier") && (
+              <div>
+                <Label className="text-xs font-medium">
+                  Tenggat Pembayaran <span className="text-muted-foreground">(opsional)</span>
+                </Label>
+                <Input
+                  className="mt-1.5"
+                  type="date"
+                  min={tanggal}
+                  value={tenggat}
+                  onChange={(e) => setTenggat(e.target.value)}
+                />
+                {tenggat && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Notifikasi otomatis H-3 sebelum jatuh tempo.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Multi-item table */}
@@ -492,6 +596,12 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           <p className="text-xs text-slate-500">Pihak</p>
           <p className="font-semibold">{invoice.namaPihak}</p>
         </div>
+        {invoice.tenggat && (
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Tenggat Pembayaran</p>
+            <p className="font-semibold">{formatDate(invoice.tenggat)}</p>
+          </div>
+        )}
       </div>
 
       <table className="w-full border-collapse text-sm">
@@ -510,9 +620,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
             const qty =
               invoice.tipe === "Pasar"
                 ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0)
-                : invoice.tipe === "Supplier"
-                  ? it.qty
-                  : it.qty;
+                : it.qty;
             const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
             return (
               <tr key={i}>
