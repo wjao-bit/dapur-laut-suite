@@ -102,6 +102,14 @@ export const seedDemo = mutation({
       jenis: "Casbon",
     });
 
+    // Sinkronkan utangTotal karyawan agar konsisten dengan record utang
+    for (const k of karyawan) {
+      const utangs = await ctx.db.query("utang").filter((q) => q.eq(q.field("idKaryawan"), k.id)).collect();
+      const total = utangs.reduce((s: number, u: any) => s + (u.sisaUtang || 0), 0);
+      const row = await ctx.db.query("karyawan").filter((q) => q.eq(q.field("id"), k.id)).first();
+      if (row && row.utangTotal !== total) await ctx.db.patch(row._id, { utangTotal: total });
+    }
+
     // --- Invoice Supplier (pembelian, stok masuk) ---
     await ctx.db.insert("invoice", {
       idInvoice: "INV001",

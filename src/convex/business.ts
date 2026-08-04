@@ -134,12 +134,14 @@ export const upsertKaryawan = mutation({
     const parsed = validate(karyawanSchema, doc);
     if (!parsed.success) return badRequest("Data karyawan tidak valid", parsed.errors);
     const d = parsed.data;
+    // utangTotal TIDAK diambil dari form — selalu disinkronkan dari record utang,
+    // agar mengedit karyawan tidak menghapus saldo utang yang sudah tersinkron.
     const res = await upsertByKey(ctx, "karyawan", "id", d.id, {
       nama: d.nama,
       jabatan: d.jabatan ?? "",
       gajiPokok: d.gajiPokok,
-      utangTotal: d.utangTotal ?? 0,
     });
+    await syncKaryawanUtangTotal(ctx, d.id);
     logResponse("upsertKaryawan", res);
     return res;
   },
@@ -154,6 +156,32 @@ export const deleteMaster = mutation({
     const keyField = table === "barang" ? "kode" : table === "gudang" ? "namaBarang" : "id";
     const existing = await findOneByKey(ctx, table as any, keyField as any, id);
     if (!existing) return { deleted: false, id };
+
+    // Hapus utang → re-sinkron utangTotal karyawan
+    if (table === "utang") {
+      const idKaryawan = (existing as any).idKaryawan;
+      await ctx.db.delete(existing._id);
+      if (idKaryawan) await syncKaryawanUtangTotal(ctx, idKaryawan);
+      logResponse("deleteMaster", { deleted: true, id, table });
+      return { deleted: true, id };
+    }
+
+    // Hapus pengeluaran → bersihkan utang otomatis (UTG-PEN-*) + kas + re-sync
+    if (table === "pengeluaran") {
+      const idKaryawan = (existing as any).idKaryawan;
+      await ctx.db.delete(existing._id);
+      const autoUtang = await findOneByKey(ctx, "utang", "id", `UTG-PEN-${id}`);
+      if (autoUtang) {
+        await ctx.db.delete(autoUtang._id);
+        if (idKaryawan) await syncKaryawanUtangTotal(ctx, idKaryawan);
+      }
+      const kas = await findOneByKey(ctx, "kas", "id", `KAS-PEN-${id}`);
+      if (kas) await ctx.db.delete(kas._id);
+      await recomputeKasAfterDelete(ctx);
+      logResponse("deleteMaster", { deleted: true, id, table });
+      return { deleted: true, id };
+    }
+
     await ctx.db.delete(existing._id);
     logResponse("deleteMaster", { deleted: true, id });
     return { deleted: true, id };
@@ -185,8 +213,18 @@ export const upsertAbsensi = mutation({
 
 // ============================================================================
 // UTANG — otomatis terpotong di slip gaji; pengeluaran "Utang Karyawan"
-// otomatis menambah record utang
+// otomatis menambah record utang. Setiap perubahan utang → sinkron utangTotal.
 // ============================================================================
+
+/** Rekalkulasi utangTotal karyawan = Σ sisaUtang semua utang karyawan tsb. */
+export async function syncKaryawanUtangTotal(ctx: any, idKaryawan: string) {
+  const all = await ctx.db.query("utang").filter((q: any) => q.eq(q.field("idKaryawan"), idKaryawan)).collect();
+  const total = all.reduce((s: number, u: any) => s + (u.sisaUtang || 0), 0);
+  const karyawan = await ctx.db.query("karyawan").filter((q: any) => q.eq(q.field("id"), idKaryawan)).first();
+  if (karyawan && karyawan.utangTotal !== total) {
+    await ctx.db.patch(karyawan._id, { utangTotal: total });
+  }
+}
 
 export const upsertUtang = mutation({
   args: { doc: v.any() },
@@ -195,6 +233,9 @@ export const upsertUtang = mutation({
     const parsed = validate(utangSchema, doc);
     if (!parsed.success) return badRequest("Data utang tidak valid", parsed.errors);
     const d = parsed.data;
+    // Bila pindah karyawan saat edit, re-sinkron karyawan lama juga
+    const prev = await findOneByKey(ctx, "utang", "id", d.id);
+    const prevKaryawan = prev ? (prev as any).idKaryawan : undefined;
     const res = await upsertByKey(ctx, "utang", "id", d.id, {
       idKaryawan: d.idKaryawan,
       tanggal: d.tanggal,
@@ -207,12 +248,13 @@ export const upsertUtang = mutation({
       jenis: d.jenis ?? "Utang",
     });
     await syncKaryawanUtangTotal(ctx, d.idKaryawan);
+    if (prevKaryawan && prevKaryawan !== d.idKaryawan) await syncKaryawanUtangTotal(ctx, prevKaryawan);
     logResponse("upsertUtang", res);
     return res;
   },
 });
 
-/** Pembayaran utang manual oleh karyawan (kas masuk). */
+/** Pembayaran utang manual oleh karyawan (kas masuk) — otomatis kurangi utangTotal. */
 export const bayarUtang = mutation({
   args: { id: v.string(), jumlah: v.number(), tglBayar: v.optional(v.string()) },
   handler: async (ctx, { id, jumlah, tglBayar }) => {
@@ -232,15 +274,6 @@ export const bayarUtang = mutation({
     return { id, dibayar, sisaUtang, status };
   },
 });
-
-async function syncKaryawanUtangTotal(ctx: any, idKaryawan: string) {
-  const all = await ctx.db.query("utang").filter((q: any) => q.eq(q.field("idKaryawan"), idKaryawan)).collect();
-  const total = all.reduce((s: number, u: any) => s + (u.sisaUtang || 0), 0);
-  const karyawan = await ctx.db.query("karyawan").filter((q: any) => q.eq(q.field("id"), idKaryawan)).first();
-  if (karyawan && karyawan.utangTotal !== total) {
-    await ctx.db.patch(karyawan._id, { utangTotal: total });
-  }
-}
 
 // ============================================================================
 // INVOICE (multi-barang) — efek stok + kas otomatis
@@ -477,7 +510,7 @@ export const upsertPengeluaran = mutation({
     // Kas keluar
     await recordKas(ctx, `KAS-PEN-${d.id}`, d.tanggal, 0, d.nominal, `Pengeluaran ${d.jenis}${d.keterangan ? `: ${d.keterangan}` : ""} (${d.id})`, "Pengeluaran");
 
-    // Integrasi: pengeluaran jenis "Utang Karyawan" → tambah record utang
+    // Integrasi: pengeluaran jenis "Utang Karyawan" → tambah record utang + utangTotal
     if (d.jenis === "Utang Karyawan" && d.idKaryawan) {
       const utangId = `UTG-PEN-${d.id}`;
       await upsertByKey(ctx, "utang", "id", utangId, {

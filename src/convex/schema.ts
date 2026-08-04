@@ -241,6 +241,24 @@ const schema = defineSchema(
     })
       .index("by_tanggal", ["tanggal"])
       .index("by_jenis", ["jenis"]),
+
+    // ------------------------------------------------------------------ 15.
+    // Akun Admin — login nomor HP + password, wajib disetujui admin
+    akun: defineTable({
+      id: v.string(), // nomor HP (PRIMARY KEY / UNIQUE)
+      nama: v.string(),
+      password: v.string(), // hash SHA-256
+      status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+      createdAt: v.number(),
+    }).index("by_bisnis_id", ["id"]),
+
+    // ------------------------------------------------------------------ 16.
+    // Sesi login admin
+    sessions: defineTable({
+      token: v.string(),
+      phone: v.string(),
+      createdAt: v.number(),
+    }).index("by_token", ["token"]),
   },
   { schemaValidation: false },
 );

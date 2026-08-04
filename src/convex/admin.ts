@@ -27,13 +27,13 @@ function genToken(): string {
 }
 
 async function findAkun(ctx: { db: any }, phone: string) {
-  return (ctx.db.query("akun") as any)
+  return (ctx.db.query as any)("akun")
     .filter((q: any) => q.eq(q.field("id"), phone))
     .first();
 }
 
 async function findSession(ctx: { db: any }, token: string) {
-  return (ctx.db.query("sessions") as any)
+  return (ctx.db.query as any)("sessions")
     .filter((q: any) => q.eq(q.field("token"), token))
     .first();
 }
@@ -59,9 +59,9 @@ export const registerAkun = mutation({
     if (!/^[0-9+]{9,15}$/.test(p)) return badRequest("Nomor HP tidak valid");
     if (password.length < 6) return badRequest("Password minimal 6 karakter");
     if (await findAkun(ctx, p)) return badRequest("Nomor HP sudah terdaftar");
-    const all = await ctx.db.query("akun").collect();
+    const all = await (ctx.db.query as any)("akun").collect();
     const status = all.length === 0 ? "approved" : "pending"; // akun pertama = bootstrap admin
-    await ctx.db.insert("akun", {
+    await (ctx.db as any).insert("akun", {
       id: p,
       nama: nama.trim() || p,
       password: await hashPassword(password),
@@ -90,7 +90,7 @@ export const adminLogin = mutation({
       throw new ConvexError({ error: "Akun Anda ditolak admin. Hubungi administrator." });
     }
     const token = genToken();
-    await ctx.db.insert("sessions", { token, phone: akun.id, createdAt: Date.now() });
+    await (ctx.db as any).insert("sessions", { token, phone: akun.id, createdAt: Date.now() });
     logResponse("adminLogin", { phone: akun.id, nama: akun.nama });
     return { token, akun: { phone: akun.id, nama: akun.nama, status: akun.status } };
   },
@@ -122,9 +122,9 @@ export const getSession = query({
 export const ensureDefaultAdmin = mutation({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("akun").collect();
+    const all = await (ctx.db.query as any)("akun").collect();
     if (all.length > 0) return { created: false };
-    await ctx.db.insert("akun", {
+    await (ctx.db as any).insert("akun", {
       id: DEFAULT_ADMIN_PHONE,
       nama: "Admin PT Dapur Laut",
       password: await hashPassword(DEFAULT_ADMIN_PASSWORD),
@@ -141,10 +141,10 @@ export const listAkun = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
     await requireApproved(ctx, token);
-    const rows = await ctx.db.query("akun").collect();
+    const rows = await (ctx.db.query as any)("akun").collect();
     return rows
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((a) => ({ phone: a.id, nama: a.nama, status: a.status, createdAt: a.createdAt }));
+      .sort((a: any, b: any) => a.createdAt - b.createdAt)
+      .map((a: any) => ({ phone: a.id, nama: a.nama, status: a.status, createdAt: a.createdAt }));
   },
 });
 
@@ -155,7 +155,7 @@ export const approveAkun = mutation({
     await requireApproved(ctx, token);
     const akun = await findAkun(ctx, phone);
     if (!akun) return badRequest("Akun tidak ditemukan");
-    await ctx.db.patch(akun._id, { status: "approved" });
+    await (ctx.db as any).patch(akun._id, { status: "approved" });
     logResponse("approveAkun", { phone });
     return { ok: true, phone };
   },
@@ -168,7 +168,7 @@ export const rejectAkun = mutation({
     await requireApproved(ctx, token);
     const akun = await findAkun(ctx, phone);
     if (!akun) return badRequest("Akun tidak ditemukan");
-    await ctx.db.patch(akun._id, { status: "rejected" });
+    await (ctx.db as any).patch(akun._id, { status: "rejected" });
     logResponse("rejectAkun", { phone });
     return { ok: true, phone };
   },

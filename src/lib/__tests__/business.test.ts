@@ -8,6 +8,7 @@ import {
   aggregateMarginByProduk,
   aggregateRekapBarang,
   countAbsensi,
+  daysUntil,
 } from "../business";
 import { validate, invoiceSchema, returSchema, kasSchema, slipGajiSchema } from "../schemas";
 
@@ -82,6 +83,39 @@ describe("Invoice", () => {
     });
     expect(r.success).toBe(true);
   });
+
+  it("Tenggat: tanpa tenggat valid; format salah ditolak", () => {
+    const ok = validate(invoiceSchema, {
+      idInvoice: "INV002",
+      tanggal: "2026-08-04",
+      tipe: "Reseller",
+      namaPihak: "Reseller A",
+      tenggat: "2026-08-10",
+      items: [{ kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 2, subtotal: 2000 }],
+    });
+    expect(ok.success).toBe(true);
+    const bad = validate(invoiceSchema, {
+      idInvoice: "INV003",
+      tanggal: "2026-08-04",
+      tipe: "Reseller",
+      namaPihak: "Reseller A",
+      tenggat: "10-08-2026",
+      items: [{ kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 2, subtotal: 2000 }],
+    });
+    expect(bad.success).toBe(false);
+  });
+});
+
+// ============================================================================
+// TANGGAL — sisa hari menuju tenggat (notifikasi H-3)
+// ============================================================================
+
+describe("Tenggat & Notifikasi", () => {
+  it("daysUntil menghitung sisa hari (0 = hari ini, negatif = lewat)", () => {
+    expect(daysUntil("2026-08-07", "2026-08-04")).toBe(3);
+    expect(daysUntil("2026-08-04", "2026-08-04")).toBe(0);
+    expect(daysUntil("2026-08-02", "2026-08-04")).toBe(-2);
+  });
 });
 
 // ============================================================================
@@ -109,14 +143,18 @@ describe("Kas Harian", () => {
 });
 
 // ============================================================================
-// SLIP GAJI — potongan absensi, utang, casbon, gaji bersih
+// SLIP GAJI — potongan absensi, utang, casbon, bonus & denda, gaji bersih
+// GajiBersih = GajiPokok − PotonganAbsensi + BonusKerajinan + BonusBulanan
+//              − (PotonganUtang + PotonganCasbon + Denda)
 // ============================================================================
 
 describe("Slip Gaji", () => {
   it("Potongan absensi = (Alpa + Izin) × gaji per hari (26 hari kerja)", () => {
     const g = computeSlipGaji({
       gajiPokok: 5200000,
-      bonus: 0,
+      bonusKerajinan: 0,
+      bonusBulanan: 0,
+      denda: 0,
       absensi: { hadir: 20, izin: 2, sakit: 1, alpa: 3 },
       sisaUtang: 0,
       sisaCasbon: 0,
@@ -130,7 +168,9 @@ describe("Slip Gaji", () => {
   it("Potongan utang & casbon otomatis, gaji bersih tidak negatif", () => {
     const g = computeSlipGaji({
       gajiPokok: 4000000,
-      bonus: 500000,
+      bonusKerajinan: 0,
+      bonusBulanan: 500000,
+      denda: 0,
       absensi: { hadir: 26, izin: 0, sakit: 0, alpa: 0 },
       sisaUtang: 2000000,
       sisaCasbon: 3000000,
@@ -141,15 +181,33 @@ describe("Slip Gaji", () => {
     expect(g.totalPotongan).toBe(4500000);
   });
 
-  it("Bonus menambah gaji bersih", () => {
+  it("Bonus (kerajinan + bulanan) menambah gaji bersih", () => {
     const g = computeSlipGaji({
       gajiPokok: 4000000,
-      bonus: 1000000,
+      bonusKerajinan: 400000,
+      bonusBulanan: 600000,
+      denda: 0,
       absensi: { hadir: 26, izin: 0, sakit: 0, alpa: 0 },
       sisaUtang: 0,
       sisaCasbon: 0,
     });
+    expect(g.totalBonus).toBe(1000000);
     expect(g.gajiBersih).toBe(5000000);
+  });
+
+  it("Denda mengurangi gaji bersih dan masuk total potongan", () => {
+    const g = computeSlipGaji({
+      gajiPokok: 4000000,
+      bonusKerajinan: 0,
+      bonusBulanan: 0,
+      denda: 250000,
+      absensi: { hadir: 26, izin: 0, sakit: 0, alpa: 0 },
+      sisaUtang: 0,
+      sisaCasbon: 0,
+    });
+    expect(g.denda).toBe(250000);
+    expect(g.totalPotongan).toBe(250000);
+    expect(g.gajiBersih).toBe(3750000);
   });
 
   it("countAbsensi menghitung status dengan benar", () => {
@@ -164,9 +222,9 @@ describe("Slip Gaji", () => {
   });
 
   it("Validator slip gaji: periode harus YYYY-MM", () => {
-    const r = validate(slipGajiSchema, { id: "SLP-1", idKaryawan: "K1", periode: "2026/08", bonus: 0 });
+    const r = validate(slipGajiSchema, { id: "SLP-1", idKaryawan: "K1", periode: "2026/08", bonusKerajinan: 0 });
     expect(r.success).toBe(false);
-    const ok = validate(slipGajiSchema, { id: "SLP-1", idKaryawan: "K1", periode: "2026-08", bonus: 0 });
+    const ok = validate(slipGajiSchema, { id: "SLP-1", idKaryawan: "K1", periode: "2026-08", bonusKerajinan: 0 });
     expect(ok.success).toBe(true);
   });
 });

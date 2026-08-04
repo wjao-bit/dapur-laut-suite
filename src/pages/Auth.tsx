@@ -8,15 +8,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
+import { Label } from "@/components/ui/label";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import logo from "@/assets/logo.svg";
-import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, LockKeyhole, Phone, Ship, UserPlus } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -24,10 +22,7 @@ interface AuthProps {
   redirectAfterAuth?: string;
 }
 
-function resolveRedirectAfterAuth(
-  returnTo: string | null,
-  fallback = "/dashboard",
-) {
+function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/dashboard") {
   if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
     return returnTo;
   }
@@ -35,261 +30,258 @@ function resolveRedirectAfterAuth(
 }
 
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
-  const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, login } = useAuth();
+  const registerAkun = useMutation(api.admin.registerAkun);
+  const ensureDefaultAdmin = useMutation(api.admin.ensureDefaultAdmin);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = resolveRedirectAfterAuth(
-    searchParams.get("returnTo"),
-    redirectAfterAuth,
-  );
-  const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
-  const [otp, setOtp] = useState("");
+  const redirect = resolveRedirectAfterAuth(searchParams.get("returnTo"), redirectAfterAuth);
+
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Bootstrap admin pertama (hanya bila tabel akun kosong)
+  useEffect(() => {
+    let mounted = true;
+    ensureDefaultAdmin()
+      .then((res) => {
+        if (mounted && res.created) {
+          setNotice(`Akun admin pertama dibuat otomatis — HP: ${res.phone} · Password: ${res.password}`);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, [ensureDefaultAdmin]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       navigate(redirect);
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
-  const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
-      const formData = new FormData(event.currentTarget);
-      await signIn("email-otp", formData);
-      setStep({ email: formData.get("email") as string });
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Email sign-in error:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to send verification code. Please try again.",
-      );
+      const fd = new FormData(event.currentTarget);
+      await login(String(fd.get("phone") || ""), String(fd.get("password") || ""));
+      navigate(redirect);
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err?.data?.error ?? err?.message ?? "Gagal masuk. Coba lagi.");
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOtpSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
+    setNotice(null);
     try {
-      const formData = new FormData(event.currentTarget);
-      await signIn("email-otp", formData);
-
-      console.log("signed in");
-
-      navigate(redirect);
-    } catch (error) {
-      console.error("OTP verification error:", error);
-
-      setError("The verification code you entered is incorrect.");
-      setIsLoading(false);
-
-      setOtp("");
-    }
-  };
-
-  const handleGuestLogin = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      console.log("Attempting anonymous sign in...");
-      await signIn("anonymous");
-      console.log("Anonymous sign in successful");
-      navigate(redirect);
-    } catch (error) {
-      console.error("Guest login error:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
-      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const fd = new FormData(event.currentTarget);
+      const res = await registerAkun({
+        nama: String(fd.get("nama") || ""),
+        phone: String(fd.get("phone") || ""),
+        password: String(fd.get("password") || ""),
+      });
+      if (res.status === "approved") {
+        setNotice("Akun admin pertama dibuat dan otomatis disetujui. Silakan masuk.");
+      } else {
+        setNotice("Akun terdaftar. Menunggu persetujuan admin di menu Admin & Akun.");
+      }
+      setMode("login");
+    } catch (err: any) {
+      console.error("Register error:", err);
+      setError(err?.data?.error ?? err?.message ?? "Gagal mendaftar. Coba lagi.");
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-sky-950 via-slate-900 to-slate-950">
+      {/* Dekorasi laut */}
+      <div className="pointer-events-none absolute inset-0 opacity-30">
+        <div className="absolute -top-24 -left-24 size-96 rounded-full bg-sky-500/20 blur-3xl" />
+        <div className="absolute -right-24 -bottom-24 size-96 rounded-full bg-teal-400/10 blur-3xl" />
+      </div>
 
-      
-      {/* Auth Content */}
-      <div className="flex-1 flex items-center justify-center">
-        <div className="flex items-center justify-center h-full flex-col">
-        <Card className="min-w-[350px] pb-0 border shadow-md">
-          {step === "signIn" ? (
-            <>
-              <CardHeader className="text-center">
-              <div className="flex justify-center">
-                    <img
-                      src={logo}
-                      alt="Lock Icon"
-                      width={64}
-                      height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
-                      onClick={() => navigate("/")}
-                    />
-                  </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
-                <CardDescription>
-                  Enter your email to log in or sign up
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleEmailSubmit}>
-                <CardContent>
-                  
-                  <div className="relative flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        name="email"
-                        placeholder="name@example.com"
-                        type="email"
-                        className="pl-9"
-                        disabled={isLoading}
-                        required
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      size="icon"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {error && (
-                    <p className="mt-2 text-sm text-red-500">{error}</p>
-                  )}
-                  
-                  <div className="mt-4">
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full mt-4"
-                      onClick={handleGuestLogin}
-                      disabled={isLoading}
-                    >
-                      <UserX className="mr-2 h-4 w-4" />
-                      Continue as Guest
-                    </Button>
-                  </div>
-                </CardContent>
-              </form>
-            </>
-          ) : (
-            <>
-              <CardHeader className="text-center mt-4">
-                <CardTitle>Check your email</CardTitle>
-                <CardDescription>
-                  We've sent a code to {step.email}
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleOtpSubmit}>
-                <CardContent className="pb-4">
-                  <input type="hidden" name="email" value={step.email} />
-                  <input type="hidden" name="code" value={otp} />
+      <div className="relative flex flex-1 items-center justify-center p-4">
+        <Card className="w-full max-w-sm border-white/10 bg-white/95 shadow-2xl backdrop-blur">
+          <CardHeader className="text-center">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mx-auto cursor-pointer rounded-xl transition-transform hover:scale-105"
+              aria-label="Ke beranda"
+            >
+              <img src={logo} alt="Logo PT Dapur Laut" width={64} height={64} className="rounded-lg" />
+            </button>
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide text-sky-700 uppercase">
+              <Ship className="size-3.5" />
+              PT Dapur Laut
+            </div>
+            <CardTitle className="text-xl tracking-tight">
+              {mode === "login" ? "Masuk Admin" : "Daftar Akun Admin"}
+            </CardTitle>
+            <CardDescription>
+              {mode === "login"
+                ? "Aplikasi privat — hanya admin yang disetujui yang dapat mengakses."
+                : "Akun baru wajib diverifikasi lewat menu Admin oleh admin aktif."}
+            </CardDescription>
+          </CardHeader>
 
-                  <div className="flex justify-center">
-                    <InputOTP
-                      value={otp}
-                      onChange={setOtp}
-                      maxLength={6}
-                      disabled={isLoading}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && otp.length === 6 && !isLoading) {
-                          // Find the closest form and submit it
-                          const form = (e.target as HTMLElement).closest("form");
-                          if (form) {
-                            form.requestSubmit();
-                          }
-                        }
-                      }}
-                    >
-                      <InputOTPGroup>
-                        {Array.from({ length: 6 }).map((_, index) => (
-                          <InputOTPSlot key={index} index={index} />
-                        ))}
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                  {error && (
-                    <p className="mt-2 text-sm text-red-500 text-center">
-                      {error}
-                    </p>
-                  )}
-                  <p className="text-sm text-muted-foreground text-center mt-4">
-                    Didn't receive a code?{" "}
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto"
-                      onClick={() => setStep("signIn")}
-                    >
-                      Try again
-                    </Button>
-                  </p>
-                </CardContent>
-                <CardFooter className="flex-col gap-2">
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading || otp.length !== 6}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      <>
-                        Verify code
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setStep("signIn")}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    Use different email
-                  </Button>
-                </CardFooter>
-              </form>
-            </>
+          {notice && (
+            <div className="mx-6 mb-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              {notice}
+            </div>
+          )}
+          {error && (
+            <div className="mx-6 mb-2 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+              <span>{error}</span>
+            </div>
           )}
 
-          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
-            Secured by{" "}
-            <a
-              href="https://freebuff.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-primary transition-colors"
-            >
-              freebuff.com
-            </a>
+          {mode === "login" ? (
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-3">
+                <div>
+                  <Label htmlFor="phone" className="text-xs font-medium">
+                    Nomor HP
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Phone className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      name="phone"
+                      inputMode="tel"
+                      placeholder="082100000000"
+                      className="pl-9"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="password" className="text-xs font-medium">
+                    Password
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <LockKeyhole className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="••••••••"
+                      className="pl-9"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex-col gap-2">
+                <Button type="submit" className="w-full cursor-pointer" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ArrowRight className="mr-2 size-4" />}
+                  Masuk
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full cursor-pointer text-xs"
+                  onClick={() => {
+                    setMode("register");
+                    setError(null);
+                  }}
+                  disabled={isLoading}
+                >
+                  <UserPlus className="mr-2 size-3.5" />
+                  Belum punya akun? Daftar sebagai admin baru
+                </Button>
+              </CardFooter>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister}>
+              <CardContent className="space-y-3">
+                <div>
+                  <Label htmlFor="nama" className="text-xs font-medium">
+                    Nama Lengkap
+                  </Label>
+                  <Input
+                    id="nama"
+                    name="nama"
+                    placeholder="Andi Wijaya"
+                    className="mt-1.5"
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reg-phone" className="text-xs font-medium">
+                    Nomor HP
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Phone className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="reg-phone"
+                      name="phone"
+                      inputMode="tel"
+                      placeholder="08xxxxxxxxxx"
+                      className="pl-9"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="reg-password" className="text-xs font-medium">
+                    Password (min. 6 karakter)
+                  </Label>
+                  <Input
+                    id="reg-password"
+                    name="password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="mt-1.5"
+                    disabled={isLoading}
+                    minLength={6}
+                    required
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="flex-col gap-2">
+                <Button type="submit" className="w-full cursor-pointer" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <UserPlus className="mr-2 size-4" />}
+                  Daftar & Tunggu Persetujuan
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full cursor-pointer text-xs"
+                  onClick={() => {
+                    setMode("login");
+                    setError(null);
+                  }}
+                  disabled={isLoading}
+                >
+                  Sudah punya akun? Masuk
+                </Button>
+              </CardFooter>
+            </form>
+          )}
+
+          <div className="border-t px-6 py-3 text-center text-[11px] text-muted-foreground">
+            Sistem Manajemen Bisnis PT Dapur Laut — akses khusus admin
           </div>
         </Card>
-        </div>
       </div>
     </div>
   );

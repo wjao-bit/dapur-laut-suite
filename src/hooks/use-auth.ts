@@ -1,20 +1,55 @@
+import { useCallback } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth, useQuery } from "convex/react";
+import { clearToken, getToken, setToken, useTokenState } from "@/lib/auth-storage";
 
+/**
+ * Auth kustom PT Dapur Laut — hanya Admin (nomor HP + password).
+ * Sesi disimpan sebagai token di localStorage, diverifikasi lewat
+ * api.admin.getSession (reaktif).
+ */
 export function useAuth() {
-  const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
-  const user = useQuery(api.users.currentUser);
-  const { signIn, signOut } = useAuthActions();
+  const token = useTokenState();
+  const session = useQuery(
+    api.admin.getSession,
+    token ? { token } : "skip",
+  ) as { phone: string; nama: string; status: "pending" | "approved" | "rejected" } | null | undefined;
 
-  // Derive isLoading directly from the dependencies instead of managing separate state
-  const isLoading = isAuthLoading || user === undefined;
+  const adminLogin = useMutation(api.admin.adminLogin);
+  const adminLogout = useMutation(api.admin.adminLogout);
+
+  const login = useCallback(
+    async (phone: string, password: string) => {
+      const res = await adminLogin({ phone, password });
+      setToken(res.token);
+      return res;
+    },
+    [adminLogin],
+  );
+
+  const signOut = useCallback(async () => {
+    const t = getToken();
+    if (t) {
+      try {
+        await adminLogout({ token: t });
+      } catch {
+        /* tetap log out lokal */
+      }
+    }
+    clearToken();
+  }, [adminLogout]);
+
+  const isAuthenticated = !!session && session.status === "approved";
+  // Loading hanya jika ada token tapi sesi belum ter-resolve
+  const isLoading = !!token && session === undefined;
 
   return {
     isLoading,
     isAuthenticated,
-    user,
-    signIn,
+    session,
+    user: session,
+    token,
+    login,
     signOut,
   };
 }
