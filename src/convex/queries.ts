@@ -263,17 +263,25 @@ export const dashboardStats = query({
       .filter((i) => inMonth(i.tanggal) && i.tipe !== "Supplier")
       .reduce((s, i) => s + i.margin, 0);
 
-    // Nilai stok (stok akhir × harga modal terakhir dari invoice/barang)
+    // Nilai stok (stok akhir × harga terakhir dari master barang / invoice).
+    // Gudang di-stok per NamaBarang, jadi peta harga dikunci per nama (fallback kode).
     const gudangRows = computeGudangRows(
       gudang.map((g) => ({ id: g.id, namaBarang: g.namaBarang, stokAwal: g.stokAwal, keterangan: g.keterangan ?? "" })),
       history.map((h) => ({ namaBarang: h.namaBarang, perubahan: h.perubahan })),
     );
-    const hargaMap = new Map<string, number>();
-    for (const b of barang) hargaMap.set(b.kode, b.harga);
-    for (const inv of invoices) {
-      for (const it of inv.items) hargaMap.set(it.kodeBarang, it.hargaJual ?? it.hargaModal);
+    const hargaPerNama = new Map<string, number>();
+    for (const b of barang) {
+      if (b.nama) hargaPerNama.set(b.nama, b.harga);
+      if (!b.nama && b.kode) hargaPerNama.set(b.kode, b.harga);
     }
-    const nilaiStok = gudangRows.reduce((s, g) => s + Math.max(0, g.stokAkhir) * (hargaMap.get(g.namaBarang) ?? 0), 0);
+    for (const inv of invoices) {
+      for (const it of inv.items) {
+        const harga = it.hargaJual ?? it.hargaModal;
+        if (it.namaBarang) hargaPerNama.set(it.namaBarang, harga);
+        if (!it.namaBarang && it.kodeBarang) hargaPerNama.set(it.kodeBarang, harga);
+      }
+    }
+    const nilaiStok = gudangRows.reduce((s, g) => s + Math.max(0, g.stokAkhir) * (hargaPerNama.get(g.namaBarang) ?? 0), 0);
 
     // Grafik kas 14 hari terakhir
     const kasByDay = new Map<string, { masuk: number; keluar: number }>();

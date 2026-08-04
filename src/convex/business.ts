@@ -376,8 +376,15 @@ export const deleteInvoice = mutation({
     logRequest("deleteInvoice", { idInvoice });
     const inv = await findOneByKey(ctx, "invoice", "idInvoice", idInvoice);
     if (!inv) return { deleted: false };
-    // Hapus riwayat stok yang berasal dari invoice ini
-    const hist = await ctx.db.query("stokHistory").filter((q) => q.eq(q.field("keterangan"), `Invoice ${idInvoice}`)).collect();
+    // Hapus riwayat stok yang berasal dari invoice ini.
+    // Supplier/Reseller/DPL memakai keterangan "Invoice <id>";
+    // Pasar memakai "Kirim stok awal ... (<id>)" / "Stok akhir kembali ... (<id>)".
+    const allHist = await ctx.db.query("stokHistory").collect();
+    const hist = allHist.filter(
+      (h) =>
+        h.keterangan === `Invoice ${idInvoice}` ||
+        (h.keterangan ?? "").includes(`(${idInvoice})`),
+    );
     for (const h of hist) await ctx.db.delete(h._id);
     // Hapus entri kas milik invoice
     const kas = await findOneByKey(ctx, "kas", "id", `INV-${idInvoice}`);

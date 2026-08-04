@@ -40,6 +40,17 @@ const TIPE_LABEL: Record<string, string> = {
   Pasar: "Penjualan Pasar (Awal−Akhir)",
 };
 
+/** Hitung subtotal satu baris item sesuai tipe invoice. */
+export function itemSubtotal(tipe: string, it: any): number {
+  const qty =
+    tipe === "Pasar"
+      ? (Number(it.stokAwal) || 0) - (Number(it.stokAkhir) || 0)
+      : Number(it.qty) || 0;
+  const harga =
+    tipe === "Supplier" ? Number(it.hargaModal) || 0 : Number(it.hargaJual) || 0;
+  return Math.max(0, qty * harga);
+}
+
 function emptyItem(): InvoiceItem {
   return { kodeBarang: "", namaBarang: "", hargaModal: 0, qty: 1, hargaJual: 0, subtotal: 0 };
 }
@@ -155,14 +166,21 @@ export default function InvoicePage() {
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const cleanItems = items.map((it) => ({
-        ...it,
-        qty: Number(it.qty) || 0,
-        hargaModal: Number(it.hargaModal) || 0,
-        hargaJual: Number(it.hargaJual) || 0,
-        stokAwal: tipe === "Pasar" ? Number(it.stokAwal) || 0 : undefined,
-        stokAkhir: tipe === "Pasar" ? Number(it.stokAkhir) || 0 : undefined,
-      }));
+      const cleanItems = items.map((it) => {
+        const stokAwal = tipe === "Pasar" ? Number(it.stokAwal) || 0 : 0;
+        const stokAkhir = tipe === "Pasar" ? Number(it.stokAkhir) || 0 : 0;
+        return {
+          kodeBarang: it.kodeBarang,
+          namaBarang: it.namaBarang,
+          hargaModal: Number(it.hargaModal) || 0,
+          hargaJual: Number(it.hargaJual) || 0,
+          // Pasar: qty = stok awal (konsisten); subtotal = (awal - akhir) x harga jual
+          qty: stokAwal || Number(it.qty) || 0,
+          subtotal: itemSubtotal(tipe, it),
+          stokAwal: tipe === "Pasar" ? stokAwal : undefined,
+          stokAkhir: tipe === "Pasar" ? stokAkhir : undefined,
+        };
+      });
       const res = await createInvoice({
         doc: {
           idInvoice,
@@ -421,12 +439,7 @@ export default function InvoicePage() {
                 </thead>
                 <tbody>
                   {items.map((it, idx) => {
-                    const subtotal =
-                      tipe === "Pasar"
-                        ? ((Number(it.stokAwal) || 0) - (Number(it.stokAkhir) || 0)) * (Number(it.hargaJual) || 0)
-                        : tipe === "Supplier"
-                          ? (Number(it.qty) || 0) * (Number(it.hargaModal) || 0)
-                          : (Number(it.qty) || 0) * (Number(it.hargaJual) || 0);
+                    const subtotal = itemSubtotal(tipe, it);
                     return (
                       <tr key={idx} className="border-b last:border-0">
                         <td className="px-2 py-2">
@@ -619,9 +632,12 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           {invoice.items.map((it: any, i: number) => {
             const qty =
               invoice.tipe === "Pasar"
-                ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0)
+                ? (Number(it.stokAwal) || 0) - (Number(it.stokAkhir) || 0)
                 : it.qty;
             const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
+            const stored = Number(it.subtotal) || 0;
+            // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
+            const subtotal = stored > 0 ? stored : Math.max(0, (Number(qty) || 0) * (Number(harga) || 0));
             return (
               <tr key={i}>
                 <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
@@ -629,7 +645,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{qty}</td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{formatRupiah(harga)}</td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatRupiah(it.subtotal)}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatRupiah(subtotal)}</td>
               </tr>
             );
           })}
