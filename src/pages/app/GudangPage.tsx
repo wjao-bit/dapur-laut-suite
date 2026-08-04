@@ -166,6 +166,61 @@ export default function GudangPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleAdd} disabled={saving || !namaBarang}>{saving ? "Menyimpan..." : "Simpan"}<
+            <Button onClick={handleAdd} disabled={saving || !namaBarang}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 6.933 characters. Read it separately or use code_search for the relevant section.
+      {/* Set / sesuaikan stok */}
+      <Dialog open={!!adjBarang} onOpenChange={(o) => !o && setAdjBarang(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Stok: {adjBarang}</DialogTitle>
+            <DialogDescription>Menyesuaikan stok saat ini (dicatat sebagai riwayat Manual).</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-medium">Stok Baru *</Label>
+              <Input type="number" className="mt-1.5 text-lg font-semibold" value={adjStok} onChange={(e) => setAdjStok(Number(e.target.value))} />
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Keterangan</Label>
+              <Input className="mt-1.5" value={adjKet} onChange={(e) => setAdjKet(e.target.value)} placeholder="Stok opname" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjBarang(null)}>Batal</Button>
+            <Button onClick={handleAdjust} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Riwayat stok */}
+      <Sheet open={!!histBarang} onOpenChange={(o) => !o && setHistBarang(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Riwayat Stok: {histBarang}</SheetTitle>
+            <SheetDescription>Asal perubahan stok di gudang.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-2">
+            {histRows.length === 0 && <p className="text-sm text-muted-foreground">Belum ada riwayat.</p>}
+            {histRows.map((h: any) => (
+              <div key={h.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <BadgeStatus status={h.tipe} />
+                    <span className={cn("font-semibold tabular-nums", h.perubahan >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                      {h.perubahan >= 0 ? `+${h.perubahan}` : h.perubahan}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{h.keterangan || "—"}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">{formatDate(h.tanggal)}</span>
+              </div>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

@@ -1,1 +1,3 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+import("/project/node_modules/convex/dist/cli.bundle.cjs").catch((e) => {
+  console.error("WRAPPER-CAUGHT:", e && e.stack ? e.stack : String(e));
+});
