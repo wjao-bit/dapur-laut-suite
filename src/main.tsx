@@ -1,8 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient } from "convex/react";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation, Navigate } from "react-router";
@@ -150,7 +149,7 @@ function Root() {
   }
 
   return (
-    <ConvexAuthProvider client={client}>
+    <ConvexProvider client={client}>
       <BrowserRouter>
         <RouteSyncer />
         <Suspense fallback={<RouteLoading />}>
@@ -192,7 +191,7 @@ function Root() {
         </Suspense>
       </BrowserRouter>
       <Toaster />
-    </ConvexAuthProvider>
+    </ConvexProvider>
   );
 }
 
