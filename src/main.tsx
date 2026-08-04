@@ -98,14 +98,24 @@ class RootErrorBoundary extends React.Component<
 }
 
 /**
- * URL deployment Convex. Di lingkungan Freebuff nilai ini diinjeksi otomatis ke
- * proses dev-server sebagai VITE_CONVEX_URL. Untuk build produksi (web publish)
- * dipakai fallback ke deployment cloud proyek agar halaman tidak pernah putih
- * meskipun variabel lingkungan tidak tersedia saat build.
+ * Deployment Convex yang dipakai aplikasi.
+ *
+ * PENTING: build publish Freebuff menginjeksi VITE_CONVEX_URL ke deployment
+ * produksi (enchanted-kangaroo-934) yang TIDAK berisi fungsi backend, sehingga
+ * web publish tampil putih (semua query gagal dengan "Server Error"). Deployment
+ * dev (resilient-hawk-825) berisi seluruh fungsi + data dan terbukti berfungsi.
+ *
+ * Strategi: gunakan nilai env bila tersedia DAN bukan deployment produksi yang
+ * kosong; selain itu selalu pakai deployment dev yang berisi seluruh fungsi.
  */
 const FALLBACK_CONVEX_URL = "https://resilient-hawk-825.convex.cloud";
+const EMPTY_PRODUCTION_URL = "https://enchanted-kangaroo-934.convex.cloud";
 
-const convexUrl: string = (import.meta.env.VITE_CONVEX_URL as string | undefined)?.trim() || FALLBACK_CONVEX_URL;
+const envConvexUrl: string | undefined = (import.meta.env.VITE_CONVEX_URL as string | undefined)?.trim();
+const convexUrl: string =
+  envConvexUrl && envConvexUrl !== EMPTY_PRODUCTION_URL
+    ? envConvexUrl
+    : FALLBACK_CONVEX_URL;
 
 function ConvexConfigScreen() {
   return (
