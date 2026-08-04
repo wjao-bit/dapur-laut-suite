@@ -7,11 +7,73 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PT Dapur Laut — Aplikasi Manajemen Bisnis</title>
+  <style>
+    /* Fallback statis — hanya terlihat saat JS belum/belum bisa jalan.
+       Begitu React mount, konten #root akan diganti otomatis. */
+    #root-fallback {
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      background: #f8fafc;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: #0f172a;
+      text-align: center;
+      padding: 24px;
+    }
+    #root-fallback img {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+    #root-fallback h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+    #root-fallback p {
+      font-size: 13px;
+      color: #475569;
+      margin: 0 0 20px;
+      max-width: 360px;
+    }
+    #root-fallback .btn {
+      display: inline-block;
+      border-radius: 10px;
+      background: #0f766e;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 20px;
+      text-decoration: none;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
-
 
 <body>
   <div id="root"></div>
+  <!-- Konten fallback: ditampilkan saat JS gagal/belum termuat; dihapus oleh React saat mount -->
+  <div id="root-fallback">
+    <div>
+      <img src="/logo.svg" alt="PT Dapur Laut" onerror="this.style.display='none'" />
+      <h1>PT Dapur Laut</h1>
+      <p>Sistem Manajemen Bisnis sedang dimuat… Jika halaman ini tetap tampil, muat ulang atau periksa koneksi internet Anda.</p>
+      <a class="btn" href="/">Muat Ulang</a>
+    </div>
+  </div>
+  <noscript>
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f8fafc;font-family:system-ui,sans-serif;color:#0f172a;text-align:center;padding:24px;">
+      <div>
+        <h1 style="font-size:20px;font-weight:700;margin:0 0 8px;">PT Dapur Laut</h1>
+        <p style="font-size:13px;color:#475569;margin:0;">Aplikasi ini membutuhkan JavaScript. Silakan aktifkan JavaScript di browser Anda.</p>
+      </div>
+    </div>
+  </noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

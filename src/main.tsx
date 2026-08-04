@@ -229,6 +229,11 @@ function RouteSyncer() {
   return null;
 }
 
+// Hapus fallback statis index.html begitu React siap mount — supaya pengguna
+// tidak pernah melihat layar putih/loading palsu setelah app berjalan.
+const fallbackEl = document.getElementById("root-fallback");
+if (fallbackEl) fallbackEl.remove();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
