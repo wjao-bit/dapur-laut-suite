@@ -1,1 +1,17 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+{
+  "name": "PT Dapur Laut — Manajemen Bisnis",
+  "short_name": "Dapur Laut",
+  "description": "Aplikasi manajemen bisnis PT Dapur Laut — invoice, stok, kas, absensi, slip gaji, dan laporan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

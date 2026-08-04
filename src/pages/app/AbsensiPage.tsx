@@ -109,6 +109,89 @@ export default function AbsensiPage() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-          
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Tanggal *</Label>
+              <Input type="date" className="mt-1.5" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-medium">
+                  <Clock className="mr-1 inline size-3" />
+                  Masuk
+                </Label>
+                <Input type="time" className="mt-1.5" value={jamMasuk} onChange={(e) => setJamMasuk(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Keluar</Label>
+                <Input type="time" className="mt-1.5" value={jamKeluar} onChange={(e) => setJamKeluar(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {ABSENSI_STATUSES.map((s) => (
+                <Button key={s} className={cn("justify-start", STATUS_COLOR[s])} onClick={() => quickSet(s)}>
+                  <Check className="mr-1.5 size-3.5" />
+                  {s}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </SectionCard>
 
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 4.328 characters. Read it separately or use code_search for the relevant section.
+        <SectionCard title="Rekap Bulan Ini" description={`Periode ${filterPeriode}`} className="lg:col-span-2">
+          <div className="mb-4 flex flex-wrap gap-2">
+            {(["Hadir", "Izin", "Sakit", "Alpa"] as const).map((s) => (
+              <div
+                key={s}
+                className={cn(
+                  "flex-1 rounded-xl border px-4 py-3 text-center",
+                  s === "Hadir" && "border-emerald-200 bg-emerald-50",
+                  s === "Izin" && "border-amber-200 bg-amber-50",
+                  s === "Sakit" && "border-orange-200 bg-orange-50",
+                  s === "Alpa" && "border-rose-200 bg-rose-50",
+                )}
+              >
+                <p className="text-2xl font-bold tabular-nums">{summary[s]}</p>
+                <p className="text-xs font-medium text-muted-foreground">{s}</p>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs font-medium">Filter Karyawan</Label>
+              <Select value={filterKaryawan} onValueChange={setFilterKaryawan}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Semua karyawan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">Semua karyawan</SelectItem>
+                  {(karyawan ?? []).map((k: any) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {k.nama}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Periode</Label>
+              <Input type="month" className="mt-1.5" value={filterPeriode} onChange={(e) => setFilterPeriode(e.target.value)} />
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="mt-4">
+        <DataTable
+          columns={columns}
+          rows={filtered as any}
+          loading={absensi === undefined}
+          keyField={(r) => r.id}
+          emptyTitle="Belum ada data absensi"
+          emptyDescription="Gunakan form input cepat di atas untuk mencatat absensi."
+        />
+      </div>
+    </div>
+  );
+}
