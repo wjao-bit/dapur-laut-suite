@@ -24,6 +24,7 @@ import {
 import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
+import { BarangSearch } from "@/components/app/BarangSearch";
 import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
 import { daysUntil } from "@/lib/business";
 import {
@@ -443,9 +444,9 @@ export default function InvoicePage() {
                     return (
                       <tr key={idx} className="border-b last:border-0">
                         <td className="px-2 py-2">
-                          <div className="flex gap-1.5">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
                             <Input
-                              className="h-8 w-28"
+                              className="h-8 w-full sm:w-24"
                               list={`barang-list-${idx}`}
                               placeholder="Kode"
                               value={it.kodeBarang}
@@ -458,11 +459,20 @@ export default function InvoicePage() {
                                 </option>
                               ))}
                             </datalist>
-                            <Input
-                              className="h-8 flex-1 min-w-28"
-                              placeholder="Nama barang"
+                            <BarangSearch
+                              className="flex-1"
+                              barang={(barang ?? []) as any}
                               value={it.namaBarang}
-                              onChange={(e) => updateItem(idx, { namaBarang: e.target.value })}
+                              onChange={(v) => updateItem(idx, { namaBarang: v })}
+                              onPick={(b) =>
+                                updateItem(idx, {
+                                  kodeBarang: b.kode,
+                                  namaBarang: b.nama,
+                                  hargaJual: b.harga ?? it.hargaJual,
+                                  hargaModal: it.hargaModal || (b.harga ?? 0),
+                                })
+                              }
+                              placeholder="Ketik nama barang…"
                             />
                           </div>
                         </td>

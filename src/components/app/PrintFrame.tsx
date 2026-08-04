@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 /**
  * Render dokumen (invoice/slip/laporan) ke area cetak lalu panggil window.print().
  * `open` mengontrol tampilan; tombol Cetak / Simpan PDF membuka dialog print browser.
+ *
+ * PENTING (fix bug print): div dokumen diberi class `print-area` agar aturan
+ * `@media print` di index.css (body * { visibility: hidden }) hanya menampilkan
+ * dokumen ini — tanpa class tersebut hasil cetak/PDF akan blank.
  */
 export function PrintFrame({
   open,
@@ -31,7 +35,7 @@ export function PrintFrame({
         } catch {
           /* ignore */
         }
-      }, 250);
+      }, 400);
       return () => clearTimeout(t);
     }
   }, [open]);
@@ -59,7 +63,7 @@ export function PrintFrame({
       <div className="flex justify-center px-4 py-6 print:block print:p-0">
         <div
           className={cn(
-            "w-full max-w-[210mm] rounded-lg bg-white p-8 text-slate-900 shadow-xl print:max-w-none print:rounded-none print:p-0 print:shadow-none",
+            "print-area w-full max-w-[210mm] rounded-lg bg-white p-8 text-slate-900 shadow-xl print:max-w-none print:rounded-none print:p-0 print:shadow-none",
             className,
           )}
         >

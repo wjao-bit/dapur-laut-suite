@@ -203,6 +203,9 @@ const schema = defineSchema(
       potonganUtang: v.number(),
       potonganCasbon: v.number(),
       gajiBersih: v.number(),
+      // Sisa utang/casbon setelah slip (untuk notifikasi utang tersisa)
+      sisaUtang: v.optional(v.number()),
+      sisaCasbon: v.optional(v.number()),
     })
       .index("by_idKaryawan", ["idKaryawan"])
       .index("by_periode", ["periode"]),

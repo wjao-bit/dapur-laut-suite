@@ -589,6 +589,7 @@ export const adjustStok = mutation({
 // SLIP GAJI — tarik absensi, utang, casbon; bonus & denda; hitung gaji bersih
 // GajiBersih = GajiPokok − PotonganAbsensi + BonusKerajinan + BonusBulanan
 //              − (PotonganUtang + PotonganCasbon + Denda)
+// Potongan utang/casbon otomatis dari sisa, bisa dioverride manual per slip.
 // ============================================================================
 
 export const createSlipGaji = mutation({
@@ -598,9 +599,12 @@ export const createSlipGaji = mutation({
     bonusKerajinan: v.optional(v.number()),
     bonusBulanan: v.optional(v.number()),
     denda: v.optional(v.number()),
+    // Potongan utang/casbon manual (0/kosong = otomatis dari sisa)
+    potonganUtangManual: v.optional(v.number()),
+    potonganCasbonManual: v.optional(v.number()),
   },
-  handler: async (ctx, { idKaryawan, periode, bonusKerajinan, bonusBulanan, denda }) => {
-    logRequest("createSlipGaji", { idKaryawan, periode, bonusKerajinan, bonusBulanan, denda });
+  handler: async (ctx, { idKaryawan, periode, bonusKerajinan, bonusBulanan, denda, potonganUtangManual, potonganCasbonManual }) => {
+    logRequest("createSlipGaji", { idKaryawan, periode, bonusKerajinan, bonusBulanan, denda, potonganUtangManual, potonganCasbonManual });
     const karyawan = await ctx.db.query("karyawan").filter((q) => q.eq(q.field("id"), idKaryawan)).first();
     if (!karyawan) return badRequest("Karyawan tidak ditemukan", { idKaryawan });
 
@@ -622,47 +626,35 @@ export const createSlipGaji = mutation({
       absensi: counts,
       sisaUtang,
       sisaCasbon,
+      potonganUtangManual: potonganUtangManual ?? 0,
+      potonganCasbonManual: potonganCasbonManual ?? 0,
     });
 
     const slipId = `SLP-${periode}-${idKaryawan}`;
     const existing = await findOneByKey(ctx, "slipgaji", "id", slipId);
+    const slipData = {
+      idKaryawan,
+      periode,
+      tanggal: todayStr(),
+      gajiPokok: karyawan.gajiPokok,
+      bonusKerajinan: bonusKerajinan ?? 0,
+      bonusBulanan: bonusBulanan ?? 0,
+      denda: gaji.denda,
+      hadir: counts.hadir,
+      izin: counts.izin,
+      sakit: counts.sakit,
+      alpa: counts.alpa,
+      potonganAbsensi: gaji.potonganAbsensi,
+      potonganUtang: gaji.potonganUtang,
+      potonganCasbon: gaji.potonganCasbon,
+      gajiBersih: gaji.gajiBersih,
+      sisaUtang: gaji.sisaUtangAkhir,
+      sisaCasbon: gaji.sisaCasbonAkhir,
+    };
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        idKaryawan,
-        periode,
-        tanggal: todayStr(),
-        gajiPokok: karyawan.gajiPokok,
-        bonusKerajinan: bonusKerajinan ?? 0,
-        bonusBulanan: bonusBulanan ?? 0,
-        denda: gaji.denda,
-        hadir: counts.hadir,
-        izin: counts.izin,
-        sakit: counts.sakit,
-        alpa: counts.alpa,
-        potonganAbsensi: gaji.potonganAbsensi,
-        potonganUtang: gaji.potonganUtang,
-        potonganCasbon: gaji.potonganCasbon,
-        gajiBersih: gaji.gajiBersih,
-      });
+      await ctx.db.patch(existing._id, slipData);
     } else {
-      await ctx.db.insert("slipgaji", {
-        id: slipId,
-        idKaryawan,
-        periode,
-        tanggal: todayStr(),
-        gajiPokok: karyawan.gajiPokok,
-        bonusKerajinan: bonusKerajinan ?? 0,
-        bonusBulanan: bonusBulanan ?? 0,
-        denda: gaji.denda,
-        hadir: counts.hadir,
-        izin: counts.izin,
-        sakit: counts.sakit,
-        alpa: counts.alpa,
-        potonganAbsensi: gaji.potonganAbsensi,
-        potonganUtang: gaji.potonganUtang,
-        potonganCasbon: gaji.potonganCasbon,
-        gajiBersih: gaji.gajiBersih,
-      });
+      await ctx.db.insert("slipgaji", { id: slipId, ...slipData });
     }
 
     // Kas keluar slip gaji (gaji bersih)
@@ -704,6 +696,12 @@ export const createSlipGaji = mutation({
     await syncKaryawanUtangTotal(ctx, idKaryawan);
 
     logResponse("createSlipGaji", { slipId, ...gaji });
-    return { id: slipId, ...gaji, nama: karyawan.nama };
+    return {
+      id: slipId,
+      ...gaji,
+      nama: karyawan.nama,
+      sisaUtangAkhir: gaji.sisaUtangAkhir,
+      sisaCasbonAkhir: gaji.sisaCasbonAkhir,
+    };
   },
 });

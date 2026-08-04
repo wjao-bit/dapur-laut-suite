@@ -96,6 +96,10 @@ export interface SlipGajiInput {
   sisaUtang: number;
   sisaCasbon: number;
   hariKerja?: number;
+  /** Manual override: nominal potongan utang yang diinput admin. 0/undefined = otomatis dari sisaUtang. */
+  potonganUtangManual?: number;
+  /** Manual override: nominal potongan casbon yang diinput admin. 0/undefined = otomatis dari sisaCasbon. */
+  potonganCasbonManual?: number;
 }
 
 export interface SlipGajiComputed {
@@ -108,13 +112,18 @@ export interface SlipGajiComputed {
   totalBonus: number;
   totalPotongan: number;
   gajiBersih: number;
+  /** Sisa utang/casbon yang masih tersisa setelah slip bulan ini (untuk notifikasi). */
+  sisaUtangAkhir: number;
+  sisaCasbonAkhir: number;
 }
 
 /**
  * Hitung slip gaji:
  *   GajiBersih = GajiPokok − PotonganAbsensi + BonusKerajinan + BonusBulanan
  *                − (PotonganUtang + PotonganCasbon + Denda)
- * Potongan utang & casbon dibatasi agar gaji bersih tidak negatif.
+ * Potongan utang & casbon otomatis diambil dari sisa, atau bisa dioverride manual
+ * via `potonganUtangManual` / `potonganCasbonManual`. Potongan dibatasi agar gaji
+ * bersih tidak negatif; sisa yang tidak terpotong tetap tersimpan sebagai utang.
  */
 export function computeSlipGaji(inp: SlipGajiInput): SlipGajiComputed {
   const hariKerja = inp.hariKerja ?? 26;
@@ -123,9 +132,17 @@ export function computeSlipGaji(inp: SlipGajiInput): SlipGajiComputed {
   const totalBonus = Math.max(0, inp.bonusKerajinan || 0) + Math.max(0, inp.bonusBulanan || 0);
   const denda = Math.max(0, inp.denda || 0);
   let available = Math.max(0, inp.gajiPokok + totalBonus - potonganAbsensi - denda);
-  const potonganUtang = Math.min(Math.max(0, inp.sisaUtang), available);
+  const targetUtang =
+    inp.potonganUtangManual !== undefined && inp.potonganUtangManual > 0
+      ? Math.max(0, inp.potonganUtangManual)
+      : Math.max(0, inp.sisaUtang);
+  const potonganUtang = Math.min(targetUtang, available);
   available = Math.max(0, available - potonganUtang);
-  const potonganCasbon = Math.min(Math.max(0, inp.sisaCasbon), available);
+  const targetCasbon =
+    inp.potonganCasbonManual !== undefined && inp.potonganCasbonManual > 0
+      ? Math.max(0, inp.potonganCasbonManual)
+      : Math.max(0, inp.sisaCasbon);
+  const potonganCasbon = Math.min(targetCasbon, available);
   const totalPotongan = potonganAbsensi + potonganUtang + potonganCasbon + denda;
   const gajiBersih = Math.max(0, inp.gajiPokok + totalBonus - totalPotongan);
   return {
@@ -138,6 +155,8 @@ export function computeSlipGaji(inp: SlipGajiInput): SlipGajiComputed {
     totalBonus,
     totalPotongan,
     gajiBersih,
+    sisaUtangAkhir: Math.max(0, inp.sisaUtang - potonganUtang),
+    sisaCasbonAkhir: Math.max(0, inp.sisaCasbon - potonganCasbon),
   };
 }
 

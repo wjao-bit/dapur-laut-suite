@@ -9,6 +9,7 @@ import {
   aggregateRekapBarang,
   countAbsensi,
   daysUntil,
+  inRange,
 } from "../business";
 import { validate, invoiceSchema, returSchema, kasSchema, slipGajiSchema } from "../schemas";
 
@@ -104,10 +105,23 @@ describe("Invoice", () => {
     });
     expect(bad.success).toBe(false);
   });
+
+  it("Invoice valid → error message sesuai {'error': 'Payload tidak sesuai schema'}", () => {
+    const r = validate(invoiceSchema, {
+      idInvoice: "INV004",
+      tanggal: "2026-08-04",
+      tipe: "Reseller",
+      namaPihak: "Reseller A",
+      items: [],
+    });
+    expect(r.success).toBe(false);
+    expect(Array.isArray(r.errors)).toBe(true);
+    expect(r.errors!.length).toBeGreaterThan(0);
+  });
 });
 
 // ============================================================================
-// TANGGAL — sisa hari menuju tenggat (notifikasi H-3)
+// TANGGAL — sisa hari menuju tenggat (notifikasi H-3) & filter periode
 // ============================================================================
 
 describe("Tenggat & Notifikasi", () => {
@@ -115,6 +129,19 @@ describe("Tenggat & Notifikasi", () => {
     expect(daysUntil("2026-08-07", "2026-08-04")).toBe(3);
     expect(daysUntil("2026-08-04", "2026-08-04")).toBe(0);
     expect(daysUntil("2026-08-02", "2026-08-04")).toBe(-2);
+  });
+
+  it("Notifikasi H-3: hari ≤ 3 atau lewat → wajib muncul", () => {
+    expect(daysUntil("2026-08-07", "2026-08-04")).toBeLessThanOrEqual(3);
+    expect(daysUntil("2026-08-03", "2026-08-04")).toBeLessThanOrEqual(3);
+    expect(daysUntil("2026-08-10", "2026-08-04")).toBeGreaterThan(3);
+  });
+
+  it("inRange memfilter tanggal dalam periode", () => {
+    expect(inRange("2026-08-04", "2026-08-01", "2026-08-31")).toBe(true);
+    expect(inRange("2026-07-30", "2026-08-01", "2026-08-31")).toBe(false);
+    expect(inRange("2026-08-04", undefined, "2026-08-31")).toBe(true);
+    expect(inRange("2026-09-01", undefined, "2026-08-31")).toBe(false);
   });
 });
 
@@ -163,6 +190,7 @@ describe("Slip Gaji", () => {
     expect(g.potonganPerHari).toBe(200000);
     expect(g.potonganAbsensi).toBe(1000000);
     expect(g.gajiBersih).toBe(4200000);
+    expect(g.sisaUtangAkhir).toBe(0);
   });
 
   it("Potongan utang & casbon otomatis, gaji bersih tidak negatif", () => {
@@ -179,6 +207,40 @@ describe("Slip Gaji", () => {
     expect(g.potonganCasbon).toBe(2500000); // dibatasi sisa gaji
     expect(g.gajiBersih).toBe(0);
     expect(g.totalPotongan).toBe(4500000);
+    expect(g.sisaUtangAkhir).toBe(0);
+    expect(g.sisaCasbonAkhir).toBe(500000); // casbon tersisa 3jt - 2,5jt
+  });
+
+  it("Potongan utang manual mengoverride otomatis", () => {
+    const g = computeSlipGaji({
+      gajiPokok: 5000000,
+      bonusKerajinan: 0,
+      bonusBulanan: 0,
+      denda: 0,
+      absensi: { hadir: 26, izin: 0, sakit: 0, alpa: 0 },
+      sisaUtang: 3000000,
+      sisaCasbon: 0,
+      potonganUtangManual: 1000000, // hanya bayar 1jt bulan ini
+    });
+    expect(g.potonganUtang).toBe(1000000);
+    expect(g.gajiBersih).toBe(4000000);
+    expect(g.sisaUtangAkhir).toBe(2000000); // sisa ditunjukkan untuk notifikasi
+  });
+
+  it("Potongan casbon manual + sisa casbon dihitung benar", () => {
+    const g = computeSlipGaji({
+      gajiPokok: 6000000,
+      bonusKerajinan: 0,
+      bonusBulanan: 0,
+      denda: 0,
+      absensi: { hadir: 26, izin: 0, sakit: 0, alpa: 0 },
+      sisaUtang: 0,
+      sisaCasbon: 1500000,
+      potonganCasbonManual: 800000,
+    });
+    expect(g.potonganCasbon).toBe(800000);
+    expect(g.sisaCasbonAkhir).toBe(700000);
+    expect(g.gajiBersih).toBe(5200000);
   });
 
   it("Bonus (kerajinan + bulanan) menambah gaji bersih", () => {

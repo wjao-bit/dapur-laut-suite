@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { BarangSearch } from "@/components/app/BarangSearch";
 import { formatDate, todayStr, genId } from "@/lib/format";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -31,7 +32,7 @@ export default function ReturPage() {
   const resellers = useQuery(api.queries.listReseller);
   const dpls = useQuery(api.queries.listDpl);
   const pasars = useQuery(api.queries.listPasar);
-  const gudang = useQuery(api.queries.listGudang);
+  const barang = useQuery(api.queries.listBarang);
   const upsertRetur = useMutation(api.business.upsertRetur);
   const deleteRetur = useMutation(api.business.deleteMaster as any);
 
@@ -46,7 +47,6 @@ export default function ReturPage() {
   const [saving, setSaving] = useState(false);
 
   const pihakOptions = tipe === "Reseller" ? resellers?.map((r: any) => r.nama) ?? [] : tipe === "DPL" ? dpls?.map((d: any) => d.namaPasar) ?? [] : pasars?.map((p: any) => p.namaPasar) ?? [];
-  const barangOptions = gudang?.map((g: any) => g.namaBarang) ?? [];
 
   const resetForm = () => {
     setTipe("Reseller");
@@ -174,10 +174,14 @@ export default function ReturPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs font-medium">Barang *</Label>
-                <Input className="mt-1.5" list="retur-barang" value={namaBarang} onChange={(e) => setNamaBarang(e.target.value)} placeholder="Nama barang" />
-                <datalist id="retur-barang">
-                  {barangOptions.map((b: string) => <option key={b} value={b} />)}
-                </datalist>
+                <BarangSearch
+                  className="mt-1.5"
+                  barang={(barang ?? []).map((b: any) => ({ kode: b.kode, nama: b.nama, harga: b.harga, kategori: b.kategori ?? "" })) as any}
+                  value={namaBarang}
+                  onChange={setNamaBarang}
+                  onPick={(b) => setNamaBarang(b.nama)}
+                  placeholder="Ketik nama barang…"
+                />
               </div>
               <div>
                 <Label className="text-xs font-medium">Qty *</Label>
