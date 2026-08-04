@@ -6,6 +6,7 @@ import {
   aggregateRekapPihak,
   computeGudangRows,
   computeKasBalances,
+  daysUntil,
   inRange,
   todayStr,
   thisMonthStr,
@@ -89,12 +90,55 @@ export const listUtang = query({
 });
 
 export const listInvoice = query({
-  args: { tipe: v.optional(v.string()), from: v.optional(v.string()), to: v.optional(v.string()) },
-  handler: async (ctx, { tipe, from, to }) => {
+  args: { tipe: v.optional(v.string()), namaPihak: v.optional(v.string()), from: v.optional(v.string()), to: v.optional(v.string()) },
+  handler: async (ctx, { tipe, namaPihak, from, to }) => {
     let rows = await ctx.db.query("invoice").collect();
     if (tipe) rows = rows.filter((r) => r.tipe === tipe);
+    if (namaPihak) rows = rows.filter((r) => r.namaPihak === namaPihak);
     if (from || to) rows = rows.filter((r) => inRange(r.tanggal, from, to));
     return rows.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.idInvoice.localeCompare(b.idInvoice));
+  },
+});
+
+/** Daftar (tipe, namaPihak) unik untuk filter pengelompokan invoice per pihak. */
+export const listInvoicePihak = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("invoice").collect();
+    const seen = new Set<string>();
+    const out: { tipe: string; namaPihak: string }[] = [];
+    for (const r of rows) {
+      const key = `${r.tipe}|${r.namaPihak}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push({ tipe: r.tipe, namaPihak: r.namaPihak });
+      }
+    }
+    return out.sort((a, b) => a.tipe.localeCompare(b.tipe) || a.namaPihak.localeCompare(b.namaPihak));
+  },
+});
+
+/**
+ * Invoice Reseller/Supplier yang tenggatnya ≤ 3 hari (H-3) atau sudah lewat.
+ * Dipakai notifikasi otomatis di header aplikasi.
+ */
+export const listInvoiceTenggat = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("invoice").collect();
+    const today = todayStr();
+    return rows
+      .filter((r) => (r.tipe === "Reseller" || r.tipe === "Supplier") && !!r.tenggat)
+      .map((r) => ({
+        idInvoice: r.idInvoice,
+        tipe: r.tipe,
+        namaPihak: r.namaPihak,
+        tenggat: r.tenggat,
+        total: r.totalPenjualan || r.total,
+        daysLeft: daysUntil(r.tenggat!, today),
+      }))
+      .filter((r) => !Number.isNaN(r.daysLeft) && r.daysLeft <= 3)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
   },
 });
 
@@ -307,7 +351,7 @@ export const laporanKeuangan = query({
       manual: pen.reduce((s, p) => s + p.nominal, 0),
       invoiceSupplier: inv.filter((i) => i.tipe === "Supplier").reduce((s, i) => s + i.total, 0),
       slipGaji: slp.reduce((s, x) => s + x.gajiBersih, 0),
-      utangDibayar: inv.filter((i) => i.tipe !== "Supplier").reduce((s, i) => s + i.margin, 0) * 0, // utang dibayar dihitung dari slip
+      utangDibayar: 0, // utang dibayar sudah masuk melalui slip gaji / pembayaran kas
       total: 0,
     };
     pengeluaranReport.total = pengeluaranReport.manual + pengeluaranReport.invoiceSupplier + pengeluaranReport.slipGaji + pengeluaranReport.utangDibayar;

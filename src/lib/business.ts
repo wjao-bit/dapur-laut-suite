@@ -325,3 +325,16 @@ export function inRange(tanggal: string, from?: string, to?: string): boolean {
   if (to && tanggal > to) return false;
   return true;
 }
+
+/**
+ * Sisa hari dari `from` (default hari ini) ke `tanggal` (YYYY-MM-DD).
+ * 0 = jatuh tempo hari ini, negatif = sudah lewat. Dipakai notifikasi H-3.
+ */
+export function daysUntil(tanggal: string, from: string = todayStr()): number {
+  const [y1, m1, d1] = from.split("-").map(Number);
+  const [y2, m2, d2] = tanggal.split("-").map(Number);
+  if (!y2 || !m2 || !d2) return Number.NaN;
+  const a = new Date(y1 || 0, (m1 || 1) - 1, d1 || 1);
+  const b = new Date(y2, m2 - 1, d2);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}

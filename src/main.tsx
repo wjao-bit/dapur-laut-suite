@@ -31,6 +31,7 @@ const KasPage = lazy(() => import("./pages/app/KasPage.tsx"));
 const SlipGajiPage = lazy(() => import("./pages/app/SlipGajiPage.tsx"));
 const PengeluaranPage = lazy(() => import("./pages/app/PengeluaranPage.tsx"));
 const LaporanPage = lazy(() => import("./pages/app/LaporanPage.tsx"));
+const AdminPage = lazy(() => import("./pages/app/AdminPage.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -184,6 +185,7 @@ function Root() {
               <Route path="slipgaji" element={<SlipGajiPage />} />
               <Route path="pengeluaran" element={<PengeluaranPage />} />
               <Route path="laporan" element={<LaporanPage />} />
+              <Route path="admin" element={<AdminPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

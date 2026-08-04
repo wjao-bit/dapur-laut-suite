@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -25,9 +27,13 @@ import {
   X,
   Ship,
   ChevronRight,
+  ShieldCheck,
+  Bell,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { BrandLockup } from "@/components/Brand";
+import { formatDate } from "@/lib/format";
 
 interface NavItem {
   to: string;
@@ -82,6 +88,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Analisis",
     items: [{ to: "/dashboard/laporan", label: "Laporan & Rekap", icon: BarChart3 }],
+  },
+  {
+    label: "Pengaturan",
+    items: [{ to: "/dashboard/admin", label: "Admin & Akun", icon: ShieldCheck }],
   },
 ];
 
@@ -161,6 +171,106 @@ function Breadcrumb() {
   );
 }
 
+/** Bel notifikasi tenggat pembayaran (H-3 / lewat jatuh tempo) untuk Reseller & Supplier. */
+function TenggatBell() {
+  const [open, setOpen] = useState(false);
+  const due = useQuery(api.queries.listInvoiceTenggat);
+
+  const items = due ?? [];
+  const overdue = items.filter((i) => i.daysLeft < 0).length;
+  const soon = items.filter((i) => i.daysLeft >= 0).length;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "relative cursor-pointer rounded-md p-2 transition-colors hover:bg-muted",
+          items.length > 0 ? "text-amber-600" : "text-muted-foreground",
+        )}
+        aria-label="Notifikasi tenggat pembayaran"
+      >
+        <Bell className="size-4" />
+        {items.length > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-bold text-white">
+            {items.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-40 mt-2 w-80 rounded-lg border bg-card p-3 shadow-lg">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-semibold">Tenggat Pembayaran</p>
+              <span className="text-[11px] text-muted-foreground">H-3 atau lewat</span>
+            </div>
+            {items.length === 0 ? (
+              <p className="py-3 text-center text-xs text-muted-foreground">
+                Tidak ada invoice mendekati jatuh tempo 🎉
+              </p>
+            ) : (
+              <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                {overdue > 0 && (
+                  <p className="text-[11px] font-semibold text-rose-600">
+                    Lewat jatuh tempo ({overdue})
+                  </p>
+                )}
+                {items
+                  .filter((i) => i.daysLeft < 0)
+                  .map((i) => (
+                    <TenggatRow key={`${i.tipe}-${i.idInvoice}`} i={i} overdue />
+                  ))}
+                {soon > 0 && (
+                  <p className="pt-1 text-[11px] font-semibold text-amber-600">
+                    Mendekati jatuh tempo ({soon})
+                  </p>
+                )}
+                {items
+                  .filter((i) => i.daysLeft >= 0)
+                  .map((i) => (
+                    <TenggatRow key={`${i.tipe}-${i.idInvoice}`} i={i} />
+                  ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TenggatRow({ i, overdue }: { i: any; overdue?: boolean }) {
+  const label = overdue
+    ? `Terlambat ${Math.abs(i.daysLeft)} hari`
+    : i.daysLeft === 0
+      ? "Jatuh tempo hari ini!"
+      : `H-${i.daysLeft}`;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        window.location.hash = "";
+      }}
+      className={cn(
+        "flex w-full cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60",
+        overdue ? "border-rose-200 bg-rose-50/60" : "border-amber-200 bg-amber-50/60",
+      )}
+    >
+      <AlertTriangle className={cn("mt-0.5 size-3.5 shrink-0", overdue ? "text-rose-600" : "text-amber-600")} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-semibold">
+          {i.namaPihak} <span className="text-muted-foreground">({i.tipe})</span>
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          {i.idInvoice} · Tenggat {formatDate(i.tenggat)} · {label}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
@@ -214,11 +324,12 @@ export default function AppLayout() {
               <Ship className="size-3.5 text-sky-600" />
               PT Dapur Laut
             </span>
+            <TenggatBell />
             <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {(user?.name ?? "U").slice(0, 1).toUpperCase()}
+                {(user?.nama ?? "U").slice(0, 1).toUpperCase()}
               </div>
-              <span className="hidden text-sm font-medium md:block">{user?.name ?? "User"}</span>
+              <span className="hidden text-sm font-medium md:block">{user?.nama ?? "Admin"}</span>
             </div>
           </div>
         </header>

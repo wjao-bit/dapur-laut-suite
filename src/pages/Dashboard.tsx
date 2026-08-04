@@ -22,7 +22,7 @@ export default function Dashboard() {
               Authenticated workspace
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Welcome{user?.name ? `, ${user.name}` : ""}
+              Welcome{user?.nama ? `, ${user.nama}` : ""}
             </h1>
           </div>
           <Button

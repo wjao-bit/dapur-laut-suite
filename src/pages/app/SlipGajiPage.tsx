@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
+import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
 import { formatRupiah, formatDate, formatMonth, thisMonth } from "@/lib/format";
@@ -35,7 +35,9 @@ export default function SlipGajiPage() {
   const [open, setOpen] = useState(false);
   const [idKaryawan, setIdKaryawan] = useState("");
   const [periode, setPeriode] = useState(thisMonth());
-  const [bonus, setBonus] = useState(0);
+  const [bonusKerajinan, setBonusKerajinan] = useState(0);
+  const [bonusBulanan, setBonusBulanan] = useState(0);
+  const [denda, setDenda] = useState(0);
   const [saving, setSaving] = useState(false);
   const [printSlip, setPrintSlip] = useState<any>(null);
 
@@ -48,7 +50,13 @@ export default function SlipGajiPage() {
     }
     setSaving(true);
     try {
-      const res = await createSlipGaji({ idKaryawan, periode, bonus: Number(bonus) || 0 });
+      const res = await createSlipGaji({
+        idKaryawan,
+        periode,
+        bonusKerajinan: Number(bonusKerajinan) || 0,
+        bonusBulanan: Number(bonusBulanan) || 0,
+        denda: Number(denda) || 0,
+      });
       toast.success(`Slip gaji ${res.nama} dibuat — Gaji bersih ${formatRupiah(res.gajiBersih)}`);
       setOpen(false);
     } catch (e: any) {
@@ -58,17 +66,31 @@ export default function SlipGajiPage() {
     }
   };
 
+  const totalPotongan = (r: any) =>
+    (r.potonganAbsensi ?? 0) + (r.potonganUtang ?? 0) + (r.potonganCasbon ?? 0) + (r.denda ?? 0);
+
   const columns: Column<any>[] = [
     { key: "id", label: "ID Slip", sortValue: (r) => r.id, render: (r) => <span className="font-semibold">{r.id}</span> },
     { key: "idKaryawan", label: "Karyawan", sortValue: (r) => r.idKaryawan, render: (r) => namaKaryawan(r.idKaryawan) },
     { key: "periode", label: "Periode", sortValue: (r) => r.periode, render: (r) => formatMonth(r.periode) },
     { key: "gajiPokok", label: "Gaji Pokok", align: "right", sortValue: (r) => r.gajiPokok, render: (r) => formatRupiah(r.gajiPokok) },
     {
+      key: "bonus",
+      label: "Bonus",
+      align: "right",
+      sortValue: (r) => (r.bonusKerajinan ?? 0) + (r.bonusBulanan ?? 0),
+      render: (r) => (
+        <span className="text-emerald-600 tabular-nums">
+          +{formatRupiah((r.bonusKerajinan ?? 0) + (r.bonusBulanan ?? 0))}
+        </span>
+      ),
+    },
+    {
       key: "potongan",
       label: "Total Potongan",
       align: "right",
-      sortValue: (r) => r.potonganAbsensi + r.potonganUtang + r.potonganCasbon,
-      render: (r) => <span className="text-rose-600 tabular-nums">{formatRupiah(r.potonganAbsensi + r.potonganUtang + r.potonganCasbon)}</span>,
+      sortValue: (r) => totalPotongan(r),
+      render: (r) => <span className="text-rose-600 tabular-nums">{formatRupiah(totalPotongan(r))}</span>,
     },
     {
       key: "gajiBersih",
@@ -108,7 +130,7 @@ export default function SlipGajiPage() {
     <div>
       <PageHeader
         title="Slip Gaji"
-        description="Menarik absensi, utang, dan casbon otomatis — hitung potongan & gaji bersih, lalu cetak slip resmi."
+        description="Menarik absensi, utang, dan casbon otomatis — tambah bonus kerajinan/bulanan & denda, lalu cetak slip resmi."
         icon={Banknote}
         actions={
           <Button onClick={() => setOpen(true)}>
@@ -132,7 +154,8 @@ export default function SlipGajiPage() {
           <DialogHeader>
             <DialogTitle>Buat Slip Gaji</DialogTitle>
             <DialogDescription>
-              Potongan absensi = (Alpa + Izin) × gaji per hari (26 hari kerja). Utang & casbon dipotong otomatis, gaji bersih tidak negatif.
+              Gaji bersih = Gaji Pokok − Potongan Absensi + Bonus Kerajinan + Bonus Bulanan − (Utang + Casbon + Denda).
+              Denda otomatis masuk ke Kas.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -155,9 +178,19 @@ export default function SlipGajiPage() {
               <Label className="text-xs font-medium">Periode *</Label>
               <Input type="month" className="mt-1.5" value={periode} onChange={(e) => setPeriode(e.target.value)} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-medium">Bonus Kerajinan (Rp)</Label>
+                <Input type="number" min={0} className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(Number(e.target.value))} />
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Bonus Bulanan (Rp)</Label>
+                <Input type="number" min={0} className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(Number(e.target.value))} />
+              </div>
+            </div>
             <div>
-              <Label className="text-xs font-medium">Bonus (Rp)</Label>
-              <Input type="number" min={0} className="mt-1.5" value={bonus} onChange={(e) => setBonus(Number(e.target.value))} />
+              <Label className="text-xs font-medium">Denda (Rp) — dipotong & masuk Kas</Label>
+              <Input type="number" min={0} className="mt-1.5" value={denda} onChange={(e) => setDenda(Number(e.target.value))} />
             </div>
           </div>
           <DialogFooter>
@@ -184,7 +217,11 @@ export function SlipGajiPrintDoc({ slip, nama, jabatan }: { slip: any; nama: str
   const potonganAbsensi = slip.potonganAbsensi ?? 0;
   const potonganUtang = slip.potonganUtang ?? 0;
   const potonganCasbon = slip.potonganCasbon ?? 0;
-  const totalPotongan = potonganAbsensi + potonganUtang + potonganCasbon;
+  const denda = slip.denda ?? 0;
+  const bonusKerajinan = slip.bonusKerajinan ?? 0;
+  const bonusBulanan = slip.bonusBulanan ?? 0;
+  const totalBonus = bonusKerajinan + bonusBulanan;
+  const totalPotongan = potonganAbsensi + potonganUtang + potonganCasbon + denda;
   return (
     <div>
       <div className="mb-4 flex items-center justify-between text-sm">
@@ -232,8 +269,16 @@ export function SlipGajiPrintDoc({ slip, nama, jabatan }: { slip: any; nama: str
             <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">{formatRupiah(slip.gajiPokok)}</td>
           </tr>
           <tr>
-            <td className="border border-slate-200 px-3 py-2">Bonus</td>
-            <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">{formatRupiah(slip.bonus)}</td>
+            <td className="border border-slate-200 px-3 py-2">Bonus Kerajinan</td>
+            <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">{formatRupiah(bonusKerajinan)}</td>
+          </tr>
+          <tr>
+            <td className="border border-slate-200 px-3 py-2">Bonus Bulanan</td>
+            <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">{formatRupiah(bonusBulanan)}</td>
+          </tr>
+          <tr>
+            <td className="border border-slate-200 px-3 py-2 font-semibold">Total Bonus</td>
+            <td className="border border-slate-200 px-3 py-2 text-right font-semibold text-emerald-700 tabular-nums">{formatRupiah(totalBonus)}</td>
           </tr>
           <tr className="text-rose-700">
             <td className="border border-slate-200 px-3 py-2">Potongan Absensi (Alpa {slip.alpa} + Izin {slip.izin})</td>
@@ -246,6 +291,10 @@ export function SlipGajiPrintDoc({ slip, nama, jabatan }: { slip: any; nama: str
           <tr className="text-rose-700">
             <td className="border border-slate-200 px-3 py-2">Potongan Casbon</td>
             <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">({formatRupiah(potonganCasbon)})</td>
+          </tr>
+          <tr className="text-rose-700">
+            <td className="border border-slate-200 px-3 py-2">Denda</td>
+            <td className="border border-slate-200 px-3 py-2 text-right tabular-nums">({formatRupiah(denda)})</td>
           </tr>
           <tr className="bg-slate-50 font-bold">
             <td className="border border-slate-300 px-3 py-2.5">Total Potongan</td>

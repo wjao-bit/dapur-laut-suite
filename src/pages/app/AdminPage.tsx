@@ -8,7 +8,13 @@ import { PageHeader, SectionCard } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatDate } from "@/lib/format";
 
-type Akun = { phone: string; nama: string; status: "pending" | "approved" | "rejected"; createdAt: number };
+type Akun = {
+  id: string;
+  phone: string;
+  nama: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: number;
+};
 
 const STATUS_STYLE: Record<Akun["status"], { label: string; cls: string }> = {
   pending: { label: "Menunggu", cls: "bg-amber-100 text-amber-700" },
@@ -18,9 +24,11 @@ const STATUS_STYLE: Record<Akun["status"], { label: string; cls: string }> = {
 
 export default function AdminPage() {
   const { token, session } = useAuth();
-  const akun = useQuery(api.admin.listAkun, token ? { token } : "skip") as Akun[] | undefined;
+  const raw = useQuery(api.admin.listAkun, token ? { token } : "skip");
   const approve = useMutation(api.admin.approveAkun);
   const reject = useMutation(api.admin.rejectAkun);
+
+  const akun: Akun[] | undefined = (raw as any)?.map((a: any) => ({ ...a, id: a.phone }));
 
   const totals = {
     pending: (akun ?? []).filter((a) => a.status === "pending").length,
@@ -119,7 +127,7 @@ export default function AdminPage() {
       <DataTable
         columns={columns}
         rows={akun ?? []}
-        loading={akun === undefined}
+        loading={raw === undefined}
         keyField={(r) => r.phone}
         emptyTitle="Belum ada akun admin"
         emptyDescription="Akun admin baru akan muncul di sini setelah mendaftar di halaman login."
