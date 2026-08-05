@@ -22,7 +22,7 @@ interface AuthProps {
   redirectAfterAuth?: string;
 }
 
-/** Bersihkan nomor HP: "0821 0000-0000" → "082100000000". */
+/** Bersihkan nomor HP: buang spasi/strip/titik → angka saja. */
 function normalizePhone(raw: string): string {
   return String(raw || "")
     .replace(/[^\d]/g, "")
@@ -54,13 +54,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Bootstrap admin pertama (dibuat otomatis bila Admin Master belum ada)
+  // Bootstrap admin pertama (dibuat otomatis bila Admin Master belum ada).
+  // Kredensial TIDAK ditampilkan di layar — hanya info generik, agar nomor
+  // dan password Admin Master tidak diketahui user lain.
   useEffect(() => {
     let mounted = true;
     ensureDefaultAdmin()
       .then((res) => {
         if (mounted && res.created) {
-          setNotice(`Akun Admin Master dibuat otomatis — HP: ${res.phone} · Password: ${res.password}`);
+          setNotice("Sistem siap digunakan. Silakan masuk dengan akun admin.");
         }
       })
       .catch(() => undefined);
@@ -177,7 +179,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       id="phone"
                       name="phone"
                       inputMode="tel"
-                      placeholder="082100000000"
+                      placeholder="08xxxxxxxxxx"
                       className="pl-9"
                       disabled={isLoading}
                       required
@@ -294,10 +296,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
           <div className="border-t px-6 py-3 text-center text-[11px] text-muted-foreground">
             Sistem Manajemen Bisnis PT Dapur Laut — akses khusus admin
-          </div>
-          <div className="px-6 pb-4 text-center text-[11px] text-muted-foreground">
-            Admin Master: <span className="font-semibold text-sky-700">082100000000</span> — daftar dengan nomor ini untuk
-            mendapat akses penuh otomatis.
           </div>
         </Card>
       </div>

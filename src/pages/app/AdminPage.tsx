@@ -12,7 +12,6 @@ import {
   UserX,
   Crown,
   Lock,
-  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SectionCard } from "@/components/app/ui";
@@ -187,13 +186,8 @@ export default function AdminPage() {
             <p className="text-sm font-semibold text-amber-900">Akses terbatas — hanya Admin Master</p>
             <p className="mt-1 text-xs leading-relaxed text-amber-800">
               Anda login sebagai <b>Admin</b>. Pengelolaan akun (setujui/tolak/kick) hanya bisa dilakukan oleh{" "}
-              <b>Admin Master</b>. Keluar lalu masuk dengan nomor <b>082100000000</b> untuk mendapat akses penuh, atau daftar
-              akun baru dengan nomor tersebut (langsung disetujui otomatis).
+              <b>Admin Master</b>. Hubungi pemilik sistem untuk mendapatkan akses Admin Master.
             </p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-white/70 px-3 py-2 text-[11px] font-medium text-amber-800">
-            <KeyRound className="size-3.5" />
-            Admin Master: 082100000000
           </div>
         </div>
       ) : (
