@@ -296,8 +296,11 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Desktop sidebar — tampil dari layar sedang (768px) ke atas */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-card/60 backdrop-blur md:block print:hidden">
+      {/* Desktop sidebar — tampil dari layar sedang (768px) ke atas.
+          Class `app-sidebar-desktop` + aturan CSS eksplisit di index.css
+          memastikan menu desktop SELALU tampil di layar lebar (fallback
+          anti-purge bila utility md:block tidak ter-generate). */}
+      <aside className="app-sidebar-desktop fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-card/60 backdrop-blur md:block print:hidden">
         <SidebarContent />
       </aside>
 
@@ -320,7 +323,7 @@ export default function AppLayout() {
       )}
 
       {/* Main column */}
-      <div className="flex min-h-screen flex-col md:pl-64">
+      <div className="app-main-column flex min-h-screen flex-col md:pl-64">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur sm:px-6 print:hidden">
           <div className="flex items-center gap-2">
             <button

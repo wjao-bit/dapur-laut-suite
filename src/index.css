@@ -127,6 +127,27 @@
 }
 
 /* ============================================================================
+   SIDEBAR DESKTOP — fallback eksplisit (anti-purge / anti-stale-build).
+   Memastikan menu navigasi SELALU tampil di layar lebar (>=768px) meskipun
+   utility Tailwind md:block tidak ter-generate di bundle. Berlaku hanya saat
+   layar (screen) sehingga tidak memengaruhi dokumen cetak (print:hidden).
+   ============================================================================ */
+.app-sidebar-desktop {
+  display: none;
+}
+.app-main-column {
+  padding-left: 0;
+}
+@media screen and (min-width: 768px) {
+  .app-sidebar-desktop {
+    display: block !important;
+  }
+  .app-main-column {
+    padding-left: 16rem;
+  }
+}
+
+/* ============================================================================
    PRINT — hanya dokumen .print-area yang tampil saat cetak/simpan PDF
    ============================================================================ */
 @media print {
