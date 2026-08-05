@@ -12,6 +12,7 @@ import {
   UserX,
   Crown,
   Lock,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SectionCard } from "@/components/app/ui";
@@ -36,12 +37,16 @@ const STATUS_STYLE: Record<Akun["status"], { label: string; cls: string }> = {
 
 export default function AdminPage() {
   const { token, session } = useAuth();
-  const raw = useQuery(api.admin.listAkun, token ? { token } : "skip");
+  const isMaster = session?.role === "Admin Master";
+
+  // Hanya query listAkun untuk Admin Master — user biasa TIDAK memanggil
+  // fungsi ini (backend menolak dengan "Hanya Admin Master..." dan query
+  // error itu dulu membuat preview halaman ini crash).
+  const raw = useQuery(api.admin.listAkun, token && isMaster ? { token } : "skip");
   const approve = useMutation(api.admin.approveAkun);
   const reject = useMutation(api.admin.rejectAkun);
   const kick = useMutation(api.admin.kickAkun);
 
-  const isMaster = session?.role === "Admin Master";
   const akun: Akun[] | undefined = (raw as any)?.map((a: any) => ({ ...a, id: a.phone }));
 
   const totals = {
@@ -55,7 +60,7 @@ export default function AdminPage() {
       await approve({ token: token!, phone });
       toast.success(`Akun ${phone} disetujui — kini bisa login`);
     } catch (e: any) {
-      toast.error(e?.data?.error ?? e?.message ?? "Gagal menyetujui akun");
+      toast.error(e?.data?.message ?? e?.data?.error ?? e?.message ?? "Gagal menyetujui akun");
     }
   };
 
@@ -64,7 +69,7 @@ export default function AdminPage() {
       await reject({ token: token!, phone });
       toast.success(`Akun ${phone} ditolak`);
     } catch (e: any) {
-      toast.error(e?.data?.error ?? e?.message ?? "Gagal menolak akun");
+      toast.error(e?.data?.message ?? e?.data?.error ?? e?.message ?? "Gagal menolak akun");
     }
   };
 
@@ -73,7 +78,7 @@ export default function AdminPage() {
       await kick({ token: token!, phone });
       toast.success(`Akun ${phone} di-kick — sesi dicabut`);
     } catch (e: any) {
-      toast.error(e?.data?.error ?? e?.message ?? "Gagal meng-kick akun");
+      toast.error(e?.data?.message ?? e?.data?.error ?? e?.message ?? "Gagal meng-kick akun");
     }
   };
 
@@ -173,33 +178,48 @@ export default function AdminPage() {
         icon={ShieldCheck}
       />
 
-      {!isMaster && (
-        <div className={cn("mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800")}>
-          <ShieldAlert className="size-4 shrink-0" />
-          Anda login sebagai <b>Admin</b>. Pengelolaan akun (setujui/tolak/kick) hanya bisa dilakukan oleh <b>Admin Master</b>.
+      {!isMaster ? (
+        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-5 sm:flex-row sm:items-center">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-amber-100">
+            <ShieldAlert className="size-5 text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900">Akses terbatas — hanya Admin Master</p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-800">
+              Anda login sebagai <b>Admin</b>. Pengelolaan akun (setujui/tolak/kick) hanya bisa dilakukan oleh{" "}
+              <b>Admin Master</b>. Keluar lalu masuk dengan nomor <b>082100000000</b> untuk mendapat akses penuh, atau daftar
+              akun baru dengan nomor tersebut (langsung disetujui otomatis).
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-lg border border-amber-300/60 bg-white/70 px-3 py-2 text-[11px] font-medium text-amber-800">
+            <KeyRound className="size-3.5" />
+            Admin Master: 082100000000
+          </div>
+        </div>
+      ) : (
+        <div className="mb-4 grid grid-cols-3 gap-3 sm:max-w-lg">
+          <SectionCard title="Menunggu" className="border-amber-200">
+            <p className="text-2xl font-bold text-amber-600 tabular-nums">{totals.pending}</p>
+          </SectionCard>
+          <SectionCard title="Disetujui" className="border-emerald-200">
+            <p className="text-2xl font-bold text-emerald-600 tabular-nums">{totals.approved}</p>
+          </SectionCard>
+          <SectionCard title="Admin Master" className="border-amber-200">
+            <p className="text-2xl font-bold text-amber-600 tabular-nums">{totals.master}</p>
+          </SectionCard>
         </div>
       )}
 
-      <div className="mb-4 grid grid-cols-3 gap-3 sm:max-w-lg">
-        <SectionCard title="Menunggu" className="border-amber-200">
-          <p className="text-2xl font-bold text-amber-600 tabular-nums">{totals.pending}</p>
-        </SectionCard>
-        <SectionCard title="Disetujui" className="border-emerald-200">
-          <p className="text-2xl font-bold text-emerald-600 tabular-nums">{totals.approved}</p>
-        </SectionCard>
-        <SectionCard title="Admin Master" className="border-amber-200">
-          <p className="text-2xl font-bold text-amber-600 tabular-nums">{totals.master}</p>
-        </SectionCard>
-      </div>
-
-      <DataTable
-        columns={columns}
-        rows={akun ?? []}
-        loading={raw === undefined}
-        keyField={(r) => r.phone}
-        emptyTitle="Belum ada akun admin"
-        emptyDescription="Akun admin baru akan muncul di sini setelah mendaftar di halaman login."
-      />
+      {isMaster && (
+        <DataTable
+          columns={columns}
+          rows={akun ?? []}
+          loading={raw === undefined}
+          keyField={(r) => r.phone}
+          emptyTitle="Belum ada akun admin"
+          emptyDescription="Akun admin baru akan muncul di sini setelah mendaftar di halaman login."
+        />
+      )}
     </div>
   );
 }

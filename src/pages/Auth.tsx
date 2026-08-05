@@ -22,6 +22,18 @@ interface AuthProps {
   redirectAfterAuth?: string;
 }
 
+/** Bersihkan nomor HP: "0821 0000-0000" → "082100000000". */
+function normalizePhone(raw: string): string {
+  return String(raw || "")
+    .replace(/[^\d]/g, "")
+    .trim();
+}
+
+/** Ambil alasan error sebenarnya dari ConvexError (data.message / data.error). */
+function errMessage(err: any): string {
+  return err?.data?.message ?? err?.data?.error ?? err?.message ?? "Gagal. Coba lagi.";
+}
+
 function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/dashboard") {
   if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
     return returnTo;
@@ -42,13 +54,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Bootstrap admin pertama (hanya bila tabel akun kosong)
+  // Bootstrap admin pertama (dibuat otomatis bila Admin Master belum ada)
   useEffect(() => {
     let mounted = true;
     ensureDefaultAdmin()
       .then((res) => {
         if (mounted && res.created) {
-          setNotice(`Akun admin pertama dibuat otomatis — HP: ${res.phone} · Password: ${res.password}`);
+          setNotice(`Akun Admin Master dibuat otomatis — HP: ${res.phone} · Password: ${res.password}`);
         }
       })
       .catch(() => undefined);
@@ -69,11 +81,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setError(null);
     try {
       const fd = new FormData(event.currentTarget);
-      await login(String(fd.get("phone") || ""), String(fd.get("password") || ""));
+      const phone = normalizePhone(String(fd.get("phone") || ""));
+      await login(phone, String(fd.get("password") || ""));
       navigate(redirect);
     } catch (err: any) {
       console.error("Login error:", err);
-      setError(err?.data?.error ?? err?.message ?? "Gagal masuk. Coba lagi.");
+      setError(errMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +99,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setNotice(null);
     try {
       const fd = new FormData(event.currentTarget);
+      const phone = normalizePhone(String(fd.get("phone") || ""));
       const res = await registerAkun({
         nama: String(fd.get("nama") || ""),
-        phone: String(fd.get("phone") || ""),
+        phone,
         password: String(fd.get("password") || ""),
       });
       if (res.status === "approved") {
@@ -99,7 +113,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setMode("login");
     } catch (err: any) {
       console.error("Register error:", err);
-      setError(err?.data?.error ?? err?.message ?? "Gagal mendaftar. Coba lagi.");
+      setError(errMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -280,6 +294,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
           <div className="border-t px-6 py-3 text-center text-[11px] text-muted-foreground">
             Sistem Manajemen Bisnis PT Dapur Laut — akses khusus admin
+          </div>
+          <div className="px-6 pb-4 text-center text-[11px] text-muted-foreground">
+            Admin Master: <span className="font-semibold text-sky-700">082100000000</span> — daftar dengan nomor ini untuk
+            mendapat akses penuh otomatis.
           </div>
         </Card>
       </div>

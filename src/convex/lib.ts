@@ -14,9 +14,15 @@ export function logResponse(route: string, payload: unknown) {
   console.log(`[PT Dapur Laut] ${route} response:`, JSON.stringify(payload, null, 2));
 }
 
+/**
+ * Lempar error validasi dengan pesan yang SEBENARNYA terjadi.
+ * `error` dan `message` sama-sama berisi alasan asli (mis. "Nomor HP atau
+ * password salah") sehingga frontend menampilkan alasan yang jelas, bukan
+ * label generik "Payload tidak sesuai schema".
+ */
 export function badRequest(message: string, extra?: unknown): never {
   console.error(`[PT Dapur Laut] Invalid request:`, message, extra ?? "");
-  throw new ConvexError({ error: "Payload tidak sesuai schema", message, detail: (extra ?? null) as any });
+  throw new ConvexError({ error: message, message, detail: (extra ?? null) as any });
 }
 
 export function genBusinessId(prefix: string): string {

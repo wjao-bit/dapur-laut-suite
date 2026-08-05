@@ -27,6 +27,16 @@ function sha256Hex(input: string): string {
   return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Bersihkan nomor HP: buang spasi, strip, titik, kurung → angka saja.
+ * Contoh: "0821 0000-0000" → "082100000000".
+ */
+function normalizePhone(raw: string): string {
+  return String(raw || "")
+    .replace(/[^\d]/g, "")
+    .trim();
+}
+
 /** Token sesi acak — tidak bisa ditebak. */
 function genToken(phone: string): string {
   return sha256Hex(`${phone}|${Date.now().toString(36)}|${Math.random().toString(36).slice(2)}|${Math.random()}`);
@@ -83,17 +93,18 @@ export const getSession = query({
 export const adminLogin = mutation({
   args: { phone: v.string(), password: v.string() },
   handler: async (ctx, { phone, password }) => {
-    logRequest("adminLogin", { phone });
-    const akun = await findAkun(ctx, phone);
-    if (!akun || akun.password !== sha256Hex(password)) {
+    const cleanPhone = normalizePhone(phone);
+    logRequest("adminLogin", { phone: cleanPhone });
+    const akun = await findAkun(ctx, cleanPhone);
+    if (!akun || akun.password !== sha256Hex(password || "")) {
       return badRequest("Nomor HP atau password salah");
     }
     if (akun.status === "pending") return badRequest("Akun belum disetujui — tunggu persetujuan Admin Master");
     if (akun.status === "rejected") return badRequest("Akun ditolak — hubungi Admin Master");
-    const token = genToken(phone);
-    await ctx.db.insert("sessions", { token, phone, createdAt: Date.now() });
-    logResponse("adminLogin", { phone, nama: akun.nama });
-    return { token, phone, nama: akun.nama, role: akun.role ?? "Admin" };
+    const token = genToken(cleanPhone);
+    await ctx.db.insert("sessions", { token, phone: cleanPhone, createdAt: Date.now() });
+    logResponse("adminLogin", { phone: cleanPhone, nama: akun.nama });
+    return { token, phone: cleanPhone, nama: akun.nama, role: akun.role ?? "Admin" };
   },
 });
 
@@ -111,15 +122,21 @@ export const adminLogout = mutation({
 // PENDAFTARAN — akun pertama (Admin Master) otomatis dibuat
 // ============================================================================
 
-/** Bootstrap: buat akun Admin Master (082100000000) hanya bila tabel kosong. */
+/**
+ * Bootstrap Admin Master (082100000000 / admin123).
+ *
+ * Admin Master otomatis dibuat setiap kali BELUM ADA akun master sama sekali
+ * — tidak hanya saat tabel kosong — sehingga pemilik tidak pernah terkunci
+ * keluar (mis. saat tabel akun sudah berisi akun non-master dari pengujian).
+ * Password default ditampilkan di halaman login lewat notice; disarankan
+ * segera diganti (fitur ganti password bisa ditambahkan).
+ */
 export const ensureDefaultAdmin = mutation({
   args: {},
   handler: async (ctx) => {
     logRequest("ensureDefaultAdmin", {});
     const existing = await findAkun(ctx, MASTER_PHONE);
     if (existing) return { created: false, phone: MASTER_PHONE, password: "" };
-    const all = await ctx.db.query("akun").collect();
-    if (all.length > 0) return { created: false, phone: MASTER_PHONE, password: "" };
     await ctx.db.insert("akun", {
       id: MASTER_PHONE,
       nama: "Admin Master",
@@ -141,23 +158,24 @@ export const ensureDefaultAdmin = mutation({
 export const registerAkun = mutation({
   args: { nama: v.string(), phone: v.string(), password: v.string() },
   handler: async (ctx, { nama, phone, password }) => {
-    logRequest("registerAkun", { nama, phone });
+    const cleanPhone = normalizePhone(phone);
+    logRequest("registerAkun", { nama, phone: cleanPhone });
     if (!nama?.trim()) return badRequest("Nama wajib diisi");
-    if (!/^0\d{8,13}$/.test(phone)) return badRequest("Nomor HP tidak valid — contoh: 082100000000");
+    if (!/^0\d{8,13}$/.test(cleanPhone)) return badRequest("Nomor HP tidak valid — contoh: 082100000000");
     if (!password || password.length < 6) return badRequest("Password minimal 6 karakter");
-    const existing = await findAkun(ctx, phone);
-    if (existing) return badRequest("Nomor HP sudah terdaftar", { phone });
-    const isMaster = phone === MASTER_PHONE;
+    const existing = await findAkun(ctx, cleanPhone);
+    if (existing) return badRequest("Nomor HP sudah terdaftar", { phone: cleanPhone });
+    const isMaster = cleanPhone === MASTER_PHONE;
     await ctx.db.insert("akun", {
-      id: phone,
+      id: cleanPhone,
       nama: nama.trim(),
       password: sha256Hex(password),
       status: isMaster ? "approved" : "pending",
       role: isMaster ? "Admin Master" : "Admin",
       createdAt: Date.now(),
     });
-    logResponse("registerAkun", { phone, status: isMaster ? "approved" : "pending" });
-    return { status: isMaster ? "approved" : "pending", phone };
+    logResponse("registerAkun", { phone: cleanPhone, status: isMaster ? "approved" : "pending" });
+    return { status: isMaster ? "approved" : "pending", phone: cleanPhone };
   },
 });
 
@@ -182,33 +200,35 @@ export const listAkun = query({
 export const approveAkun = mutation({
   args: { token: v.string(), phone: v.string() },
   handler: async (ctx, { token, phone }) => {
-    logRequest("approveAkun", { phone });
+    const cleanPhone = normalizePhone(phone);
+    logRequest("approveAkun", { phone: cleanPhone });
     await requireMaster(ctx, token);
-    const target = await findAkun(ctx, phone);
-    if (!target) return badRequest("Akun tidak ditemukan", { phone });
+    const target = await findAkun(ctx, cleanPhone);
+    if (!target) return badRequest("Akun tidak ditemukan", { phone: cleanPhone });
     if (target.id === MASTER_PHONE) return badRequest("Akun Admin Master tidak dapat diubah");
     await ctx.db.patch(target._id, { status: "approved" });
-    logResponse("approveAkun", { phone });
-    return { phone, status: "approved" };
+    logResponse("approveAkun", { phone: cleanPhone });
+    return { phone: cleanPhone, status: "approved" };
   },
 });
 
 export const rejectAkun = mutation({
   args: { token: v.string(), phone: v.string() },
   handler: async (ctx, { token, phone }) => {
-    logRequest("rejectAkun", { phone });
+    const cleanPhone = normalizePhone(phone);
+    logRequest("rejectAkun", { phone: cleanPhone });
     await requireMaster(ctx, token);
-    const target = await findAkun(ctx, phone);
-    if (!target) return badRequest("Akun tidak ditemukan", { phone });
+    const target = await findAkun(ctx, cleanPhone);
+    if (!target) return badRequest("Akun tidak ditemukan", { phone: cleanPhone });
     if (target.id === MASTER_PHONE) return badRequest("Admin Master tidak dapat ditolak");
     await ctx.db.patch(target._id, { status: "rejected" });
     // Cabut semua sesi akun tsb
     const sesi = await (ctx.db.query("sessions") as any)
-      .filter((q: any) => q.eq(q.field("phone"), phone))
+      .filter((q: any) => q.eq(q.field("phone"), cleanPhone))
       .collect();
     for (const s of sesi) await ctx.db.delete(s._id);
-    logResponse("rejectAkun", { phone });
-    return { phone, status: "rejected" };
+    logResponse("rejectAkun", { phone: cleanPhone });
+    return { phone: cleanPhone, status: "rejected" };
   },
 });
 
@@ -219,17 +239,18 @@ export const rejectAkun = mutation({
 export const kickAkun = mutation({
   args: { token: v.string(), phone: v.string() },
   handler: async (ctx, { token, phone }) => {
-    logRequest("kickAkun", { phone });
+    const cleanPhone = normalizePhone(phone);
+    logRequest("kickAkun", { phone: cleanPhone });
     await requireMaster(ctx, token);
-    const target = await findAkun(ctx, phone);
-    if (!target) return badRequest("Akun tidak ditemukan", { phone });
+    const target = await findAkun(ctx, cleanPhone);
+    if (!target) return badRequest("Akun tidak ditemukan", { phone: cleanPhone });
     if (target.id === MASTER_PHONE) return badRequest("Admin Master tidak dapat di-kick");
     const sesi = await (ctx.db.query("sessions") as any)
-      .filter((q: any) => q.eq(q.field("phone"), phone))
+      .filter((q: any) => q.eq(q.field("phone"), cleanPhone))
       .collect();
     for (const s of sesi) await ctx.db.delete(s._id);
     await ctx.db.patch(target._id, { status: "rejected" });
-    logResponse("kickAkun", { phone });
-    return { phone, status: "rejected" };
+    logResponse("kickAkun", { phone: cleanPhone });
+    return { phone: cleanPhone, status: "rejected" };
   },
 });
