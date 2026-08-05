@@ -164,6 +164,55 @@ export const deleteMaster = mutation({
     const existing = await findOneByKey(ctx, table as any, keyField as any, id);
     if (!existing) return { deleted: false, id };
 
+    // Hapus slip gaji → bersihkan entri kas (KAS-SLP-* + KAS-DND-*) dan
+    // kembalikan potongan utang/casbon ke record utang (agar tidak hilang
+    // saat slip dihitung ulang), lalu re-sinkron utangTotal karyawan.
+    if (table === "slipgaji") {
+      const slip = existing as any;
+      await ctx.db.delete(existing._id);
+      // Kembalikan potongan utang & casbon yang sudah dipotong slip ini
+      if ((slip.potonganUtang || 0) > 0 || (slip.potonganCasbon || 0) > 0) {
+        const allUtang = await ctx.db.query("utang").filter((q) => q.eq(q.field("idKaryawan"), slip.idKaryawan)).collect();
+        let sisaPotonganUtang = slip.potonganUtang || 0;
+        for (const u of allUtang.filter((x) => x.jenis === "Utang" && (x.sisaUtang || 0) > 0)) {
+          if (sisaPotonganUtang <= 0) break;
+          const restore = Math.min(sisaPotonganUtang, u.sisaUtang || 0);
+          sisaPotonganUtang -= restore;
+          const dibayar = Math.max(0, (u.dibayar || 0) - restore);
+          const sisa = Math.min(u.nominal, (u.sisaUtang || 0) + restore);
+          await ctx.db.patch(u._id, {
+            dibayar,
+            sisaUtang: sisa,
+            status: sisa >= u.nominal ? "Belum" : dibayar > 0 ? "Parsial" : "Belum",
+            tglBayar: dibayar > 0 ? (u.tglBayar ?? "") : "",
+          });
+        }
+        let sisaPotonganCasbon = slip.potonganCasbon || 0;
+        for (const u of allUtang.filter((x) => x.jenis === "Casbon" && (x.sisaUtang || 0) > 0)) {
+          if (sisaPotonganCasbon <= 0) break;
+          const restore = Math.min(sisaPotonganCasbon, u.sisaUtang || 0);
+          sisaPotonganCasbon -= restore;
+          const dibayar = Math.max(0, (u.dibayar || 0) - restore);
+          const sisa = Math.min(u.nominal, (u.sisaUtang || 0) + restore);
+          await ctx.db.patch(u._id, {
+            dibayar,
+            sisaUtang: sisa,
+            status: sisa >= u.nominal ? "Belum" : dibayar > 0 ? "Parsial" : "Belum",
+            tglBayar: dibayar > 0 ? (u.tglBayar ?? "") : "",
+          });
+        }
+        await syncKaryawanUtangTotal(ctx, slip.idKaryawan);
+      }
+      // Hapus entri kas milik slip (gaji keluar + denda masuk)
+      const kasSlip = await findOneByKey(ctx, "kas", "id", `KAS-SLP-${id}`);
+      if (kasSlip) await ctx.db.delete(kasSlip._id);
+      const kasDenda = await findOneByKey(ctx, "kas", "id", `KAS-DND-${id}`);
+      if (kasDenda) await ctx.db.delete(kasDenda._id);
+      await recomputeKas(ctx);
+      logResponse("deleteMaster", { deleted: true, id, table });
+      return { deleted: true, id };
+    }
+
     // Hapus utang → re-sinkron utangTotal karyawan
     if (table === "utang") {
       const idKaryawan = (existing as any).idKaryawan;
