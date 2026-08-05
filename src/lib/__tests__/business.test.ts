@@ -10,8 +10,19 @@ import {
   countAbsensi,
   daysUntil,
   inRange,
+  computeTetesanTotals,
+  formatCurrency,
 } from "../business";
-import { validate, invoiceSchema, returSchema, kasSchema, slipGajiSchema } from "../schemas";
+import {
+  validate,
+  invoiceSchema,
+  returSchema,
+  kasSchema,
+  slipGajiSchema,
+  invoiceTetesanSchema,
+  bahanBakuSchema,
+  barangJadiSchema,
+} from "../schemas";
 
 // ============================================================================
 // INVOICE — perhitungan total/modal/penjualan/margin per tipe
@@ -390,5 +401,113 @@ describe("Laporan & Rekap", () => {
     expect(kopi?.masuk).toBe(12);
     expect(kopi?.keluar).toBe(4);
     expect(kopi?.net).toBe(8);
+  });
+});
+
+// ============================================================================
+// TETESAN — invoice modal & penjualan, master bahan baku / barang jadi
+// ============================================================================
+
+describe("Tetesan", () => {
+  it("computeTetesanTotals: Modal = Σ harga modal × qty", () => {
+    const t = computeTetesanTotals("Modal", [
+      { kodeBarang: "BBK001", namaBarang: "Tepung", harga: 12000, qty: 10, subtotal: 120000 },
+      { kodeBarang: "BBK002", namaBarang: "Gula", harga: 15000, qty: 5, subtotal: 75000 },
+    ]);
+    expect(t.total).toBe(195000);
+  });
+
+  it("computeTetesanTotals: Penjualan = Σ harga jual × qty", () => {
+    const t = computeTetesanTotals("Penjualan", [
+      { kodeBarang: "BJK001", namaBarang: "Abon Ikan", harga: 35000, qty: 3, subtotal: 105000 },
+    ]);
+    expect(t.total).toBe(105000);
+  });
+
+  it("Harga modal TIDAK tampil di invoice penjualan (hanya harga jual)", () => {
+    // Item invoice penjualan hanya membawa harga jual — tidak ada field hargaModal.
+    const inv = {
+      idInvoice: "TET001",
+      tanggal: "2026-08-04",
+      tipe: "Penjualan",
+      namaPihak: "Kios Ibu Sari",
+      items: [{ kodeBarang: "BJK001", namaBarang: "Abon Ikan", harga: 35000, qty: 2, subtotal: 70000 }],
+    };
+    expect(Object.keys(inv.items[0])).not.toContain("hargaModal");
+    const r = validate(invoiceTetesanSchema, inv);
+    expect(r.success).toBe(true);
+  });
+
+  it("Invoice tetesan tanpa items / qty 0 harus ditolak validator", () => {
+    const empty = validate(invoiceTetesanSchema, {
+      idInvoice: "TET002",
+      tanggal: "2026-08-04",
+      tipe: "Modal",
+      namaPihak: "Pemasok A",
+      items: [],
+    });
+    expect(empty.success).toBe(false);
+
+    const qty0 = validate(invoiceTetesanSchema, {
+      idInvoice: "TET003",
+      tanggal: "2026-08-04",
+      tipe: "Penjualan",
+      namaPihak: "Toko B",
+      items: [{ kodeBarang: "BJK001", namaBarang: "Abon", harga: 35000, qty: 0, subtotal: 0 }],
+    });
+    expect(qty0.success).toBe(false);
+  });
+
+  it("Master bahan baku: harga modal wajib ≥ 0, stok awal default 0", () => {
+    const ok = validate(bahanBakuSchema, { kode: "BBK001", nama: "Tepung", hargaModal: 12000 });
+    expect(ok.success).toBe(true);
+    const neg = validate(bahanBakuSchema, { kode: "BBK002", nama: "Gula", hargaModal: -5 });
+    expect(neg.success).toBe(false);
+  });
+
+  it("Master barang jadi: harga jual wajib ≥ 0", () => {
+    const ok = validate(barangJadiSchema, { kode: "BJK001", nama: "Abon Ikan", hargaJual: 35000 });
+    expect(ok.success).toBe(true);
+    const noName = validate(barangJadiSchema, { kode: "BJK002", nama: "", hargaJual: 1000 });
+    expect(noName.success).toBe(false);
+  });
+});
+
+// ============================================================================
+// MATA UANG — format Rupiah (default) & Dolar (khusus Supplier)
+// ============================================================================
+
+describe("Mata Uang", () => {
+  it("formatCurrency default Rp (Rupiah)", () => {
+    expect(formatCurrency(250000)).toContain("Rp");
+    expect(formatCurrency(250000)).toContain("250.000");
+  });
+
+  it("formatCurrency '$' → Dolar AS", () => {
+    const s = formatCurrency(125.5, "$");
+    expect(s).toContain("$");
+    expect(s).toContain("125.50");
+  });
+
+  it("Schema invoice mendukung mataUang Rp default & $ pilihan", () => {
+    const rp = validate(invoiceSchema, {
+      idInvoice: "INV001",
+      tanggal: "2026-08-04",
+      tipe: "Supplier",
+      namaPihak: "Supplier A",
+      mataUang: "$",
+      items: [{ kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 2, subtotal: 2000 }],
+    });
+    expect(rp.success).toBe(true);
+    // Mata uang asing selain $ ditolak
+    const bad = validate(invoiceSchema, {
+      idInvoice: "INV002",
+      tanggal: "2026-08-04",
+      tipe: "Supplier",
+      namaPihak: "Supplier A",
+      mataUang: "€",
+      items: [{ kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 2, subtotal: 2000 }],
+    });
+    expect(bad.success).toBe(false);
   });
 });

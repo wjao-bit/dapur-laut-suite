@@ -157,6 +157,10 @@ export function BadgeStatus({
     Pasar: "bg-violet-50 text-violet-700 border-violet-200",
     Retur: "bg-orange-50 text-orange-700 border-orange-200",
     Manual: "bg-slate-100 text-slate-700 border-slate-300",
+    Modal: "bg-sky-50 text-sky-700 border-sky-200",
+    Penjualan: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Baku: "bg-sky-50 text-sky-700 border-sky-200",
+    Jadi: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
   return (
     <span

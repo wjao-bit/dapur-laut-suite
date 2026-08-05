@@ -13,7 +13,15 @@ export function useAuth() {
   const session = useQuery(
     api.admin.getSession,
     token ? { token } : "skip",
-  ) as { phone: string; nama: string; status: "pending" | "approved" | "rejected" } | null | undefined;
+  ) as
+    | {
+        phone: string;
+        nama: string;
+        status: "pending" | "approved" | "rejected";
+        role: "Admin Master" | "Admin";
+      }
+    | null
+    | undefined;
 
   const adminLogin = useMutation(api.admin.adminLogin);
   const adminLogout = useMutation(api.admin.adminLogout);

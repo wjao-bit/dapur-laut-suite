@@ -159,7 +159,7 @@ export default function TetesanPage() {
       render: (r) => <span className="font-semibold">{r.idInvoice}</span>,
     },
     { key: "tanggal", label: "Tanggal", sortValue: (r) => r.tanggal, render: (r) => formatDate(r.tanggal) },
-    { key: "tipe", label: "Tipe", render: (r) => <BadgeStatus status={r.tipe === "Modal" ? "DPL" : "Reseller"} label={r.tipe} /> },
+    { key: "tipe", label: "Tipe", render: (r) => <BadgeStatus status={r.tipe} /> },
     { key: "namaPihak", label: "Pihak", render: (r) => r.namaPihak },
     {
       key: "items",
@@ -349,7 +349,7 @@ export default function TetesanPage() {
                           />
                           {tab === "Penjualan" && r.namaBarang && (
                             <p className="mt-0.5 text-[10px] text-muted-foreground">
-                              Stok tersedia: <b className={stokTersedia <= 0 ? "text-rose-600" : "text-emerald-600"}>{stokTersedia}</b>
+                              Stok tersedia: <b className={(stokTersedia ?? 0) <= 0 ? "text-rose-600" : "text-emerald-600"}>{stokTersedia ?? 0}</b>
                             </p>
                           )}
                         </td>

@@ -1,339 +1,209 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { MasterCrud } from "../../components/app/MasterCrud";
+import { BadgeStatus, PrintButton } from "../../components/app/ui";
+import { PrintFrame } from "../../components/app/PrintFrame";
+import { formatCurrency } from "../../lib/format";
+import { Database, Boxes, Save } from "lucide-react";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { toast } from "sonner";
-import { FlaskConical, Wheat, PackageCheck, Settings2, Boxes } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { PageHeader, SectionCard } from "@/components/app/ui";
-import { MasterCrud, type FieldDef } from "@/components/app/MasterCrud";
-import { DataTable, type Column } from "@/components/app/DataTable";
-import { useMutation } from "convex/react";
-import { BadgeStatus } from "@/components/app/ui";
-import { formatDate } from "@/lib/format";
 
-const BAKU_FIELDS: FieldDef[] = [
-  { key: "kode", label: "Kode Bahan Baku", required: true, placeholder: "BBK001" },
-  { key: "nama", label: "Nama Bahan Baku", required: true, span: 2, placeholder: "mis. Tepung Terigu" },
-  { key: "hargaModal", label: "Harga Modal", type: "number", required: true, min: 0 },
-  { key: "stokAwal", label: "Stok Awal", type: "number", min: 0 },
-  { key: "kategori", label: "Kategori", span: 2, placeholder: "mis. Bumbu, Kemasan, Bahan Pokok" },
-];
-
-const JADI_FIELDS: FieldDef[] = [
-  { key: "kode", label: "Kode Barang Jadi", required: true, placeholder: "BJK001" },
-  { key: "nama", label: "Nama Barang Jadi", required: true, span: 2, placeholder: "mis. Abon Ikan 250gr" },
-  { key: "hargaJual", label: "Harga Jual", type: "number", required: true, min: 0 },
-  { key: "stokAwal", label: "Stok Awal", type: "number", min: 0 },
-  { key: "kategori", label: "Kategori", span: 2, placeholder: "mis. Makanan Jadi, Minuman" },
-];
+type Jenis = "bahanBaku" | "barangJadi";
 
 export default function MasterTetesanPage() {
-  const [tab, setTab] = useState<"Baku" | "Jadi">("Baku");
+  const [jenis, setJenis] = useState<Jenis>("bahanBaku");
   const bahanBaku = useQuery(api.queries.listBahanBaku);
   const barangJadi = useQuery(api.queries.listBarangJadi);
-  const stokRows = useQuery(api.queries.listTetesanStok);
+  const tetesanStok = useQuery(api.queries.listTetesanStok);
   const upsertStok = useMutation(api.business.upsertTetesanStok);
 
-  const [stokDialog, setStokDialog] = useState(false);
-  const [stokForm, setStokForm] = useState({ namaBarang: "", tipe: "Baku" as "Baku" | "Jadi", stokAwal: 0, tanggalStokAwal: "", keterangan: "" });
+  const isBaku = jenis === "bahanBaku";
+  const rows = isBaku ? (bahanBaku ?? []) : (barangJadi ?? []);
 
-  const stokFiltered = useMemo(() => {
-    if (!stokRows) return stokRows;
-    return stokRows.filter((s) => s.tipe === tab);
-  }, [stokRows, tab]);
+  // ---- Setting stok awal ----
+  const [stokNama, setStokNama] = useState("");
+  const [stokAwal, setStokAwal] = useState(0);
+  const [stokTgl, setStokTgl] = useState("");
+  const [savingStok, setSavingStok] = useState(false);
 
-  const masterRows = tab === "Baku" ? bahanBaku : barangJadi;
+  const stokOptions = (tetesanStok ?? []).filter((s) => s.tipe === (isBaku ? "Baku" : "Jadi"));
 
-  const stokColumns: Column<any>[] = [
-    { key: "namaBarang", label: "Nama Barang", sortValue: (r) => r.namaBarang, render: (r) => <span className="font-semibold">{r.namaBarang}</span> },
-    { key: "tipe", label: "Tipe", render: (r) => <BadgeStatus status={r.tipe} /> },
-    {
-      key: "stokAwal",
-      label: "Stok Awal",
-      align: "right",
-      render: (r) => (
-        <span className="tabular-nums">
-          {r.stokAwal}
-          {r.tanggalStokAwal ? <span className="ml-1 text-[10px] text-muted-foreground">({formatDate(r.tanggalStokAwal)})</span> : null}
-        </span>
-      ),
-    },
-    { key: "stokMasuk", label: "Masuk", align: "right", render: (r) => <span className="tabular-nums text-emerald-600">+{r.stokMasuk}</span> },
-    { key: "stokKeluar", label: "Keluar", align: "right", render: (r) => <span className="tabular-nums text-rose-600">-{r.stokKeluar}</span> },
-    {
-      key: "stokAkhir",
-      label: "Stok Akhir",
-      align: "right",
-      render: (r) => (
-        <span className={`font-bold tabular-nums ${r.stokAkhir <= 0 ? "text-rose-600" : "text-emerald-600"}`}>{r.stokAkhir}</span>
-      ),
-    },
-  ];
-
-  const openStokDialog = (row?: any) => {
-    if (row) {
-      setStokForm({
-        namaBarang: row.namaBarang,
-        tipe: row.tipe,
-        stokAwal: row.stokAwal,
-        tanggalStokAwal: row.tanggalStokAwal || "",
-        keterangan: row.keterangan || "",
-      });
-    } else {
-      setStokForm({ namaBarang: "", tipe: tab, stokAwal: 0, tanggalStokAwal: "", keterangan: "" });
-    }
-    setStokDialog(true);
-  };
-
-  const saveStok = async () => {
+  const handleSetStok = async () => {
+    if (!stokNama) return toast.error("Pilih nama barang terlebih dahulu");
+    setSavingStok(true);
     try {
       await upsertStok({
         doc: {
-          id: `TSTK-${Date.now().toString(36).toUpperCase()}`,
-          namaBarang: stokForm.namaBarang,
-          tipe: stokForm.tipe,
-          stokAwal: Number(stokForm.stokAwal) || 0,
-          tanggalStokAwal: stokForm.tanggalStokAwal,
-          keterangan: stokForm.keterangan,
+          id: (tetesanStok ?? []).find((s) => s.namaBarang === stokNama)?.id ?? undefined,
+          namaBarang: stokNama,
+          tipe: isBaku ? "Baku" : "Jadi",
+          stokAwal: Number(stokAwal) || 0,
+          tanggalStokAwal: stokTgl,
         },
       });
-      toast.success(`Stok awal ${stokForm.namaBarang} disimpan`);
-      setStokDialog(false);
+      toast.success("Stok awal berhasil disimpan");
+      setStokNama("");
+      setStokAwal(0);
+      setStokTgl("");
     } catch (e: any) {
-      toast.error(e?.data?.error ?? e?.message ?? "Gagal menyimpan stok awal");
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menyimpan stok");
+    } finally {
+      setSavingStok(false);
     }
   };
 
-  const bakuColumns: Column<any>[] = [
-    { key: "kode", label: "Kode", sortValue: (r) => r.kode, render: (r) => <span className="font-semibold tabular-nums">{r.kode}</span> },
-    { key: "nama", label: "Nama", sortValue: (r) => r.nama, render: (r) => r.nama },
-    { key: "kategori", label: "Kategori", render: (r) => r.kategori || "—" },
-    {
-      key: "hargaModal",
-      label: "Harga Modal",
-      align: "right",
-      render: (r) => (
-        <span className="tabular-nums">
-          {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(r.hargaModal)}
-        </span>
-      ),
-    },
-    {
-      key: "stokAwal",
-      label: "Stok Awal",
-      align: "right",
-      render: (r) => <span className="tabular-nums">{r.stokAwal}</span>,
-    },
-  ];
-
-  const jadiColumns: Column<any>[] = [
-    { key: "kode", label: "Kode", sortValue: (r) => r.kode, render: (r) => <span className="font-semibold tabular-nums">{r.kode}</span> },
-    { key: "nama", label: "Nama", sortValue: (r) => r.nama, render: (r) => r.nama },
-    { key: "kategori", label: "Kategori", render: (r) => r.kategori || "—" },
-    {
-      key: "hargaJual",
-      label: "Harga Jual",
-      align: "right",
-      render: (r) => (
-        <span className="tabular-nums">
-          {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(r.hargaJual)}
-        </span>
-      ),
-    },
-    {
-      key: "stokAwal",
-      label: "Stok Awal",
-      align: "right",
-      render: (r) => <span className="tabular-nums">{r.stokAwal}</span>,
-    },
-  ];
-
   return (
-    <div>
-      <PageHeader
-        title="Master Data Tetesan"
-        description="Master data terpisah: Bahan Baku (harga modal) & Barang Jadi (harga jual). Transaksi invoice tetesan otomatis terhubung ke master ini."
-        icon={FlaskConical}
-        actions={
-          <Button variant="outline" onClick={() => openStokDialog()}>
-            <Settings2 className="mr-2 size-4" />
-            Set Stok Awal
-          </Button>
-        }
-      />
-
-      {/* Ringkasan */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <SectionCard title="Bahan Baku">
-          <p className="text-2xl font-bold text-sky-600 tabular-nums">{bahanBaku?.length ?? 0}</p>
-          <p className="text-xs text-muted-foreground">master bahan baku terdaftar</p>
-        </SectionCard>
-        <SectionCard title="Barang Jadi">
-          <p className="text-2xl font-bold text-emerald-600 tabular-nums">{barangJadi?.length ?? 0}</p>
-          <p className="text-xs text-muted-foreground">master barang jadi terdaftar</p>
-        </SectionCard>
-        <SectionCard title="Stok Tetesan">
-          <p className="text-2xl font-bold text-primary tabular-nums">{stokRows?.length ?? 0}</p>
-          <p className="text-xs text-muted-foreground">baris stok (Baku + Jadi)</p>
-        </SectionCard>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-[#0f2f5e] text-amber-300 shadow-md">
+            <Database className="size-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-[#0f2f5e]">Master Data Tetesan</h1>
+            <p className="text-xs text-slate-500">Barang baku (modal) & barang jadi (penjualan) PT Dapur Laut</p>
+          </div>
+        </div>
+        <PrintButton label="Cetak Master" />
       </div>
 
-      {/* Tab */}
-      <div className="mb-4 inline-flex rounded-lg border bg-muted/40 p-1">
-        {(["Baku", "Jadi"] as const).map((t) => (
+      {/* Tab switch */}
+      <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        {(["bahanBaku", "barangJadi"] as Jenis[]).map((j) => (
           <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-              tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            key={j}
+            onClick={() => setJenis(j)}
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+              jenis === j ? "bg-[#0f2f5e] text-amber-300 shadow" : "text-slate-600 hover:bg-slate-100"
             }`}
           >
-            {t === "Baku" ? <Wheat className="size-3.5" /> : <PackageCheck className="size-3.5" />}
-            {t === "Baku" ? "Bahan Baku" : "Barang Jadi"}
+            {j === "bahanBaku" ? "🧂 Barang Baku (Modal)" : "🍽️ Barang Jadi (Penjualan)"}
           </button>
         ))}
       </div>
 
-      {tab === "Baku" ? (
-        <MasterCrud
-          title="Bahan Baku"
-          description="Daftar bahan baku untuk Invoice Modal Tetesan. Harga modal tersimpan di database dan tidak tampil di invoice penjualan."
-          icon={Wheat}
-          rows={bahanBaku}
-          loading={bahanBaku === undefined}
-          columns={bakuColumns}
-          fields={BAKU_FIELDS}
-          keyField="kode"
-          idPrefix="BBK"
-          upsertFn={api.business.upsertBahanBaku}
-          table="bahanBaku"
-          searchKeys={["kode", "nama", "kategori"]}
-          emptyTitle="Belum ada bahan baku"
-          emptyDescription="Tambahkan bahan baku pertama untuk mulai mencatat invoice modal."
-        />
-      ) : (
-        <MasterCrud
-          title="Barang Jadi"
-          description="Daftar barang jadi untuk Invoice Penjualan Tetesan. Stok barang jadi otomatis berkurang saat terjual."
-          icon={PackageCheck}
-          rows={barangJadi}
-          loading={barangJadi === undefined}
-          columns={jadiColumns}
-          fields={JADI_FIELDS}
-          keyField="kode"
-          idPrefix="BJK"
-          upsertFn={api.business.upsertBarangJadi}
-          table="barangJadi"
-          searchKeys={["kode", "nama", "kategori"]}
-          emptyTitle="Belum ada barang jadi"
-          emptyDescription="Tambahkan barang jadi pertama untuk mulai mencatat invoice penjualan."
-        />
-      )}
-
-      {/* Stok Tetesan */}
-      <div className="mt-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Boxes className="size-4 text-primary" />
-            Stok {tab === "Baku" ? "Bahan Baku" : "Barang Jadi"}
-          </h2>
-          <Button variant="outline" size="sm" onClick={() => openStokDialog()}>
-            <Settings2 className="mr-1.5 size-3.5" />
-            Set Stok Awal
-          </Button>
+      {/* Setting stok awal */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Boxes className="size-4 text-[#0f2f5e]" />
+          <h3 className="text-sm font-bold text-[#0f2f5e]">Setting Stok Awal {isBaku ? "Barang Baku" : "Barang Jadi"}</h3>
         </div>
-        <DataTable
-          columns={stokColumns}
-          rows={stokFiltered as any}
-          loading={stokRows === undefined}
-          keyField={(r) => r.namaBarang}
-          emptyTitle="Belum ada baris stok"
-          emptyDescription="Stok otomatis dibuat saat transaksi atau bisa di-set manual di atas."
-        />
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="sm:col-span-2">
+            <Label className="text-xs font-medium">Nama Barang</Label>
+            <select
+              value={stokNama}
+              onChange={(e) => setStokNama(e.target.value)}
+              className="mt-1.5 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option value="">— Pilih barang —</option>
+              {stokOptions.map((s) => (
+                <option key={s.id ?? s.namaBarang} value={s.namaBarang}>
+                  {s.namaBarang} (stok saat ini: {s.stokAkhir})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs font-medium">Stok Awal</Label>
+            <Input
+              type="number"
+              min={0}
+              className="mt-1.5"
+              value={String(stokAwal)}
+              onChange={(e) => setStokAwal(Number(e.target.value))}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-medium">Tanggal</Label>
+            <Input type="date" className="mt-1.5" value={stokTgl} onChange={(e) => setStokTgl(e.target.value)} />
+          </div>
+        </div>
+        <Button className="mt-3" onClick={handleSetStok} disabled={savingStok}>
+          <Save className="mr-2 size-4" />
+          {savingStok ? "Menyimpan..." : "Simpan Stok Awal"}
+        </Button>
       </div>
 
-      {/* Dialog set stok awal */}
-      <Dialog open={stokDialog} onOpenChange={setStokDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Set Stok Awal Tetesan</DialogTitle>
-            <DialogDescription>
-              Atur stok awal per barang dengan tanggal. Riwayat transaksi tetap dipertahankan.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div>
-              <Label className="text-xs font-medium">Nama Barang *</Label>
-              <Input
-                className="mt-1.5"
-                placeholder="Ketik nama bahan baku / barang jadi"
-                value={stokForm.namaBarang}
-                onChange={(e) => setStokForm((f) => ({ ...f, namaBarang: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium">Tipe *</Label>
-              <select
-                className="mt-1.5 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                value={stokForm.tipe}
-                onChange={(e) => setStokForm((f) => ({ ...f, tipe: e.target.value as "Baku" | "Jadi" }))}
-              >
-                <option value="Baku">Bahan Baku</option>
-                <option value="Jadi">Barang Jadi</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-medium">Stok Awal *</Label>
-                <Input
-                  className="mt-1.5"
-                  type="number"
-                  min={0}
-                  value={stokForm.stokAwal}
-                  onChange={(e) => setStokForm((f) => ({ ...f, stokAwal: Number(e.target.value) }))}
-                />
-              </div>
-              <div>
-                <Label className="text-xs font-medium">Tanggal Stok Awal</Label>
-                <Input
-                  className="mt-1.5"
-                  type="date"
-                  value={stokForm.tanggalStokAwal}
-                  onChange={(e) => setStokForm((f) => ({ ...f, tanggalStokAwal: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs font-medium">Keterangan</Label>
-              <Input
-                className="mt-1.5"
-                placeholder="mis. Stok opname awal periode"
-                value={stokForm.keterangan}
-                onChange={(e) => setStokForm((f) => ({ ...f, keterangan: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStokDialog(false)}>
-              Batal
-            </Button>
-            <Button onClick={saveStok} disabled={!stokForm.namaBarang}>
-              Simpan Stok Awal
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* CRUD */}
+      <MasterCrud
+        title={isBaku ? "Barang Baku" : "Barang Jadi"}
+        description={isBaku ? "Bahan baku untuk invoice modal" : "Barang jadi untuk invoice penjualan"}
+        icon={Database}
+        rows={rows}
+        loading={!bahanBaku || !barangJadi}
+        columns={
+          isBaku
+            ? [
+                { key: "kode", label: "Kode" },
+                { key: "nama", label: "Nama Barang Baku" },
+                { key: "kategori", label: "Kategori" },
+                { key: "hargaModal", label: "Harga Modal", render: (r: any) => formatCurrency(r.hargaModal ?? 0) },
+                { key: "stokAwal", label: "Stok Awal", render: (r: any) => <BadgeStatus status={(r.stokAwal ?? 0) > 0 ? "Hadir" : "Alpa"} className="w-14 text-center">{r.stokAwal ?? 0}</BadgeStatus> },
+              ]
+            : [
+                { key: "kode", label: "Kode" },
+                { key: "nama", label: "Nama Barang Jadi" },
+                { key: "kategori", label: "Kategori" },
+                { key: "hargaJual", label: "Harga Jual", render: (r: any) => formatCurrency(r.hargaJual ?? 0) },
+                { key: "stokAwal", label: "Stok", render: (r: any) => <BadgeStatus status={(r.stokAwal ?? 0) > 0 ? "Hadir" : "Alpa"} className="w-14 text-center">{r.stokAwal ?? 0}</BadgeStatus> },
+              ]
+        }
+        fields={
+          isBaku
+            ? [
+                { key: "kode", label: "Kode Barang", required: true, placeholder: "contoh: BB001" },
+                { key: "nama", label: "Nama Barang Baku", required: true, placeholder: "contoh: Tepung Terigu" },
+                { key: "kategori", label: "Kategori", placeholder: "contoh: Bahan Pokok" },
+                { key: "hargaModal", label: "Harga Modal (Rp)", type: "number", required: true },
+                { key: "stokAwal", label: "Stok Awal", type: "number", placeholder: "0" },
+              ]
+            : [
+                { key: "kode", label: "Kode Barang", required: true, placeholder: "contoh: BJ001" },
+                { key: "nama", label: "Nama Barang Jadi", required: true, placeholder: "contoh: Roti Isi" },
+                { key: "kategori", label: "Kategori", placeholder: "contoh: Olahan" },
+                { key: "hargaJual", label: "Harga Jual (Rp)", type: "number", required: true },
+                { key: "stokAwal", label: "Stok Awal", type: "number", placeholder: "0" },
+              ]
+        }
+        keyField="kode"
+        idPrefix={isBaku ? "BB" : "BJ"}
+        upsertFn={isBaku ? api.business.upsertBahanBaku : api.business.upsertBarangJadi}
+        table={jenis}
+        searchKeys={["kode", "nama", "kategori"]}
+      />
+
+      {/* Printable master list */}
+      <PrintFrame title={`Master Data ${isBaku ? "Barang Baku" : "Barang Jadi"} — PT Dapur Laut`}>
+        <table className="w-full border-collapse text-left text-xs">
+          <thead>
+            <tr className="border-b-2 border-[#0f2f5e] text-[#0f2f5e]">
+              <th className="px-2 py-2">No</th>
+              <th className="px-2 py-2">Kode</th>
+              <th className="px-2 py-2">Nama Barang</th>
+              <th className="px-2 py-2">Kategori</th>
+              <th className="px-2 py-2 text-right">{isBaku ? "Harga Modal" : "Harga Jual"}</th>
+              <th className="px-2 py-2 text-right">Stok</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((b, i) => (
+              <tr key={b._id ?? i} className="border-b border-slate-200">
+                <td className="px-2 py-1.5">{i + 1}</td>
+                <td className="px-2 py-1.5 font-mono">{b.kode}</td>
+                <td className="px-2 py-1.5">{b.nama}</td>
+                <td className="px-2 py-1.5">{b.kategori || "Umum"}</td>
+                <td className="px-2 py-1.5 text-right">{formatCurrency((b as any).hargaModal ?? (b as any).hargaJual ?? 0)}</td>
+                <td className="px-2 py-1.5 text-right">{b.stokAwal ?? 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </PrintFrame>
     </div>
   );
 }
