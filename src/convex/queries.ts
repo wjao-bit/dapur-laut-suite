@@ -66,6 +66,191 @@ export const listKaryawan = query({
 });
 
 // ============================================================================
+// TETESAN — master bahan baku, barang jadi, stok, invoice modal/penjualan
+// ============================================================================
+
+export const listBahanBaku = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("bahanBaku").collect();
+    return rows.sort((a, b) => a.kode.localeCompare(b.kode));
+  },
+});
+
+export const listBarangJadi = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("barangJadi").collect();
+    return rows.sort((a, b) => a.kode.localeCompare(b.kode));
+  },
+});
+
+/** Stok Tetesan: stokAkhir = stokAwal + Σ riwayat (asal: Invoice Modal/Penjualan). */
+export const listTetesanStok = query({
+  args: {},
+  handler: async (ctx) => {
+    const [base, history] = await Promise.all([
+      ctx.db.query("tetesanStok").collect(),
+      ctx.db.query("tetesanStokHistory").collect(),
+    ]);
+    const net = new Map<string, number>();
+    const masuk = new Map<string, number>();
+    const keluar = new Map<string, number>();
+    for (const h of history) {
+      net.set(h.namaBarang, (net.get(h.namaBarang) ?? 0) + h.perubahan);
+      if (h.perubahan > 0) masuk.set(h.namaBarang, (masuk.get(h.namaBarang) ?? 0) + h.perubahan);
+      else keluar.set(h.namaBarang, (keluar.get(h.namaBarang) ?? 0) + Math.abs(h.perubahan));
+    }
+    return base
+      .map((b) => ({
+        id: b.id,
+        namaBarang: b.namaBarang,
+        tipe: b.tipe,
+        stokAwal: b.stokAwal,
+        stokMasuk: masuk.get(b.namaBarang) ?? 0,
+        stokKeluar: keluar.get(b.namaBarang) ?? 0,
+        stokAkhir: b.stokAwal + (net.get(b.namaBarang) ?? 0),
+        tanggalStokAwal: b.tanggalStokAwal ?? "",
+        keterangan: b.keterangan ?? "",
+      }))
+      .sort((a, b) => a.namaBarang.localeCompare(b.namaBarang));
+  },
+});
+
+export const listTetesanStokHistory = query({
+  args: { namaBarang: v.optional(v.string()), from: v.optional(v.string()), to: v.optional(v.string()) },
+  handler: async (ctx, { namaBarang, from, to }) => {
+    let rows = await ctx.db.query("tetesanStokHistory").collect();
+    if (namaBarang) rows = rows.filter((r) => r.namaBarang === namaBarang);
+    if (from || to) rows = rows.filter((r) => inRange(r.tanggal, from, to));
+    return rows.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || (b._creationTime - a._creationTime));
+  },
+});
+
+export const listInvoiceTetesan = query({
+  args: { tipe: v.optional(v.string()) },
+  handler: async (ctx, { tipe }) => {
+    let rows = await ctx.db.query("invoiceTetesan").collect();
+    if (tipe) rows = rows.filter((r) => r.tipe === tipe);
+    return rows.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.idInvoice.localeCompare(b.idInvoice));
+  },
+});
+
+/**
+ * Laporan Tetesan: total modal (invoice Modal), total penjualan (invoice
+ * Penjualan), perbandingan modal vs penjualan, rekap per item, dan stok
+ * otomatis dari transaksi. Bisa difilter tanggal, kategori, atau nama item.
+ */
+export const laporanTetesan = query({
+  args: {
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+    kategori: v.optional(v.string()),
+    namaItem: v.optional(v.string()),
+  },
+  handler: async (ctx, { from, to, kategori, namaItem }) => {
+    const [invoices, bahanBaku, barangJadi, stok, history] = await Promise.all([
+      ctx.db.query("invoiceTetesan").collect(),
+      ctx.db.query("bahanBaku").collect(),
+      ctx.db.query("barangJadi").collect(),
+      ctx.db.query("tetesanStok").collect(),
+      ctx.db.query("tetesanStokHistory").collect(),
+    ]);
+
+    let inv = invoices;
+    if (from || to) inv = inv.filter((i) => inRange(i.tanggal, from, to));
+    if (namaItem) {
+      const q = namaItem.toLowerCase();
+      inv = inv.filter((i) => i.items.some((it) => it.namaBarang.toLowerCase().includes(q)));
+    }
+    // Filter kategori: cocokkan item invoice ke master (bahan baku / barang jadi)
+    if (kategori) {
+      const k = kategori.toLowerCase();
+      const kodeBaku = new Set(bahanBaku.filter((b) => (b.kategori ?? "").toLowerCase().includes(k)).map((b) => b.kode));
+      const kodeJadi = new Set(barangJadi.filter((b) => (b.kategori ?? "").toLowerCase().includes(k)).map((b) => b.kode));
+      const kodeNama = new Set([
+        ...bahanBaku.filter((b) => (b.kategori ?? "").toLowerCase().includes(k)).map((b) => b.nama.toLowerCase()),
+        ...barangJadi.filter((b) => (b.kategori ?? "").toLowerCase().includes(k)).map((b) => b.nama.toLowerCase()),
+      ]);
+      inv = inv.filter((i) =>
+        i.items.some((it) => kodeBaku.has(it.kodeBarang) || kodeJadi.has(it.kodeBarang) || kodeNama.has(it.namaBarang.toLowerCase())),
+      );
+    }
+
+    const modalInvoices = inv.filter((i) => i.tipe === "Modal");
+    const jualInvoices = inv.filter((i) => i.tipe === "Penjualan");
+    const totalModal = modalInvoices.reduce((s, i) => s + i.total, 0);
+    const totalPenjualan = jualInvoices.reduce((s, i) => s + i.total, 0);
+    const margin = totalPenjualan - totalModal;
+    const marginPct = totalPenjualan > 0 ? Math.round((margin / totalPenjualan) * 1000) / 10 : 0;
+
+    // Rekap per item
+    const itemMap = new Map<string, { namaBarang: string; qtyModal: number; qtyJual: number; totalModal: number; totalPenjualan: number }>();
+    for (const i of modalInvoices) {
+      for (const it of i.items) {
+        const e = itemMap.get(it.namaBarang) ?? { namaBarang: it.namaBarang, qtyModal: 0, qtyJual: 0, totalModal: 0, totalPenjualan: 0 };
+        e.qtyModal += it.qty;
+        e.totalModal += it.subtotal;
+        itemMap.set(it.namaBarang, e);
+      }
+    }
+    for (const i of jualInvoices) {
+      for (const it of i.items) {
+        const e = itemMap.get(it.namaBarang) ?? { namaBarang: it.namaBarang, qtyModal: 0, qtyJual: 0, totalModal: 0, totalPenjualan: 0 };
+        e.qtyJual += it.qty;
+        e.totalPenjualan += it.subtotal;
+        itemMap.set(it.namaBarang, e);
+      }
+    }
+    const itemRekap = [...itemMap.values()].sort((a, b) => b.totalPenjualan - a.totalPenjualan);
+
+    // Stok otomatis (stokAwal + Σ riwayat)
+    const net = new Map<string, number>();
+    const masukMap = new Map<string, number>();
+    const keluarMap = new Map<string, number>();
+    for (const h of history) {
+      net.set(h.namaBarang, (net.get(h.namaBarang) ?? 0) + h.perubahan);
+      if (h.perubahan > 0) masukMap.set(h.namaBarang, (masukMap.get(h.namaBarang) ?? 0) + h.perubahan);
+      else keluarMap.set(h.namaBarang, (keluarMap.get(h.namaBarang) ?? 0) + Math.abs(h.perubahan));
+    }
+    const kategoriByNama = new Map<string, string>();
+    for (const b of bahanBaku) kategoriByNama.set(b.nama, b.kategori ?? "");
+    for (const b of barangJadi) kategoriByNama.set(b.nama, b.kategori ?? "");
+    const stokRows = stok
+      .map((b) => ({
+        namaBarang: b.namaBarang,
+        tipe: b.tipe,
+        kategori: kategoriByNama.get(b.namaBarang) ?? "",
+        stokAwal: b.stokAwal,
+        stokMasuk: masukMap.get(b.namaBarang) ?? 0,
+        stokKeluar: keluarMap.get(b.namaBarang) ?? 0,
+        stokAkhir: b.stokAwal + (net.get(b.namaBarang) ?? 0),
+      }))
+      .filter((r) => !kategori || r.kategori.toLowerCase().includes(kategori.toLowerCase()))
+      .sort((a, b) => a.namaBarang.localeCompare(b.namaBarang));
+
+    return {
+      from: from || "",
+      to: to || "",
+      totalModal,
+      totalPenjualan,
+      margin,
+      marginPct,
+      jumlahInvoiceModal: modalInvoices.length,
+      jumlahInvoicePenjualan: jualInvoices.length,
+      rincianModal: modalInvoices
+        .map((i) => ({ idInvoice: i.idInvoice, tanggal: i.tanggal, namaPihak: i.namaPihak, total: i.total, items: i.items }))
+        .sort((a, b) => b.tanggal.localeCompare(a.tanggal)),
+      rincianPenjualan: jualInvoices
+        .map((i) => ({ idInvoice: i.idInvoice, tanggal: i.tanggal, namaPihak: i.namaPihak, total: i.total, items: i.items }))
+        .sort((a, b) => b.tanggal.localeCompare(a.tanggal)),
+      itemRekap,
+      stok: stokRows,
+    };
+  },
+});
+
+// ============================================================================
 // OPERASIONAL LISTS (filter periode)
 // ============================================================================
 

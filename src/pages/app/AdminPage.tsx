@@ -2,17 +2,29 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, CheckCircle2, XCircle, UserCheck } from "lucide-react";
+import {
+  ShieldCheck,
+  ShieldX,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle,
+  UserCheck,
+  UserX,
+  Crown,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SectionCard } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type Akun = {
   id: string;
   phone: string;
   nama: string;
   status: "pending" | "approved" | "rejected";
+  role: "Admin Master" | "Admin";
   createdAt: number;
 };
 
@@ -27,13 +39,15 @@ export default function AdminPage() {
   const raw = useQuery(api.admin.listAkun, token ? { token } : "skip");
   const approve = useMutation(api.admin.approveAkun);
   const reject = useMutation(api.admin.rejectAkun);
+  const kick = useMutation(api.admin.kickAkun);
 
+  const isMaster = session?.role === "Admin Master";
   const akun: Akun[] | undefined = (raw as any)?.map((a: any) => ({ ...a, id: a.phone }));
 
   const totals = {
     pending: (akun ?? []).filter((a) => a.status === "pending").length,
     approved: (akun ?? []).filter((a) => a.status === "approved").length,
-    rejected: (akun ?? []).filter((a) => a.status === "rejected").length,
+    master: (akun ?? []).filter((a) => a.role === "Admin Master").length,
   };
 
   const handleApprove = async (phone: string) => {
@@ -54,6 +68,15 @@ export default function AdminPage() {
     }
   };
 
+  const handleKick = async (phone: string) => {
+    try {
+      await kick({ token: token!, phone });
+      toast.success(`Akun ${phone} di-kick — sesi dicabut`);
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal meng-kick akun");
+    }
+  };
+
   const columns: Column<Akun>[] = [
     {
       key: "phone",
@@ -62,6 +85,22 @@ export default function AdminPage() {
       render: (r) => <span className="font-semibold tabular-nums">{r.phone}</span>,
     },
     { key: "nama", label: "Nama", sortValue: (r) => r.nama, render: (r) => r.nama },
+    {
+      key: "role",
+      label: "Role",
+      render: (r) =>
+        r.role === "Admin Master" ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+            <Crown className="size-3" />
+            Admin Master
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+            <UserCheck className="size-3" />
+            Admin
+          </span>
+        ),
+    },
     {
       key: "status",
       label: "Status",
@@ -79,13 +118,15 @@ export default function AdminPage() {
       align: "right",
       render: (r) => (
         <div className="flex items-center justify-end gap-1.5">
-          {r.status !== "approved" && (
+          {r.phone === session?.phone && <span className="text-[10px] text-muted-foreground">(Anda)</span>}
+          {/* Hanya Admin Master yang boleh setujui/tolak/kick */}
+          {isMaster && r.role !== "Admin Master" && r.status !== "approved" && (
             <Button size="sm" className="h-7 cursor-pointer text-xs" onClick={() => handleApprove(r.phone)}>
               <ShieldCheck className="mr-1 size-3.5" />
               Setujui
             </Button>
           )}
-          {r.status !== "rejected" && (
+          {isMaster && r.role !== "Admin Master" && r.status !== "rejected" && (
             <Button
               size="sm"
               variant="outline"
@@ -96,8 +137,24 @@ export default function AdminPage() {
               Tolak
             </Button>
           )}
-          {r.phone === session?.phone && (
-            <span className="text-[10px] text-muted-foreground">(Anda)</span>
+          {/* Kick: hanya Admin Master, dan Admin Master TIDAK bisa di-kick */}
+          {isMaster && r.role !== "Admin Master" && r.status === "approved" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 cursor-pointer text-xs text-rose-700 hover:bg-rose-50 hover:text-rose-700"
+              title="Cabut sesi & tolak akun ini"
+              onClick={() => handleKick(r.phone)}
+            >
+              <UserX className="mr-1 size-3.5" />
+              Kick
+            </Button>
+          )}
+          {r.role === "Admin Master" && (
+            <span className="inline-flex items-center gap-1 rounded border border-amber-300/60 bg-amber-50/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+              <Lock className="size-3" />
+              Tidak bisa di-kick
+            </span>
           )}
         </div>
       ),
@@ -108,9 +165,20 @@ export default function AdminPage() {
     <div>
       <PageHeader
         title="Admin & Akun"
-        description="Aplikasi privat — hanya admin yang disetujui yang bisa masuk. Setujui/tolak akun admin baru di sini."
+        description={
+          isMaster
+            ? "Aplikasi privat — hanya admin yang disetujui yang bisa masuk. Admin Master punya hak penuh: setujui, tolak, dan kick user lain."
+            : "Aplikasi privat — daftar akun admin. Hanya Admin Master yang bisa menyetujui, menolak, atau meng-kick user."
+        }
         icon={ShieldCheck}
       />
+
+      {!isMaster && (
+        <div className={cn("mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800")}>
+          <ShieldAlert className="size-4 shrink-0" />
+          Anda login sebagai <b>Admin</b>. Pengelolaan akun (setujui/tolak/kick) hanya bisa dilakukan oleh <b>Admin Master</b>.
+        </div>
+      )}
 
       <div className="mb-4 grid grid-cols-3 gap-3 sm:max-w-lg">
         <SectionCard title="Menunggu" className="border-amber-200">
@@ -119,8 +187,8 @@ export default function AdminPage() {
         <SectionCard title="Disetujui" className="border-emerald-200">
           <p className="text-2xl font-bold text-emerald-600 tabular-nums">{totals.approved}</p>
         </SectionCard>
-        <SectionCard title="Ditolak" className="border-rose-200">
-          <p className="text-2xl font-bold text-rose-600 tabular-nums">{totals.rejected}</p>
+        <SectionCard title="Admin Master" className="border-amber-200">
+          <p className="text-2xl font-bold text-amber-600 tabular-nums">{totals.master}</p>
         </SectionCard>
       </div>
 

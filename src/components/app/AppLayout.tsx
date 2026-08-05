@@ -30,6 +30,9 @@ import {
   ShieldCheck,
   Bell,
   AlertTriangle,
+  Droplets,
+  FlaskConical,
+  LineChart,
   type LucideIcon,
 } from "lucide-react";
 import { BrandLockup } from "@/components/Brand";
@@ -68,6 +71,14 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/dashboard/invoice", label: "Invoice", icon: FileText },
       { to: "/dashboard/retur", label: "Retur Barang", icon: Undo2 },
       { to: "/dashboard/pengeluaran", label: "Pengeluaran", icon: ReceiptText },
+    ],
+  },
+  {
+    label: "Tetesan",
+    items: [
+      { to: "/dashboard/tetesan", label: "Invoice Tetesan", icon: Droplets },
+      { to: "/dashboard/master-tetesan", label: "Master Tetesan", icon: FlaskConical },
+      { to: "/dashboard/laporan-tetesan", label: "Laporan Tetesan", icon: LineChart },
     ],
   },
   {
@@ -220,7 +231,7 @@ function TenggatBell() {
                 {items
                   .filter((i) => i.daysLeft < 0)
                   .map((i) => (
-                    <TenggatRow key={`${i.tipe}-${i.idInvoice}`} i={i} overdue />
+                    <TenggatRow key={`${i.tipe}-${i.idInvoice}`} i={i} overdue onClose={() => setOpen(false)} />
                   ))}
                 {soon > 0 && (
                   <p className="pt-1 text-[11px] font-semibold text-amber-600">
@@ -230,7 +241,7 @@ function TenggatBell() {
                 {items
                   .filter((i) => i.daysLeft >= 0)
                   .map((i) => (
-                    <TenggatRow key={`${i.tipe}-${i.idInvoice}`} i={i} />
+                    <TenggatRow key={`${i.tipe}-${i.idInvoice}`} i={i} onClose={() => setOpen(false)} />
                   ))}
               </div>
             )}
@@ -241,7 +252,8 @@ function TenggatBell() {
   );
 }
 
-function TenggatRow({ i, overdue }: { i: any; overdue?: boolean }) {
+function TenggatRow({ i, overdue, onClose }: { i: any; overdue?: boolean; onClose: () => void }) {
+  const navigate = useNavigate();
   const label = overdue
     ? `Terlambat ${Math.abs(i.daysLeft)} hari`
     : i.daysLeft === 0
@@ -251,7 +263,9 @@ function TenggatRow({ i, overdue }: { i: any; overdue?: boolean }) {
     <button
       type="button"
       onClick={() => {
-        window.location.hash = "";
+        // Notifikasi ditekan → langsung ke detail invoice terkait
+        onClose();
+        navigate(`/dashboard/invoice?view=${encodeURIComponent(i.idInvoice)}`);
       }}
       className={cn(
         "flex w-full cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60",

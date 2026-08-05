@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
-import { daysUntil } from "@/lib/business";
+import { daysUntil, formatCurrency, type MataUang } from "@/lib/business";
 import {
   computeInvoiceTotals,
   INVOICE_TIPES,
@@ -101,17 +102,40 @@ export default function InvoicePage() {
   const createInvoice = useMutation(api.business.createInvoice);
   const deleteInvoice = useMutation(api.business.deleteInvoice);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [open, setOpen] = useState(false);
   const [tipe, setTipe] = useState<InvoiceTipe>("Reseller");
   const [tanggal, setTanggal] = useState(todayStr());
   const [idInvoice, setIdInvoice] = useState(() => genId("INV"));
   const [namaPihak, setNamaPihak] = useState("");
   const [tenggat, setTenggat] = useState("");
+  const [mataUang, setMataUang] = useState<MataUang>("Rp");
   const [items, setItems] = useState<InvoiceItem[]>([emptyItem()]);
   const [saving, setSaving] = useState(false);
   const [filterTipe, setFilterTipe] = useState<string>("");
   const [filterPihak, setFilterPihak] = useState<string>("");
   const [printInv, setPrintInv] = useState<any>(null);
+
+  /** Nomor invoice otomatis berikutnya: INV001, INV002, dst (unik). */
+  const nextInvoiceId = useMemo(() => {
+    let max = 0;
+    for (const i of invoices ?? []) {
+      const m = /^INV(\d+)$/i.exec(String(i.idInvoice ?? ""));
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return `INV${String(max + 1).padStart(3, "0")}`;
+  }, [invoices]);
+
+  // Notifikasi tenggat ditekan (AppLayout) → /dashboard/invoice?view=<id> → buka detail
+  useEffect(() => {
+    const view = searchParams.get("view");
+    if (view && invoices) {
+      const found = invoices.find((i: any) => i.idInvoice === view);
+      if (found) setPrintInv(found);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, invoices, setSearchParams]);
 
   const pihakOptions = useMemo(() => {
     if (tipe === "Supplier") return suppliers?.map((s: any) => s.nama) ?? [];
@@ -155,12 +179,33 @@ export default function InvoicePage() {
   const removeRow = (idx: number) =>
     setItems((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
 
+  const openCreate = () => {
+    setTipe("Reseller");
+    setTanggal(todayStr());
+    setIdInvoice(nextInvoiceId);
+    setNamaPihak("");
+    setTenggat("");
+    setMataUang("Rp");
+    setItems([emptyItem()]);
+    setOpen(true);
+  };
+
+  const changeTipe = (t: InvoiceTipe) => {
+    setTipe(t);
+    setNamaPihak("");
+    setTenggat("");
+    // Mata uang khusus Supplier (Rp/$); tipe lain selalu Rp
+    if (t !== "Supplier") setMataUang("Rp");
+    setItems([emptyItem()]);
+  };
+
   const resetForm = () => {
     setTipe("Reseller");
     setTanggal(todayStr());
-    setIdInvoice(genId("INV"));
+    setIdInvoice(nextInvoiceId);
     setNamaPihak("");
     setTenggat("");
+    setMataUang("Rp");
     setItems([emptyItem()]);
   };
 
@@ -189,10 +234,11 @@ export default function InvoicePage() {
           tipe,
           namaPihak,
           tenggat,
+          mataUang,
           items: cleanItems,
         },
       });
-      toast.success(`Invoice ${res.idInvoice} tersimpan — ${formatRupiah(res.totalPenjualan || res.total)}`);
+      toast.success(`Invoice ${res.idInvoice} tersimpan — ${formatCurrency(res.totalPenjualan || res.total, mataUang)}`);
       setOpen(false);
       resetForm();
     } catch (e: any) {
@@ -232,7 +278,9 @@ export default function InvoicePage() {
       align: "right",
       sortValue: (r) => r.totalPenjualan || r.total,
       render: (r) => (
-        <span className="font-medium text-emerald-600 tabular-nums">{formatRupiah(r.totalPenjualan || r.total)}</span>
+        <span className="font-medium text-emerald-600 tabular-nums">
+          {formatCurrency(r.totalPenjualan || r.total, r.mataUang ?? "Rp")}
+        </span>
       ),
     },
     {
@@ -245,7 +293,7 @@ export default function InvoicePage() {
           <span className="text-muted-foreground">—</span>
         ) : (
           <span className={r.margin >= 0 ? "text-sky-600 tabular-nums" : "text-rose-600 tabular-nums"}>
-            {formatRupiah(r.margin)}
+            {formatCurrency(r.margin, r.mataUang ?? "Rp")}
           </span>
         ),
     },
@@ -279,10 +327,10 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier."
         icon={FileText}
         actions={
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="mr-2 size-4" />
             Buat Invoice
           </Button>
@@ -346,15 +394,7 @@ export default function InvoicePage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <Label className="text-xs font-medium">Tipe Invoice *</Label>
-              <Select
-                value={tipe}
-                onValueChange={(v) => {
-                  setTipe(v as InvoiceTipe);
-                  setNamaPihak("");
-                  setTenggat("");
-                  setItems([emptyItem()]);
-                }}
-              >
+              <Select value={tipe} onValueChange={(v) => changeTipe(v as InvoiceTipe)}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue />
                 </SelectTrigger>
@@ -370,6 +410,7 @@ export default function InvoicePage() {
             <div>
               <Label className="text-xs font-medium">No. Invoice *</Label>
               <Input className="mt-1.5" value={idInvoice} onChange={(e) => setIdInvoice(e.target.value)} />
+              <p className="mt-1 text-[11px] text-muted-foreground">Otomatis: {nextInvoiceId} (unik, tidak bisa duplikat)</p>
             </div>
             <div>
               <Label className="text-xs font-medium">Tanggal *</Label>
@@ -395,47 +436,65 @@ export default function InvoicePage() {
                 </datalist>
               </div>
             </div>
-            {(tipe === "Reseller" || tipe === "Supplier") && (
+            {tipe === "Supplier" ? (
               <div>
-                <Label className="text-xs font-medium">
-                  Tenggat Pembayaran <span className="text-muted-foreground">(opsional)</span>
-                </Label>
-                <Input
-                  className="mt-1.5"
-                  type="date"
-                  min={tanggal}
-                  value={tenggat}
-                  onChange={(e) => setTenggat(e.target.value)}
-                />
-                {tenggat && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Notifikasi otomatis H-3 sebelum jatuh tempo.
-                  </p>
-                )}
+                <Label className="text-xs font-medium">Mata Uang *</Label>
+                <Select value={mataUang} onValueChange={(v) => setMataUang(v as MataUang)}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Rp">Rupiah (Rp)</SelectItem>
+                    <SelectItem value="$">Dolar ($)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Khusus Supplier boleh pilih Dolar. Transaksi lain selalu Rupiah.
+                </p>
               </div>
+            ) : (
+              (tipe === "Reseller" || tipe === "DPL") && (
+                <div>
+                  <Label className="text-xs font-medium">
+                    Tenggat Pembayaran <span className="text-muted-foreground">(opsional)</span>
+                  </Label>
+                  <Input
+                    className="mt-1.5"
+                    type="date"
+                    min={tanggal}
+                    value={tenggat}
+                    onChange={(e) => setTenggat(e.target.value)}
+                  />
+                  {tenggat && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Notifikasi otomatis H-3 sebelum jatuh tempo.
+                    </p>
+                  )}
+                </div>
+              )
             )}
           </div>
 
-          {/* Multi-item table */}
+          {/* Multi-item table — responsif (scroll horizontal di layar kecil) */}
           <div className="rounded-lg border">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-[11px] tracking-wide text-muted-foreground uppercase">
-                    <th className="px-2 py-2 font-semibold">Barang</th>
-                    <th className="px-2 py-2 text-right font-semibold">Harga Modal</th>
+                    <th className="min-w-56 px-2 py-2 font-semibold">Barang</th>
+                    <th className="min-w-28 px-2 py-2 text-right font-semibold">Harga Modal</th>
                     {tipe === "Pasar" ? (
                       <>
-                        <th className="px-2 py-2 text-right font-semibold">Stok Awal</th>
-                        <th className="px-2 py-2 text-right font-semibold">Stok Akhir</th>
-                        <th className="px-2 py-2 text-right font-semibold">Terjual</th>
+                        <th className="min-w-24 px-2 py-2 text-right font-semibold">Stok Awal</th>
+                        <th className="min-w-24 px-2 py-2 text-right font-semibold">Stok Akhir</th>
+                        <th className="min-w-20 px-2 py-2 text-right font-semibold">Terjual</th>
                       </>
                     ) : (
-                      <th className="px-2 py-2 text-right font-semibold">Qty</th>
+                      <th className="min-w-24 px-2 py-2 text-right font-semibold">Qty</th>
                     )}
-                    {tipe !== "Supplier" && <th className="px-2 py-2 text-right font-semibold">Harga Jual</th>}
-                    <th className="px-2 py-2 text-right font-semibold">Subtotal</th>
-                    <th className="w-8 px-1 py-2" />
+                    {tipe !== "Supplier" && <th className="min-w-28 px-2 py-2 text-right font-semibold">Harga Jual</th>}
+                    <th className="min-w-32 px-2 py-2 text-right font-semibold">Subtotal</th>
+                    <th className="w-10 px-1 py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -446,7 +505,7 @@ export default function InvoicePage() {
                         <td className="px-2 py-2">
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
                             <Input
-                              className="h-8 w-full sm:w-24"
+                              className="h-8 w-full text-base sm:w-24 sm:text-sm"
                               list={`barang-list-${idx}`}
                               placeholder="Kode"
                               value={it.kodeBarang}
@@ -478,8 +537,9 @@ export default function InvoicePage() {
                         </td>
                         <td className="px-2 py-2">
                           <Input
-                            className="h-8 text-right tabular-nums"
+                            className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                             type="number"
+                            inputMode="decimal"
                             min={0}
                             value={it.hargaModal || ""}
                             onChange={(e) => updateItem(idx, { hargaModal: Number(e.target.value) })}
@@ -489,8 +549,9 @@ export default function InvoicePage() {
                           <>
                             <td className="px-2 py-2">
                               <Input
-                                className="h-8 w-20 text-right tabular-nums"
+                                className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                                 type="number"
+                                inputMode="numeric"
                                 min={1}
                                 value={it.stokAwal || ""}
                                 onChange={(e) => updateItem(idx, { stokAwal: Number(e.target.value), qty: Number(e.target.value) })}
@@ -498,8 +559,9 @@ export default function InvoicePage() {
                             </td>
                             <td className="px-2 py-2">
                               <Input
-                                className="h-8 w-20 text-right tabular-nums"
+                                className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                                 type="number"
+                                inputMode="numeric"
                                 min={0}
                                 value={it.stokAkhir || ""}
                                 onChange={(e) => updateItem(idx, { stokAkhir: Number(e.target.value) })}
@@ -512,8 +574,9 @@ export default function InvoicePage() {
                         ) : (
                           <td className="px-2 py-2">
                             <Input
-                              className="h-8 w-20 text-right tabular-nums"
+                              className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                               type="number"
+                              inputMode="numeric"
                               min={1}
                               value={it.qty || ""}
                               onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
@@ -523,15 +586,18 @@ export default function InvoicePage() {
                         {tipe !== "Supplier" && (
                           <td className="px-2 py-2">
                             <Input
-                              className="h-8 w-28 text-right tabular-nums"
+                              className="h-8 w-full min-w-28 text-base text-right tabular-nums sm:text-sm"
                               type="number"
+                              inputMode="decimal"
                               min={0}
                               value={it.hargaJual || ""}
                               onChange={(e) => updateItem(idx, { hargaJual: Number(e.target.value) })}
                             />
                           </td>
                         )}
-                        <td className="px-2 py-2 text-right font-semibold tabular-nums">{formatRupiah(subtotal)}</td>
+                        <td className="min-w-32 px-2 py-2 text-right font-semibold tabular-nums">
+                          {formatCurrency(subtotal, mataUang)}
+                        </td>
                         <td className="px-1 py-2">
                           <Button variant="ghost" size="icon" className="size-7 text-rose-500" onClick={() => removeRow(idx)}>
                             <Trash2 className="size-3.5" />
@@ -543,31 +609,31 @@ export default function InvoicePage() {
                 </tbody>
               </table>
             </div>
-            <div className="flex items-center justify-between border-t bg-muted/20 px-3 py-2">
+            <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
               <Button variant="outline" size="sm" onClick={addRow}>
                 <Plus className="mr-1.5 size-3.5" />
                 Tambah Barang
               </Button>
               <div className="text-right text-xs">
                 <div className="text-muted-foreground">
-                  Total Modal: <span className="font-semibold text-foreground tabular-nums">{formatRupiah(totals.totalModal)}</span>
+                  Total Modal: <span className="font-semibold text-foreground tabular-nums">{formatCurrency(totals.totalModal, mataUang)}</span>
                 </div>
                 {tipe !== "Supplier" && (
                   <div className="text-muted-foreground">
                     Total Penjualan:{" "}
-                    <span className="font-semibold text-emerald-600 tabular-nums">{formatRupiah(totals.totalPenjualan)}</span>
+                    <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(totals.totalPenjualan, mataUang)}</span>
                   </div>
                 )}
                 {tipe !== "Supplier" && (
                   <div className="text-muted-foreground">
                     Margin:{" "}
                     <span className={totals.margin >= 0 ? "font-semibold text-sky-600 tabular-nums" : "font-semibold text-rose-600 tabular-nums"}>
-                      {formatRupiah(totals.margin)}
+                      {formatCurrency(totals.margin, mataUang)}
                     </span>
                   </div>
                 )}
                 <div className="mt-0.5 text-sm">
-                  Total: <span className="font-bold text-foreground tabular-nums">{formatRupiah(totals.total)}</span>
+                  Total: <span className="font-bold text-foreground tabular-nums">{formatCurrency(totals.total, mataUang)}</span>
                 </div>
               </div>
             </div>
@@ -597,6 +663,7 @@ export default function InvoicePage() {
 }
 
 export function InvoicePrintDoc({ invoice }: { invoice: any }) {
+  const mu: MataUang = invoice.mataUang === "$" ? "$" : "Rp";
   return (
     <div>
       <div className="mb-4 flex items-center justify-between text-sm">
@@ -610,17 +677,21 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-between rounded-md bg-slate-50 px-4 py-3 text-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-4 py-3 text-sm">
         <div>
           <p className="text-xs text-slate-500">Tipe Transaksi</p>
           <p className="font-semibold">{invoice.tipe}</p>
         </div>
-        <div className="text-right">
+        <div>
           <p className="text-xs text-slate-500">Pihak</p>
           <p className="font-semibold">{invoice.namaPihak}</p>
         </div>
+        <div>
+          <p className="text-xs text-slate-500">Mata Uang</p>
+          <p className="font-semibold">{mu}</p>
+        </div>
         {invoice.tenggat && (
-          <div className="text-right">
+          <div>
             <p className="text-xs text-slate-500">Tenggat Pembayaran</p>
             <p className="font-semibold">{formatDate(invoice.tenggat)}</p>
           </div>
@@ -654,8 +725,8 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 <td className="border border-slate-200 px-2 py-1.5">{it.kodeBarang}</td>
                 <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
                 <td className="border border-slate-200 px-2 py-1.5 text-right">{qty}</td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatRupiah(harga)}</td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatRupiah(subtotal)}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(harga, mu)}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(subtotal, mu)}</td>
               </tr>
             );
           })}
@@ -666,21 +737,21 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
         <div className="w-64 space-y-1 text-sm">
           <div className="flex justify-between">
             <span className="text-slate-500">Total Modal</span>
-            <span className="tabular-nums">{formatRupiah(invoice.totalModal)}</span>
+            <span className="tabular-nums">{formatCurrency(invoice.totalModal, mu)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Total Penjualan</span>
-            <span className="tabular-nums">{formatRupiah(invoice.totalPenjualan)}</span>
+            <span className="tabular-nums">{formatCurrency(invoice.totalPenjualan, mu)}</span>
           </div>
           {invoice.tipe !== "Supplier" && (
             <div className="flex justify-between">
               <span className="text-slate-500">Margin</span>
-              <span className="font-semibold text-teal-700 tabular-nums">{formatRupiah(invoice.margin)}</span>
+              <span className="font-semibold text-teal-700 tabular-nums">{formatCurrency(invoice.margin, mu)}</span>
             </div>
           )}
           <div className="flex justify-between border-t border-slate-300 pt-1 text-base font-bold">
             <span>Total</span>
-            <span className="tabular-nums">{formatRupiah(invoice.tipe === "Supplier" ? invoice.total : invoice.totalPenjualan)}</span>
+            <span className="tabular-nums">{formatCurrency(invoice.tipe === "Supplier" ? invoice.total : invoice.totalPenjualan, mu)}</span>
           </div>
         </div>
       </div>
