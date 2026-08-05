@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { FlaskConical, Boxes, Droplets } from "lucide-react";
-import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
+import { PageHeader, SectionCard } from "@/components/app/ui";
 import { MasterCrud } from "@/components/app/MasterCrud";
 import { formatCurrency } from "@/lib/business";
 
