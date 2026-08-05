@@ -18,10 +18,12 @@ import {
   invoiceSchema,
   returSchema,
   kasSchema,
+  absensiSchema,
   slipGajiSchema,
   invoiceTetesanSchema,
   bahanBakuSchema,
   barangJadiSchema,
+  gudangSchema,
 } from "../schemas";
 
 // ============================================================================
@@ -157,7 +159,7 @@ describe("Tenggat & Notifikasi", () => {
 });
 
 // ============================================================================
-// KAS — saldo berjalan, tidak ada duplikasi
+// KAS — saldo berjalan, tidak ada duplikasi, edit & hapus transaksi
 // ============================================================================
 
 describe("Kas Harian", () => {
@@ -177,6 +179,86 @@ describe("Kas Harian", () => {
   it("Kas manual: masuk ATAU keluar, bukan keduanya", () => {
     const ok = validate(kasSchema, { id: "KAS-1", tanggal: "2026-08-04", kasMasuk: 0, kasKeluar: 5000, keterangan: "x" });
     expect(ok.success).toBe(true);
+  });
+
+  it("Hapus transaksi kas → saldo dihitung ulang (uang kembali ke saldo)", () => {
+    const before = computeKasBalances([
+      { id: "KAS-AWAL", tanggal: "2026-08-01", kasMasuk: 10000, kasKeluar: 0, createdAt: 1 },
+      { id: "KAS-M1", tanggal: "2026-08-02", kasMasuk: 0, kasKeluar: 4000, createdAt: 2 },
+      { id: "KAS-M2", tanggal: "2026-08-03", kasMasuk: 2000, kasKeluar: 0, createdAt: 3 },
+    ]);
+    expect(before[before.length - 1].saldoAkhir).toBe(8000);
+    // Hapus KAS-M1 (kas keluar 4.000) → saldo akhir naik kembali 4.000
+    const after = computeKasBalances(
+      before.filter((e) => e.id !== "KAS-M1").map((e) => ({ ...e })),
+    );
+    expect(after[after.length - 1].saldoAkhir).toBe(12000);
+  });
+
+  it("Kas invalid: nominal negatif / tanggal kosong ditolak validator", () => {
+    const neg = validate(kasSchema, { id: "KAS-1", tanggal: "2026-08-04", kasMasuk: -5, kasKeluar: 0 });
+    expect(neg.success).toBe(false);
+    const noTgl = validate(kasSchema, { id: "KAS-2", tanggal: "", kasMasuk: 0, kasKeluar: 1000 });
+    expect(noTgl.success).toBe(false);
+  });
+});
+
+// ============================================================================
+// ABSENSI — edit status & hapus data; validator status kehadiran
+// ============================================================================
+
+describe("Absensi (edit & hapus)", () => {
+  it("Semua status kehadiran valid: Hadir / Izin / Sakit / Alpa", () => {
+    for (const s of ["Hadir", "Izin", "Sakit", "Alpa"]) {
+      const ok = validate(absensiSchema, {
+        id: "ABS-2026-08-04-KRY001",
+        idKaryawan: "KRY001",
+        tanggal: "2026-08-04",
+        status: s,
+      });
+      expect(ok.success).toBe(true);
+    }
+  });
+
+  it("Edit absensi: id sama, status berbeda → tetap valid (upsert)", () => {
+    const base = { id: "ABS-2026-08-04-KRY001", idKaryawan: "KRY001", tanggal: "2026-08-04" };
+    const awalnyaHadir = validate(absensiSchema, { ...base, status: "Hadir", jamMasuk: "08:00", jamKeluar: "17:00" });
+    const diubahAlpa = validate(absensiSchema, { ...base, status: "Alpa" });
+    expect(awalnyaHadir.success).toBe(true);
+    expect(diubahAlpa.success).toBe(true);
+  });
+
+  it("Perubahan status → potongan absensi di slip gaji ikut berubah", () => {
+    const g1 = computeSlipGaji({
+      gajiPokok: 5200000,
+      bonusKerajinan: 0,
+      bonusBulanan: 0,
+      denda: 0,
+      absensi: { hadir: 20, izin: 2, sakit: 1, alpa: 3 },
+      sisaUtang: 0,
+      sisaCasbon: 0,
+    });
+    expect(g1.potonganAbsensi).toBe(1000000); // (alpa 3 + izin 2) × 200.000
+    const g2 = computeSlipGaji({
+      gajiPokok: 5200000,
+      bonusKerajinan: 0,
+      bonusBulanan: 0,
+      denda: 0,
+      absensi: { hadir: 19, izin: 2, sakit: 1, alpa: 4 },
+      sisaUtang: 0,
+      sisaCasbon: 0,
+    });
+    expect(g2.potonganAbsensi).toBe(1200000); // alpa naik 3 → 4
+  });
+
+  it("Status di luar daftar ditolak validator", () => {
+    const r = validate(absensiSchema, {
+      id: "ABS-1",
+      idKaryawan: "KRY001",
+      tanggal: "2026-08-04",
+      status: "Cuti",
+    });
+    expect(r.success).toBe(false);
   });
 });
 
@@ -470,6 +552,53 @@ describe("Tetesan", () => {
     expect(ok.success).toBe(true);
     const noName = validate(barangJadiSchema, { kode: "BJK002", nama: "", hargaJual: 1000 });
     expect(noName.success).toBe(false);
+  });
+
+  it("Invoice Modal Tetesan → stok Gudang berkurang (bahan baku diambil dari gudang)", () => {
+    const rows = computeGudangRows(
+      [{ id: "G1", namaBarang: "Tepung", stokAwal: 100, keterangan: "" }],
+      [
+        { namaBarang: "Tepung", perubahan: -10 }, // Invoice Modal Tetesan TET001
+        { namaBarang: "Tepung", perubahan: -5 }, // Invoice Modal Tetesan TET002
+      ],
+    );
+    expect(rows[0].stokKeluar).toBe(15);
+    expect(rows[0].stokAkhir).toBe(85);
+  });
+
+  it("Invoice Penjualan Tetesan → stok barang jadi berkurang (stokAkhir = stokAwal − qty)", () => {
+    const rows = computeGudangRows(
+      [{ id: "G1", namaBarang: "Abon Ikan", stokAwal: 20, keterangan: "" }],
+      [{ namaBarang: "Abon Ikan", perubahan: -3 }], // Invoice Penjualan TET101
+    );
+    expect(rows[0].stokAkhir).toBe(17);
+  });
+
+  it("Barang dihapus dari master → baris stok-nya hilang dari daftar gudang", () => {
+    const base = [
+      { id: "G1", namaBarang: "Tepung", stokAwal: 100, keterangan: "" },
+      { id: "G2", namaBarang: "Gula", stokAwal: 50, keterangan: "" },
+    ];
+    const history = [
+      { namaBarang: "Tepung", perubahan: -10 },
+      { namaBarang: "Gula", perubahan: +5 },
+    ];
+    // Simulasi purgeStokFor: hapus semua jejak stok "Tepung"
+    const sisaBarang = base.filter((b) => b.namaBarang !== "Tepung");
+    const sisaHistory = history.filter((h) => h.namaBarang !== "Tepung");
+    const rows = computeGudangRows(sisaBarang, sisaHistory);
+    expect(rows.some((r) => r.namaBarang === "Tepung")).toBe(false);
+    expect(rows.map((r) => r.namaBarang)).toEqual(["Gula"]);
+    expect(rows[0].stokAkhir).toBe(55);
+  });
+
+  it("Validator gudang: stok awal ≥ 0, nama barang wajib", () => {
+    const ok = validate(gudangSchema, { id: "GDG-1", namaBarang: "Kopi", stokAwal: 10 });
+    expect(ok.success).toBe(true);
+    const neg = validate(gudangSchema, { id: "GDG-2", namaBarang: "Teh", stokAwal: -1 });
+    expect(neg.success).toBe(false);
+    const noNama = validate(gudangSchema, { id: "GDG-3", namaBarang: "", stokAwal: 0 });
+    expect(noNama.success).toBe(false);
   });
 });
 

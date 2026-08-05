@@ -167,6 +167,23 @@ export async function addStokHistory(
   });
 }
 
+/**
+ * Hapus seluruh jejak stok sebuah barang dari Gudang & Tetesan.
+ * Dipakai ketika barang dihapus dari master data (Barang / Bahan Baku /
+ * Barang Jadi) agar stok-nya otomatis hilang dari Gudang dan daftar stok
+ * Tetesan (baris stok + riwayat perubahan).
+ */
+export async function purgeStokFor(ctx: MutationCtx, namaBarang: string) {
+  const gudang = await findOneByKey(ctx, "gudang", "namaBarang", namaBarang);
+  if (gudang) await ctx.db.delete(gudang._id);
+  const hist = await ctx.db.query("stokHistory").filter((q) => q.eq(q.field("namaBarang"), namaBarang)).collect();
+  for (const h of hist) await ctx.db.delete(h._id);
+  const tStok = await findOneByKey(ctx, "tetesanStok", "namaBarang", namaBarang);
+  if (tStok) await ctx.db.delete(tStok._id);
+  const tHist = await ctx.db.query("tetesanStokHistory").filter((q) => q.eq(q.field("namaBarang"), namaBarang)).collect();
+  for (const h of tHist) await ctx.db.delete(h._id);
+}
+
 export function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);

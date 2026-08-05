@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { Wallet, Plus, ArrowDownCircle, ArrowUpCircle, PiggyBank } from "lucide-react";
+import { Wallet, Plus, ArrowDownCircle, ArrowUpCircle, PiggyBank, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,11 +18,30 @@ import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+/**
+ * Sumber kas yang boleh diedit/dihapus langsung di menu Kas Harian.
+ * Saldo Awal (KAS-AWAL) diatur lewat dialog "Set Saldo Awal"; transaksi
+ * otomatis (invoice/pengeluaran/slip gaji) dihapus dari sumbernya.
+ */
+const isEditable = (sumber?: string) => sumber === "Manual";
 
 export default function KasPage() {
   const kas = useQuery(api.queries.listKas, {});
   const upsertKasManual = useMutation(api.business.upsertKasManual);
   const setSaldoAwalKas = useMutation(api.business.setSaldoAwalKas);
+  const deleteKas = useMutation(api.business.deleteKas);
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"masuk" | "keluar">("masuk");
@@ -30,6 +49,7 @@ export default function KasPage() {
   const [tanggal, setTanggal] = useState(todayStr());
   const [nominal, setNominal] = useState(0);
   const [keterangan, setKeterangan] = useState("");
+  const [editing, setEditing] = useState<any | null>(null);
   const [saldoDialog, setSaldoDialog] = useState(false);
   const [saldoAwal, setSaldoAwal] = useState(0);
   const [from, setFrom] = useState("");
@@ -65,8 +85,9 @@ export default function KasPage() {
           keterangan,
         },
       });
-      toast.success(`Kas ${mode} dicatat`);
+      toast.success(editing ? "Transaksi kas diperbarui — saldo dihitung ulang" : `Kas ${mode} dicatat`);
       setOpen(false);
+      setEditing(null);
       setId(genId("KAS"));
       setNominal(0);
       setKeterangan("");
@@ -74,6 +95,35 @@ export default function KasPage() {
       toast.error(e?.data?.error ?? e?.message ?? "Gagal menyimpan kas");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openNew = () => {
+    setEditing(null);
+    setId(genId("KAS"));
+    setTanggal(todayStr());
+    setMode("masuk");
+    setNominal(0);
+    setKeterangan("");
+    setOpen(true);
+  };
+
+  const startEdit = (r: any) => {
+    setEditing(r);
+    setId(r.id);
+    setTanggal(r.tanggal);
+    setMode(r.kasMasuk > 0 ? "masuk" : "keluar");
+    setNominal(r.kasMasuk > 0 ? r.kasMasuk : r.kasKeluar);
+    setKeterangan(r.keterangan ?? "");
+    setOpen(true);
+  };
+
+  const handleDeleteKas = async (r: any) => {
+    try {
+      await deleteKas({ id: r.id });
+      toast.success("Transaksi kas dihapus — saldo dihitung ulang otomatis");
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus transaksi kas");
     }
   };
 
@@ -125,6 +175,44 @@ export default function KasPage() {
       sortValue: (r) => r.saldoAkhir,
       render: (r) => <span className="font-bold tabular-nums">{formatRupiah(r.saldoAkhir)}</span>,
     },
+    {
+      key: "aksi",
+      label: "",
+      align: "right",
+      render: (r) =>
+        isEditable(r.sumber) ? (
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="ghost" size="icon" className="size-7" title="Edit transaksi" onClick={() => startEdit(r)}>
+              <Pencil className="size-3.5" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-7 text-rose-600 hover:text-rose-600" title="Hapus transaksi">
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Hapus transaksi kas?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Transaksi "{r.keterangan || r.id}" akan dihapus dan saldo kas dihitung ulang — uang otomatis kembali ke saldo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={() => handleDeleteKas(r)}>
+                    Hapus
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        ) : (
+          <span className="text-[10px] text-muted-foreground" title="Transaksi otomatis dihapus dari sumbernya (invoice/pengeluaran/slip gaji)">
+            otomatis
+          </span>
+        ),
+    },
   ];
 
   return (
@@ -139,7 +227,7 @@ export default function KasPage() {
               <PiggyBank className="mr-2 size-4" />
               Set Saldo Awal
             </Button>
-            <Button onClick={() => setOpen(true)}>
+            <Button onClick={openNew}>
               <Plus className="mr-2 size-4" />
               Transaksi Kas Manual
             </Button>
@@ -194,7 +282,7 @@ export default function KasPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Transaksi Kas Manual</DialogTitle>
+            <DialogTitle>{editing ? `Edit Transaksi Kas (${editing.id})` : "Transaksi Kas Manual"}</DialogTitle>
             <DialogDescription>Catat kas masuk atau kas keluar di luar invoice/pengeluaran.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -230,8 +318,8 @@ export default function KasPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleSave} disabled={saving || nominal <= 0}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+            <Button variant="outline" onClick={() => { setOpen(false); setEditing(null); }}>Batal</Button>
+            <Button onClick={handleSave} disabled={saving || nominal <= 0}>{saving ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

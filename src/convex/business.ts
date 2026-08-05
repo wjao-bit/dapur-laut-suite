@@ -13,6 +13,7 @@ import {
   addStokHistory,
   ensureGudangRow,
   monthOf,
+  purgeStokFor,
 } from "./lib";
 import {
   computeInvoiceTotals,
@@ -234,6 +235,16 @@ export const deleteMaster = mutation({
       const kas = await findOneByKey(ctx, "kas", "id", `KAS-PEN-${id}`);
       if (kas) await ctx.db.delete(kas._id);
       await recomputeKas(ctx);
+      logResponse("deleteMaster", { deleted: true, id, table });
+      return { deleted: true, id };
+    }
+
+    // Hapus master barang / bahan baku / barang jadi → stok otomatis hilang
+    // dari Gudang & Tetesan (baris stok + riwayat perubahan).
+    if (table === "barang" || table === "bahanBaku" || table === "barangJadi") {
+      const nama = (existing as any).nama;
+      await ctx.db.delete(existing._id);
+      if (nama) await purgeStokFor(ctx, nama);
       logResponse("deleteMaster", { deleted: true, id, table });
       return { deleted: true, id };
     }
@@ -480,7 +491,7 @@ export const upsertRetur = mutation({
 });
 
 // ============================================================================
-// KAS HARIAN — manual + saldo awal
+// KAS HARIAN — manual + saldo awal + hapus transaksi
 // ============================================================================
 
 export const upsertKasManual = mutation({
@@ -504,6 +515,32 @@ export const upsertKasManual = mutation({
     await recomputeKas(ctx);
     logResponse("upsertKasManual", res);
     return res;
+  },
+});
+
+/**
+ * Hapus transaksi kas harian.
+ * Hanya entri Manual / Saldo Awal yang boleh dihapus langsung; entri otomatis
+ * (invoice, pengeluaran, slip gaji) harus dihapus dari sumbernya agar konsisten.
+ * Saldo otomatis dihitung ulang → uang kembali ke saldo kas.
+ */
+export const deleteKas = mutation({
+  args: { id: v.string() },
+  handler: async (ctx, { id }) => {
+    logRequest("deleteKas", { id });
+    const row = await findOneByKey(ctx, "kas", "id", id);
+    if (!row) return { deleted: false, id };
+    const sumber = (row as any).sumber;
+    if (sumber !== "Manual" && sumber !== "Saldo Awal") {
+      return badRequest(
+        `Transaksi ${sumber} tidak bisa dihapus langsung — hapus dari sumbernya (invoice/pengeluaran/slip gaji)`,
+        { id, sumber },
+      );
+    }
+    await ctx.db.delete(row._id);
+    await recomputeKas(ctx);
+    logResponse("deleteKas", { deleted: true, id });
+    return { deleted: true, id };
   },
 });
 
@@ -862,7 +899,8 @@ export const upsertTetesanStok = mutation({
 
 /**
  * Invoice Tetesan:
- * - Modal     : beli bahan baku (harga modal) → stok Baku bertambah, kas keluar.
+ * - Modal     : beli bahan baku (harga modal) → stok Baku bertambah & stok
+ *   Gudang berkurang (bahan baku diambil dari gudang), kas keluar.
  * - Penjualan : jual barang jadi (harga jual) → stok Jadi berkurang, kas masuk.
  *   Harga modal TIDAK tampil di invoice penjualan (hanya tersimpan di DB).
  */
@@ -918,9 +956,11 @@ export const createInvoiceTetesan = mutation({
     // Efek stok & kas
     // -----------------------------------------------------------------
     if (tipe === "Modal") {
-      // Stok bahan baku bertambah; kas keluar (pembelian)
+      // Stok bahan baku bertambah di Tetesan; stok Gudang berkurang (bahan
+      // baku diambil dari gudang); kas keluar (pembelian)
       for (const it of items) {
         await addTetesanStokHistory(ctx, it.namaBarang, "Baku", d.tanggal, it.qty, "Invoice Modal", `Invoice Modal ${d.idInvoice}`);
+        await addStokHistory(ctx, it.namaBarang, d.tanggal, -it.qty, "Tetesan Modal", `Invoice Modal Tetesan ${d.idInvoice}`);
         const b = await findOneByKey(ctx, "bahanBaku", "kode", it.kodeBarang);
         if (!b) {
           await ctx.db.insert("bahanBaku", {
@@ -974,10 +1014,14 @@ export const deleteInvoiceTetesan = mutation({
     logRequest("deleteInvoiceTetesan", { idInvoice });
     const inv = await findOneByKey(ctx, "invoiceTetesan", "idInvoice", idInvoice);
     if (!inv) return { deleted: false };
-    // Hapus riwayat stok dari invoice ini
+    // Hapus riwayat stok dari invoice ini (stok Tetesan + stok Gudang yang
+    // dibuat invoice Modal → stok gudang kembali normal)
     const allHist = await ctx.db.query("tetesanStokHistory").collect();
     const hist = allHist.filter((h) => (h.keterangan ?? "").includes(idInvoice));
     for (const h of hist) await ctx.db.delete(h._id);
+    const allGudangHist = await ctx.db.query("stokHistory").collect();
+    const gHist = allGudangHist.filter((h) => h.tipe === "Tetesan Modal" && (h.keterangan ?? "").includes(idInvoice));
+    for (const h of gHist) await ctx.db.delete(h._id);
     // Hapus entri kas milik invoice
     const kas = await findOneByKey(ctx, "kas", "id", `KAS-TET-${idInvoice}`);
     if (kas) await ctx.db.delete(kas._id);

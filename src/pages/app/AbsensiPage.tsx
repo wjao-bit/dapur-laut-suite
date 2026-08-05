@@ -2,10 +2,18 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { CalendarCheck, Check, Clock } from "lucide-react";
+import { CalendarCheck, Check, Clock, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -18,6 +26,17 @@ import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatDate, todayStr, thisMonth } from "@/lib/format";
 import { ABSENSI_STATUSES } from "@/lib/business";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_COLOR: Record<string, string> = {
   Hadir: "bg-emerald-600 text-white hover:bg-emerald-700",
@@ -30,6 +49,7 @@ export default function AbsensiPage() {
   const karyawan = useQuery(api.queries.listKaryawan);
   const absensi = useQuery(api.queries.listAbsensi, {});
   const upsertAbsensi = useMutation(api.business.upsertAbsensi);
+  const deleteAbsensi = useMutation(api.business.deleteMaster as any);
 
   const [tanggal, setTanggal] = useState(todayStr());
   const [idKaryawan, setIdKaryawan] = useState("");
@@ -37,6 +57,13 @@ export default function AbsensiPage() {
   const [jamKeluar, setJamKeluar] = useState("17:00");
   const [filterKaryawan, setFilterKaryawan] = useState("");
   const [filterPeriode, setFilterPeriode] = useState(thisMonth());
+
+  // Edit data absensi (status bisa diubah kapan pun → otomatis dipakai slip gaji)
+  const [editRow, setEditRow] = useState<any | null>(null);
+  const [editStatus, setEditStatus] = useState<string>("Hadir");
+  const [editJamMasuk, setEditJamMasuk] = useState("");
+  const [editJamKeluar, setEditJamKeluar] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const filtered = useMemo(() => {
     if (!absensi) return absensi;
@@ -77,12 +104,84 @@ export default function AbsensiPage() {
     }
   };
 
+  const startEdit = (r: any) => {
+    setEditRow(r);
+    setEditStatus(r.status ?? "Hadir");
+    setEditJamMasuk(r.jamMasuk ?? "");
+    setEditJamKeluar(r.jamKeluar ?? "");
+  };
+
+  const saveEdit = async () => {
+    if (!editRow) return;
+    setSavingEdit(true);
+    try {
+      await upsertAbsensi({
+        doc: {
+          id: editRow.id,
+          idKaryawan: editRow.idKaryawan,
+          tanggal: editRow.tanggal,
+          status: editStatus,
+          jamMasuk: editStatus === "Hadir" ? editJamMasuk : "",
+          jamKeluar: editStatus === "Hadir" ? editJamKeluar : "",
+        },
+      });
+      toast.success(`Absensi ${namaKaryawan(editRow.idKaryawan)} diperbarui → ${editStatus}`);
+      setEditRow(null);
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menyimpan perubahan");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (r: any) => {
+    try {
+      await deleteAbsensi({ table: "absensi", id: r.id });
+      toast.success("Data absensi dihapus");
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus absensi");
+    }
+  };
+
   const columns: Column<any>[] = [
     { key: "tanggal", label: "Tanggal", sortValue: (r) => r.tanggal, render: (r) => formatDate(r.tanggal) },
     { key: "idKaryawan", label: "Karyawan", sortValue: (r) => r.idKaryawan, render: (r) => namaKaryawan(r.idKaryawan) },
     { key: "status", label: "Status", render: (r) => <BadgeStatus status={r.status} /> },
     { key: "jamMasuk", label: "Jam Masuk", render: (r) => r.jamMasuk || "—" },
     { key: "jamKeluar", label: "Jam Keluar", render: (r) => r.jamKeluar || "—" },
+    {
+      key: "aksi",
+      label: "",
+      align: "right",
+      render: (r) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="icon" className="size-7" title="Edit / ubah status" onClick={() => startEdit(r)}>
+            <Pencil className="size-3.5" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7 text-rose-600 hover:text-rose-600" title="Hapus">
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus data absensi?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Absensi {namaKaryawan(r.idKaryawan)} tanggal {formatDate(r.tanggal)} akan dihapus. Slip gaji periode itu akan dihitung ulang saat dibuat kembali.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Batal</AlertDialogCancel>
+                <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={() => handleDelete(r)}>
+                  Hapus
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -192,6 +291,61 @@ export default function AbsensiPage() {
           emptyDescription="Gunakan form input cepat di atas untuk mencatat absensi."
         />
       </div>
+
+      {/* Edit / ubah status absensi */}
+      <Dialog open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Absensi</DialogTitle>
+            <DialogDescription>
+              Ubah status kehadiran {editRow ? namaKaryawan(editRow.idKaryawan) : ""} — perubahan otomatis terhubung ke slip gaji.
+            </DialogDescription>
+          </DialogHeader>
+          {editRow && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-medium">Karyawan</Label>
+                  <Input className="mt-1.5" value={namaKaryawan(editRow.idKaryawan)} disabled />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">Tanggal</Label>
+                  <Input className="mt-1.5" value={formatDate(editRow.tanggal)} disabled />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Status *</Label>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ABSENSI_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {editStatus === "Hadir" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Jam Masuk</Label>
+                    <Input type="time" className="mt-1.5" value={editJamMasuk} onChange={(e) => setEditJamMasuk(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Jam Keluar</Label>
+                    <Input type="time" className="mt-1.5" value={editJamKeluar} onChange={(e) => setEditJamKeluar(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRow(null)}>Batal</Button>
+            <Button onClick={saveEdit} disabled={savingEdit}>{savingEdit ? "Menyimpan..." : "Simpan Perubahan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
