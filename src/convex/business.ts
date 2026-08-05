@@ -8,6 +8,7 @@ import {
   logRequest,
   logResponse,
   recordKas,
+  recomputeKas,
   upsertByKey,
   addStokHistory,
   ensureGudangRow,
@@ -16,10 +17,13 @@ import {
 import {
   computeInvoiceTotals,
   computeSlipGaji,
+  computeTetesanTotals,
   countAbsensi,
   todayStr,
   type InvoiceItem,
   type InvoiceTipe,
+  type TetesanItem,
+  type TetesanTipe,
 } from "../lib/business";
 import {
   validate,
@@ -151,9 +155,12 @@ export const deleteMaster = mutation({
   args: { table: v.string(), id: v.string() },
   handler: async (ctx, { table, id }) => {
     logRequest("deleteMaster", { table, id });
-    const validTables = ["barang", "supplier", "reseller", "dpl", "pasar", "karyawan", "absensi", "utang", "retur", "pengeluaran", "gudang", "slipgaji"] as const;
+    const validTables = [
+      "barang", "supplier", "reseller", "dpl", "pasar", "karyawan", "absensi", "utang",
+      "retur", "pengeluaran", "gudang", "slipgaji", "bahanBaku", "barangJadi",
+    ] as const;
     if (!(validTables as readonly string[]).includes(table)) return badRequest("Tabel tidak dikenal", { table });
-    const keyField = table === "barang" ? "kode" : table === "gudang" ? "namaBarang" : "id";
+    const keyField = table === "barang" || table === "bahanBaku" || table === "barangJadi" ? "kode" : table === "gudang" ? "namaBarang" : "id";
     const existing = await findOneByKey(ctx, table as any, keyField as any, id);
     if (!existing) return { deleted: false, id };
 
@@ -177,7 +184,7 @@ export const deleteMaster = mutation({
       }
       const kas = await findOneByKey(ctx, "kas", "id", `KAS-PEN-${id}`);
       if (kas) await ctx.db.delete(kas._id);
-      await recomputeKasAfterDelete(ctx);
+      await recomputeKas(ctx);
       logResponse("deleteMaster", { deleted: true, id, table });
       return { deleted: true, id };
     }
@@ -276,7 +283,7 @@ export const bayarUtang = mutation({
 });
 
 // ============================================================================
-// INVOICE (multi-barang) — efek stok + kas otomatis
+// INVOICE (multi-barang) — efek stok + kas otomatis; mataUang Rp/$ (Supplier)
 // ============================================================================
 
 export const createInvoice = mutation({
@@ -287,6 +294,7 @@ export const createInvoice = mutation({
     if (!parsed.success) return badRequest("Payload invoice tidak sesuai schema", parsed.errors);
     const d = parsed.data;
     const totals = computeInvoiceTotals(d.tipe as InvoiceTipe, d.items as InvoiceItem[]);
+    const mataUang = (doc as any)?.mataUang === "$" ? "$" : "Rp"; // default Rupiah; Supplier bisa pilih "$"
 
     const existing = await findOneByKey(ctx, "invoice", "idInvoice", d.idInvoice);
     const id: Id<"invoice"> | undefined = existing ? (existing._id as Id<"invoice">) : undefined;
@@ -298,6 +306,7 @@ export const createInvoice = mutation({
         tipe: d.tipe as InvoiceTipe,
         namaPihak: d.namaPihak,
         tenggat: d.tenggat ?? "",
+        mataUang,
         items: d.items,
         total: totals.total,
         totalModal: totals.totalModal,
@@ -311,6 +320,7 @@ export const createInvoice = mutation({
         tipe: d.tipe as InvoiceTipe,
         namaPihak: d.namaPihak,
         tenggat: d.tenggat ?? "",
+        mataUang,
         items: d.items,
         total: totals.total,
         totalModal: totals.totalModal,
@@ -377,8 +387,6 @@ export const deleteInvoice = mutation({
     const inv = await findOneByKey(ctx, "invoice", "idInvoice", idInvoice);
     if (!inv) return { deleted: false };
     // Hapus riwayat stok yang berasal dari invoice ini.
-    // Supplier/Reseller/DPL memakai keterangan "Invoice <id>";
-    // Pasar memakai "Kirim stok awal ... (<id>)" / "Stok akhir kembali ... (<id>)".
     const allHist = await ctx.db.query("stokHistory").collect();
     const hist = allHist.filter(
       (h) =>
@@ -389,17 +397,12 @@ export const deleteInvoice = mutation({
     // Hapus entri kas milik invoice
     const kas = await findOneByKey(ctx, "kas", "id", `INV-${idInvoice}`);
     if (kas) await ctx.db.delete(kas._id);
-    await recomputeKasAfterDelete(ctx);
+    await recomputeKas(ctx);
     await ctx.db.delete(inv._id);
     logResponse("deleteInvoice", { deleted: true });
     return { deleted: true };
   },
 });
-
-async function recomputeKasAfterDelete(ctx: any) {
-  const { recomputeKas } = await import("./lib");
-  await recomputeKas(ctx);
-}
 
 // ============================================================================
 // RETUR — otomatis menambah stok ke Gudang
@@ -449,7 +452,7 @@ export const upsertKasManual = mutation({
       keterangan: d.keterangan ?? "",
       sumber: "Manual",
     });
-    await recomputeKasAfterDelete(ctx);
+    await recomputeKas(ctx);
     logResponse("upsertKasManual", res);
     return res;
   },
@@ -476,7 +479,7 @@ export const setSaldoAwalKas = mutation({
         sumber: "Saldo Awal",
       });
     }
-    await recomputeKasAfterDelete(ctx);
+    await recomputeKas(ctx);
     logResponse("setSaldoAwalKas", { ok: true });
     return { ok: true };
   },
@@ -589,7 +592,6 @@ export const adjustStok = mutation({
 // SLIP GAJI — tarik absensi, utang, casbon; bonus & denda; hitung gaji bersih
 // GajiBersih = GajiPokok − PotonganAbsensi + BonusKerajinan + BonusBulanan
 //              − (PotonganUtang + PotonganCasbon + Denda)
-// Potongan utang/casbon otomatis dari sisa, bisa dioverride manual per slip.
 // ============================================================================
 
 export const createSlipGaji = mutation({
@@ -703,5 +705,236 @@ export const createSlipGaji = mutation({
       sisaUtangAkhir: gaji.sisaUtangAkhir,
       sisaCasbonAkhir: gaji.sisaCasbonAkhir,
     };
+  },
+});
+
+// ============================================================================
+// MENU TETESAN — Master Bahan Baku, Barang Jadi, Invoice Modal/Penjualan, Stok
+// ============================================================================
+
+/** Pastikan baris stok tetesan ada (bila belum, buat dengan stokAwal master). */
+async function ensureTetesanStokRow(ctx: any, namaBarang: string, tipe: "Baku" | "Jadi", stokAwal = 0) {
+  const existing = await findOneByKey(ctx, "tetesanStok", "namaBarang", namaBarang);
+  if (!existing) {
+    await ctx.db.insert("tetesanStok", {
+      id: `TSTK-${Date.now().toString(36).toUpperCase()}`,
+      namaBarang,
+      tipe,
+      stokAwal,
+      keterangan: "",
+    });
+  }
+}
+
+/** Tambah riwayat stok tetesan + pastikan baris ada. */
+async function addTetesanStokHistory(
+  ctx: any,
+  namaBarang: string,
+  tipe: "Baku" | "Jadi",
+  tanggal: string,
+  perubahan: number,
+  asal: string,
+  keterangan?: string,
+) {
+  await ensureTetesanStokRow(ctx, namaBarang, tipe);
+  await ctx.db.insert("tetesanStokHistory", {
+    id: `TSTK-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+    tanggal,
+    namaBarang,
+    perubahan,
+    tipe: asal,
+    keterangan: keterangan ?? "",
+  });
+}
+
+/** Validasi ringan payload tetesan (zod penuh ada di lib/schemas). */
+function tetesanDoc(doc: unknown): any {
+  if (!doc || typeof doc !== "object") return badRequest("Payload tidak sesuai schema", { doc });
+  return doc as any;
+}
+
+export const upsertBahanBaku = mutation({
+  args: { doc: v.any() },
+  handler: async (ctx, { doc }) => {
+    logRequest("upsertBahanBaku", doc);
+    const d = tetesanDoc(doc);
+    if (!d.kode || !d.nama) return badRequest("Kode & nama bahan baku wajib diisi");
+    if ((Number(d.hargaModal) || 0) < 0) return badRequest("Harga modal tidak boleh negatif");
+    const res = await upsertByKey(ctx, "bahanBaku", "kode", d.kode, {
+      nama: d.nama,
+      hargaModal: Number(d.hargaModal) || 0,
+      stokAwal: Number(d.stokAwal) || 0,
+      kategori: d.kategori ?? "",
+    });
+    await ensureTetesanStokRow(ctx, d.nama, "Baku", Number(d.stokAwal) || 0);
+    logResponse("upsertBahanBaku", res);
+    return res;
+  },
+});
+
+export const upsertBarangJadi = mutation({
+  args: { doc: v.any() },
+  handler: async (ctx, { doc }) => {
+    logRequest("upsertBarangJadi", doc);
+    const d = tetesanDoc(doc);
+    if (!d.kode || !d.nama) return badRequest("Kode & nama barang jadi wajib diisi");
+    if ((Number(d.hargaJual) || 0) < 0) return badRequest("Harga jual tidak boleh negatif");
+    const res = await upsertByKey(ctx, "barangJadi", "kode", d.kode, {
+      nama: d.nama,
+      hargaJual: Number(d.hargaJual) || 0,
+      stokAwal: Number(d.stokAwal) || 0,
+      kategori: d.kategori ?? "",
+    });
+    await ensureTetesanStokRow(ctx, d.nama, "Jadi", Number(d.stokAwal) || 0);
+    logResponse("upsertBarangJadi", res);
+    return res;
+  },
+});
+
+/** Setting stok awal barang Tetesan (Baku/Jadi) dengan tanggal. */
+export const upsertTetesanStok = mutation({
+  args: { doc: v.any() },
+  handler: async (ctx, { doc }) => {
+    logRequest("upsertTetesanStok", doc);
+    const d = tetesanDoc(doc);
+    if (!d.namaBarang) return badRequest("Nama barang wajib diisi");
+    if ((Number(d.stokAwal) || 0) < 0) return badRequest("Stok awal tidak boleh negatif");
+    const res = await upsertByKey(ctx, "tetesanStok", "namaBarang", d.namaBarang, {
+      id: d.id ?? `TSTK-${Date.now().toString(36).toUpperCase()}`,
+      tipe: d.tipe === "Jadi" ? "Jadi" : "Baku",
+      stokAwal: Number(d.stokAwal) || 0,
+      tanggalStokAwal: d.tanggalStokAwal ?? "",
+      keterangan: d.keterangan ?? "",
+    });
+    logResponse("upsertTetesanStok", res);
+    return res;
+  },
+});
+
+/**
+ * Invoice Tetesan:
+ * - Modal     : beli bahan baku (harga modal) → stok Baku bertambah, kas keluar.
+ * - Penjualan : jual barang jadi (harga jual) → stok Jadi berkurang, kas masuk.
+ *   Harga modal TIDAK tampil di invoice penjualan (hanya tersimpan di DB).
+ */
+export const createInvoiceTetesan = mutation({
+  args: { doc: v.any() },
+  handler: async (ctx, { doc }) => {
+    logRequest("createInvoiceTetesan", doc);
+    const d = tetesanDoc(doc);
+    if (!d.idInvoice || !d.tanggal || !d.namaPihak) {
+      return badRequest("Payload invoice tetesan tidak sesuai schema — butuh idInvoice, tanggal, namaPihak");
+    }
+    const tipe: TetesanTipe = d.tipe === "Penjualan" ? "Penjualan" : "Modal";
+    const items: TetesanItem[] = Array.isArray(d.items)
+      ? d.items.map((it: any) => ({
+          kodeBarang: String(it.kodeBarang ?? ""),
+          namaBarang: String(it.namaBarang ?? ""),
+          harga: Number(it.harga) || 0,
+          qty: Number(it.qty) || 0,
+          subtotal: Number(it.subtotal) || 0,
+        }))
+      : [];
+    if (items.length === 0) return badRequest("Invoice minimal berisi 1 barang");
+    for (const it of items) {
+      if (!it.kodeBarang || !it.namaBarang) return badRequest("Kode & nama barang wajib diisi", { item: it });
+      if (it.qty <= 0) return badRequest("Qty harus lebih dari 0", { item: it });
+    }
+    const mataUang = d.mataUang === "$" ? "$" : "Rp";
+    const totals = computeTetesanTotals(tipe, items);
+
+    const existing = await findOneByKey(ctx, "invoiceTetesan", "idInvoice", d.idInvoice);
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        tanggal: d.tanggal,
+        tipe,
+        namaPihak: d.namaPihak,
+        mataUang,
+        items,
+        total: totals.total,
+      });
+    } else {
+      await ctx.db.insert("invoiceTetesan", {
+        idInvoice: d.idInvoice,
+        tanggal: d.tanggal,
+        tipe,
+        namaPihak: d.namaPihak,
+        mataUang,
+        items,
+        total: totals.total,
+      });
+    }
+
+    // -----------------------------------------------------------------
+    // Efek stok & kas
+    // -----------------------------------------------------------------
+    if (tipe === "Modal") {
+      // Stok bahan baku bertambah; kas keluar (pembelian)
+      for (const it of items) {
+        await addTetesanStokHistory(ctx, it.namaBarang, "Baku", d.tanggal, it.qty, "Invoice Modal", `Invoice Modal ${d.idInvoice}`);
+        const b = await findOneByKey(ctx, "bahanBaku", "kode", it.kodeBarang);
+        if (!b) {
+          await ctx.db.insert("bahanBaku", {
+            kode: it.kodeBarang,
+            nama: it.namaBarang,
+            hargaModal: it.harga,
+            stokAwal: 0,
+            kategori: "",
+          });
+        }
+      }
+      await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, 0, totals.total, `Invoice Modal Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Modal Tetesan");
+    } else {
+      // Stok barang jadi berkurang; validasi stok cukup; kas masuk (penjualan)
+      for (const it of items) {
+        const cur = await currentTetesanStok(ctx, it.namaBarang);
+        if (cur < it.qty) {
+          return badRequest(`Stok "${it.namaBarang}" tidak mencukupi (tersedia ${cur}, diminta ${it.qty})`, { item: it });
+        }
+        await addTetesanStokHistory(ctx, it.namaBarang, "Jadi", d.tanggal, -it.qty, "Invoice Penjualan", `Invoice Penjualan ${d.idInvoice}`);
+        const b = await findOneByKey(ctx, "barangJadi", "kode", it.kodeBarang);
+        if (!b) {
+          await ctx.db.insert("barangJadi", {
+            kode: it.kodeBarang,
+            nama: it.namaBarang,
+            hargaJual: it.harga,
+            stokAwal: 0,
+            kategori: "",
+          });
+        }
+      }
+      await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, totals.total, 0, `Invoice Penjualan Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Penjualan Tetesan");
+    }
+
+    logResponse("createInvoiceTetesan", { idInvoice: d.idInvoice, total: totals.total });
+    return { idInvoice: d.idInvoice, total: totals.total };
+  },
+});
+
+/** Stok tetesan saat ini = stokAwal + Σ riwayat. */
+async function currentTetesanStok(ctx: any, namaBarang: string): Promise<number> {
+  const row = await findOneByKey(ctx, "tetesanStok", "namaBarang", namaBarang);
+  const history = await ctx.db.query("tetesanStokHistory").filter((q: any) => q.eq(q.field("namaBarang"), namaBarang)).collect();
+  const net = history.reduce((s: number, h: any) => s + (h.perubahan || 0), 0);
+  return (row?.stokAwal ?? 0) + net;
+}
+
+export const deleteInvoiceTetesan = mutation({
+  args: { idInvoice: v.string() },
+  handler: async (ctx, { idInvoice }) => {
+    logRequest("deleteInvoiceTetesan", { idInvoice });
+    const inv = await findOneByKey(ctx, "invoiceTetesan", "idInvoice", idInvoice);
+    if (!inv) return { deleted: false };
+    // Hapus riwayat stok dari invoice ini
+    const allHist = await ctx.db.query("tetesanStokHistory").collect();
+    const hist = allHist.filter((h) => (h.keterangan ?? "").includes(idInvoice));
+    for (const h of hist) await ctx.db.delete(h._id);
+    // Hapus entri kas milik invoice
+    const kas = await findOneByKey(ctx, "kas", "id", `KAS-TET-${idInvoice}`);
+    if (kas) await ctx.db.delete(kas._id);
+    await recomputeKas(ctx);
+    await ctx.db.delete(inv._id);
+    logResponse("deleteInvoiceTetesan", { deleted: true });
+    return { deleted: true };
   },
 });

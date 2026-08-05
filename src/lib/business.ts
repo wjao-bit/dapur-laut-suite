@@ -6,6 +6,9 @@
 export type InvoiceTipe = "Supplier" | "Reseller" | "DPL" | "Pasar";
 export const INVOICE_TIPES: InvoiceTipe[] = ["Supplier", "Reseller", "DPL", "Pasar"];
 
+export type MataUang = "Rp" | "$";
+export const MATA_UANG: MataUang[] = ["Rp", "$"];
+
 export type AbsensiStatus = "Hadir" | "Izin" | "Sakit" | "Alpa";
 export const ABSENSI_STATUSES: AbsensiStatus[] = ["Hadir", "Izin", "Sakit", "Alpa"];
 
@@ -63,6 +66,55 @@ export function computeInvoiceTotals(tipe: InvoiceTipe, items: InvoiceItem[]): I
   }
   const total = tipe === "Supplier" ? totalModal : totalPenjualan;
   return { total, totalModal, totalPenjualan, margin: totalPenjualan - totalModal };
+}
+
+// ============================================================================
+// TETESAN — invoice modal (bahan baku) & invoice penjualan (barang jadi)
+// ============================================================================
+
+export type TetesanTipe = "Modal" | "Penjualan";
+export const TETESAN_TIPES: TetesanTipe[] = ["Modal", "Penjualan"];
+
+export type TetesanTipeBarang = "Baku" | "Jadi";
+export const TETESAN_TIPE_BARANG: TetesanTipeBarang[] = ["Baku", "Jadi"];
+
+export interface TetesanItem {
+  kodeBarang: string;
+  namaBarang: string;
+  /** Harga modal (Invoice Modal) atau harga jual (Invoice Penjualan) */
+  harga: number;
+  qty: number;
+  subtotal: number;
+}
+
+export interface TetesanTotals {
+  total: number;
+}
+
+/**
+ * Total invoice tetesan = Σ harga × qty.
+ * - Modal     : harga = harga modal per item (bahan baku)
+ * - Penjualan : harga = harga jual per item (barang jadi)
+ */
+export function computeTetesanTotals(tipe: TetesanTipe, items: TetesanItem[]): TetesanTotals {
+  const total = items.reduce((s, it) => s + (it.harga || 0) * Math.max(0, it.qty || 0), 0);
+  return { total };
+}
+
+/** Format nilai sesuai mata uang: Rp → Rupiah, $ → Dolar AS. */
+export function formatCurrency(n: number, mataUang: MataUang = "Rp"): string {
+  if (mataUang === "$") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }).format(n || 0);
+  }
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(n || 0);
 }
 
 export interface AbsensiCounts {

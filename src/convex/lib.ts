@@ -23,13 +23,33 @@ export function genBusinessId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 }
 
+type BusinessTable =
+  | "barang"
+  | "supplier"
+  | "reseller"
+  | "dpl"
+  | "pasar"
+  | "karyawan"
+  | "absensi"
+  | "utang"
+  | "invoice"
+  | "retur"
+  | "kas"
+  | "slipgaji"
+  | "gudang"
+  | "pengeluaran"
+  | "bahanBaku"
+  | "barangJadi"
+  | "tetesanStok"
+  | "invoiceTetesan";
+
 /**
  * Upsert dengan semantik PRIMARY KEY/UNIQUE: cari dokumen berdasarkan kolom
  * kunci bisnis; jika ada → patch, jika tidak → insert. Setara ON CONFLICT DO UPDATE.
  */
 export async function upsertByKey<T extends { _id: string }>(
   ctx: MutationCtx,
-  table: "barang" | "supplier" | "reseller" | "dpl" | "pasar" | "karyawan" | "absensi" | "utang" | "invoice" | "retur" | "kas" | "slipgaji" | "gudang" | "pengeluaran",
+  table: BusinessTable,
   keyField: "kode" | "id" | "idInvoice" | "namaBarang",
   keyValue: string,
   doc: Record<string, unknown>,
@@ -48,7 +68,7 @@ export async function upsertByKey<T extends { _id: string }>(
 /** Cari dokumen berdasarkan kunci bisnis (untuk query). */
 export async function findOneByKey(
   ctx: QueryCtx,
-  table: "barang" | "supplier" | "reseller" | "dpl" | "pasar" | "karyawan" | "absensi" | "utang" | "invoice" | "retur" | "kas" | "slipgaji" | "gudang" | "pengeluaran",
+  table: BusinessTable,
   keyField: "kode" | "id" | "idInvoice" | "namaBarang",
   keyValue: string,
 ) {

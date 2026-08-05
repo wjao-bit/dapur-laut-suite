@@ -27,6 +27,10 @@ export const PENGELUARAN_JENISES = [
   "Lainnya",
 ] as const;
 
+export const MATA_UANG = ["Rp", "$"] as const;
+export const TETESAN_TIPES = ["Modal", "Penjualan"] as const;
+export const TETESAN_TIPE_BARANG = ["Baku", "Jadi"] as const;
+
 const schema = defineSchema(
   {
     ...authTables, // jangan dihapus
@@ -127,13 +131,14 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"]),
 
     // ------------------------------------------------------------------ 9.
-    // Invoice (multi-barang) — idInvoice UNIQUE
+    // Invoice (multi-barang) — idInvoice UNIQUE, mataUang default "Rp"
     invoice: defineTable({
       idInvoice: v.string(), // UNIQUE
       tanggal: v.string(),
       tipe: v.union(v.literal("Supplier"), v.literal("Reseller"), v.literal("DPL"), v.literal("Pasar")),
       namaPihak: v.string(),
       tenggat: v.optional(v.string()), // jatuh tempo pembayaran (manual input)
+      mataUang: v.union(v.literal("Rp"), v.literal("$")), // default "Rp"; Supplier bisa pilih "$"
       items: v.array(
         v.object({
           kodeBarang: v.string(),
@@ -246,12 +251,14 @@ const schema = defineSchema(
       .index("by_jenis", ["jenis"]),
 
     // ------------------------------------------------------------------ 15.
-    // Akun Admin — login nomor HP + password, wajib disetujui admin
+    // Akun Admin — login nomor HP + password, wajib disetujui admin.
+    // Role: "Admin Master" (penuh) atau "Admin" (biasa).
     akun: defineTable({
       id: v.string(), // nomor HP (PRIMARY KEY / UNIQUE)
       nama: v.string(),
       password: v.string(), // hash SHA-256
       status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+      role: v.optional(v.string()), // "Admin Master" | "Admin"
       createdAt: v.number(),
     }).index("by_bisnis_id", ["id"]),
 
@@ -261,7 +268,75 @@ const schema = defineSchema(
       token: v.string(),
       phone: v.string(),
       createdAt: v.number(),
-    }).index("by_token", ["token"]),
+    })
+      .index("by_token", ["token"])
+      .index("by_phone", ["phone"]),
+
+    // ====================================================================
+    // MENU TETESAN — bahan baku, barang jadi, invoice modal/penjualan, stok
+    // ====================================================================
+
+    // Master Data Bahan Baku (modal)
+    bahanBaku: defineTable({
+      kode: v.string(), // unique
+      nama: v.string(),
+      hargaModal: v.number(),
+      stokAwal: v.number(),
+      kategori: v.optional(v.string()),
+    }).index("by_kode", ["kode"]),
+
+    // Master Data Barang Jadi (penjualan)
+    barangJadi: defineTable({
+      kode: v.string(), // unique
+      nama: v.string(),
+      hargaJual: v.number(),
+      stokAwal: v.number(),
+      kategori: v.optional(v.string()),
+    }).index("by_kode", ["kode"]),
+
+    // Invoice Tetesan — tipe Modal / Penjualan (idInvoice UNIQUE)
+    invoiceTetesan: defineTable({
+      idInvoice: v.string(), // UNIQUE
+      tanggal: v.string(),
+      tipe: v.union(v.literal("Modal"), v.literal("Penjualan")),
+      namaPihak: v.string(),
+      mataUang: v.union(v.literal("Rp"), v.literal("$")),
+      items: v.array(
+        v.object({
+          kodeBarang: v.string(),
+          namaBarang: v.string(),
+          harga: v.number(), // harga modal (Modal) / harga jual (Penjualan)
+          qty: v.number(),
+          subtotal: v.number(),
+        }),
+      ),
+      total: v.number(),
+    })
+      .index("by_idInvoice", ["idInvoice"])
+      .index("by_tanggal", ["tanggal"])
+      .index("by_tipe", ["tipe"]),
+
+    // Stok Tetesan — satu baris per nama barang (tipe: Baku | Jadi)
+    tetesanStok: defineTable({
+      id: v.string(), // IDTetesanStok
+      namaBarang: v.string(), // unique per barang
+      tipe: v.union(v.literal("Baku"), v.literal("Jadi")),
+      stokAwal: v.number(),
+      tanggalStokAwal: v.optional(v.string()),
+      keterangan: v.optional(v.string()),
+    }).index("by_namaBarang", ["namaBarang"]),
+
+    // Riwayat perubahan stok tetesan (asal: Invoice Modal / Invoice Penjualan / Stok Awal / Manual)
+    tetesanStokHistory: defineTable({
+      id: v.string(),
+      tanggal: v.string(),
+      namaBarang: v.string(),
+      perubahan: v.number(), // +masuk / -keluar
+      tipe: v.string(), // asal perubahan
+      keterangan: v.optional(v.string()),
+    })
+      .index("by_namaBarang", ["namaBarang"])
+      .index("by_tanggal", ["tanggal"]),
   },
   { schemaValidation: false },
 );

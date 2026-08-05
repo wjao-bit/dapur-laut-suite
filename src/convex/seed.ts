@@ -115,6 +115,7 @@ export const seedDemo = mutation({
       idInvoice: "INV001",
       tanggal: t,
       tipe: "Supplier",
+      mataUang: "Rp",
       namaPihak: "CV Samudra Jaya",
       items: [
         { kodeBarang: "BRG001", namaBarang: "Kopi Bubuk", hargaModal: 25000, qty: 10, subtotal: 250000 },
@@ -134,6 +135,7 @@ export const seedDemo = mutation({
       idInvoice: "INV002",
       tanggal: t,
       tipe: "Reseller",
+      mataUang: "Rp",
       namaPihak: "Reseller A",
       items: [
         { kodeBarang: "BRG001", namaBarang: "Kopi Bubuk", hargaModal: 25000, qty: 4, hargaJual: 28000, subtotal: 112000 },
@@ -153,6 +155,7 @@ export const seedDemo = mutation({
       idInvoice: "INV003",
       tanggal: t,
       tipe: "DPL",
+      mataUang: "Rp",
       namaPihak: "Pasar Induk Kramat Jati",
       items: [
         { kodeBarang: "BRG003", namaBarang: "Ikan Tuna Segar", hargaModal: 55000, qty: 20, hargaJual: 65000, subtotal: 1300000 },
@@ -170,6 +173,7 @@ export const seedDemo = mutation({
       idInvoice: "INV004",
       tanggal: t,
       tipe: "Pasar",
+      mataUang: "Rp",
       namaPihak: "Victoria",
       items: [
         { kodeBarang: "BRG004", namaBarang: "Udang Vannamei", hargaModal: 75000, qty: 30, hargaJual: 95000, stokAwal: 30, stokAkhir: 5, subtotal: 2375000 },

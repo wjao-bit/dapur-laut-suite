@@ -111,6 +111,8 @@ export const invoiceSchema = z
     tipe: z.enum(INVOICE_TIPES as [string, ...string[]]),
     namaPihak: z.string().min(1, "Nama pihak wajib diisi"),
     tenggat: tanggalSchema.optional().default(""),
+    // Mata uang: default Rupiah (Rp); khusus Supplier bisa pilih Dolar ($)
+    mataUang: z.enum(["Rp", "$"]).default("Rp"),
     items: z.array(invoiceItemSchema).min(1, "Invoice minimal berisi 1 barang"),
   })
   .superRefine((data, ctx) => {
@@ -207,6 +209,52 @@ export const slipGajiSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// TETESAN — bahan baku, barang jadi, stok, invoice modal & penjualan
+// ---------------------------------------------------------------------------
+
+export const bahanBakuSchema = z.object({
+  kode: idSchema,
+  nama: z.string().min(1, "Nama bahan baku wajib diisi"),
+  hargaModal: z.number().min(0, "Harga modal tidak boleh negatif"),
+  stokAwal: z.number().min(0).default(0),
+  kategori: z.string().optional().default(""),
+});
+
+export const barangJadiSchema = z.object({
+  kode: idSchema,
+  nama: z.string().min(1, "Nama barang jadi wajib diisi"),
+  hargaJual: z.number().min(0, "Harga jual tidak boleh negatif"),
+  stokAwal: z.number().min(0).default(0),
+  kategori: z.string().optional().default(""),
+});
+
+export const tetesanStokSchema = z.object({
+  id: idSchema,
+  namaBarang: z.string().min(1, "Nama barang wajib diisi"),
+  tipe: z.enum(["Baku", "Jadi"]),
+  stokAwal: z.number().min(0).default(0),
+  tanggalStokAwal: tanggalSchema.optional().default(""),
+  keterangan: z.string().optional().default(""),
+});
+
+export const tetesanItemSchema = z.object({
+  kodeBarang: z.string().min(1, "Kode barang wajib diisi"),
+  namaBarang: z.string().min(1, "Nama barang wajib diisi"),
+  harga: z.number().min(0, "Harga wajib diisi (0 atau lebih)"),
+  qty: z.number().min(1, "Qty wajib diisi minimal 1"),
+  subtotal: z.number().min(0),
+});
+
+export const invoiceTetesanSchema = z.object({
+  idInvoice: idSchema,
+  tanggal: tanggalSchema,
+  tipe: z.enum(["Modal", "Penjualan"]),
+  namaPihak: z.string().min(1, "Nama pihak wajib diisi"),
+  mataUang: z.enum(["Rp", "$"]).default("Rp"),
+  items: z.array(tetesanItemSchema).min(1, "Invoice minimal berisi 1 barang"),
+});
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -242,3 +290,8 @@ export type Kas = z.infer<typeof kasSchema>;
 export type Pengeluaran = z.infer<typeof pengeluaranSchema>;
 export type Gudang = z.infer<typeof gudangSchema>;
 export type SlipGajiPayload = z.infer<typeof slipGajiSchema>;
+export type BahanBaku = z.infer<typeof bahanBakuSchema>;
+export type BarangJadi = z.infer<typeof barangJadiSchema>;
+export type TetesanStok = z.infer<typeof tetesanStokSchema>;
+export type TetesanItemPayload = z.infer<typeof tetesanItemSchema>;
+export type InvoiceTetesanPayload = z.infer<typeof invoiceTetesanSchema>;

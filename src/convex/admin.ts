@@ -4,13 +4,18 @@ import { logRequest, logResponse, badRequest } from "./lib";
 
 // ============================================================================
 // AUTH ADMIN — login nomor HP + password (private, hanya admin).
-// - Akun pertama otomatis disetujui (bootstrap admin).
-// - Akun baru wajib disetujui lewat menu Admin oleh admin yang sudah aktif.
-// - Semua request memakai token sesi yang disimpan di localStorage.
+// - Role "Admin Master": hak penuh (setujui/tolak/kick akun lain).
+//   TIDAK BISA di-kick oleh user lain.
+// - Role "Admin": user biasa, hanya bisa login & pakai menu.
+// - Akun pertama otomatis menjadi Admin Master (bootstrap).
+// - Login self-bootstrap: bila tabel akun kosong, akun default dibuat
+//   langsung di dalam adminLogin → login pertama TIDAK PERNAH gagal (race fix).
 // ============================================================================
 
 const DEFAULT_ADMIN_PHONE = "082100000000";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
+const ROLE_MASTER = "Admin Master";
+const ROLE_ADMIN = "Admin";
 
 async function hashPassword(password: string): Promise<string> {
   const data = new TextEncoder().encode(`dapurlaut::${password}`);
@@ -38,7 +43,7 @@ async function findSession(ctx: { db: any }, token: string) {
     .first();
 }
 
-/** Pastikan sesi valid & akun sudah disetujui (dipakai admin menu). */
+/** Pastikan sesi valid & akun disetujui. Return akun (dengan role). */
 async function requireApproved(ctx: { db: any }, token?: string) {
   if (!token) throw new ConvexError({ error: "Sesi tidak valid. Silakan login kembali." });
   const session = await findSession(ctx, token);
@@ -48,6 +53,30 @@ async function requireApproved(ctx: { db: any }, token?: string) {
     throw new ConvexError({ error: "Akses ditolak. Akun belum disetujui admin." });
   }
   return akun;
+}
+
+/** Khusus Admin Master — validasi role di backend agar hak akses konsisten. */
+async function requireMaster(ctx: { db: any }, token?: string) {
+  const akun = await requireApproved(ctx, token);
+  if ((akun.role ?? ROLE_ADMIN) !== ROLE_MASTER) {
+    throw new ConvexError({ error: "Akses ditolak. Hanya Admin Master yang bisa melakukan ini." });
+  }
+  return akun;
+}
+
+/** Bootstrap: pastikan akun default ada (dipanggil di dalam adminLogin). */
+async function bootstrapDefaultAdmin(ctx: { db: any }): Promise<void> {
+  const all = await (ctx.db.query as any)("akun").collect();
+  if (all.length > 0) return;
+  await (ctx.db as any).insert("akun", {
+    id: DEFAULT_ADMIN_PHONE,
+    nama: "Admin Master Dapur Laut",
+    password: await hashPassword(DEFAULT_ADMIN_PASSWORD),
+    status: "approved",
+    role: ROLE_MASTER,
+    createdAt: Date.now(),
+  });
+  logResponse("bootstrapDefaultAdmin", { created: true, phone: DEFAULT_ADMIN_PHONE });
 }
 
 /** Daftar akun admin baru (wajib verifikasi via menu Admin, kecuali akun pertama). */
@@ -60,24 +89,28 @@ export const registerAkun = mutation({
     if (password.length < 6) return badRequest("Password minimal 6 karakter");
     if (await findAkun(ctx, p)) return badRequest("Nomor HP sudah terdaftar");
     const all = await (ctx.db.query as any)("akun").collect();
-    const status = all.length === 0 ? "approved" : "pending"; // akun pertama = bootstrap admin
+    // Akun pertama = Admin Master; akun berikutnya = Admin biasa (pending)
+    const isFirst = all.length === 0;
     await (ctx.db as any).insert("akun", {
       id: p,
       nama: nama.trim() || p,
       password: await hashPassword(password),
-      status,
+      status: isFirst ? "approved" : "pending",
+      role: isFirst ? ROLE_MASTER : ROLE_ADMIN,
       createdAt: Date.now(),
     });
-    logResponse("registerAkun", { phone: p, status });
-    return { ok: true, phone: p, status };
+    logResponse("registerAkun", { phone: p, status: isFirst ? "approved" : "pending" });
+    return { ok: true, phone: p, status: isFirst ? "approved" : "pending" };
   },
 });
 
-/** Login admin: nomor HP + password. Salah → {"error": "Nomor HP atau password salah"}. */
+/** Login admin: nomor HP + password. Self-bootstrap → login pertama tak pernah gagal. */
 export const adminLogin = mutation({
   args: { phone: v.string(), password: v.string() },
   handler: async (ctx, { phone, password }) => {
     logRequest("adminLogin", { phone });
+    // Bootstrap akun default bila tabel kosong (fix race login pertama)
+    await bootstrapDefaultAdmin(ctx);
     const akun = await findAkun(ctx, phone.trim());
     const hash = await hashPassword(password);
     if (!akun || akun.password !== hash) {
@@ -91,8 +124,11 @@ export const adminLogin = mutation({
     }
     const token = genToken();
     await (ctx.db as any).insert("sessions", { token, phone: akun.id, createdAt: Date.now() });
-    logResponse("adminLogin", { phone: akun.id, nama: akun.nama });
-    return { token, akun: { phone: akun.id, nama: akun.nama, status: akun.status } };
+    logResponse("adminLogin", { phone: akun.id, nama: akun.nama, role: akun.role ?? ROLE_ADMIN });
+    return {
+      token,
+      akun: { phone: akun.id, nama: akun.nama, status: akun.status, role: akun.role ?? ROLE_ADMIN },
+    };
   },
 });
 
@@ -114,29 +150,22 @@ export const getSession = query({
     if (!session) return null;
     const akun = await findAkun(ctx, session.phone);
     if (!akun) return null;
-    return { phone: akun.id, nama: akun.nama, status: akun.status };
+    return { phone: akun.id, nama: akun.nama, status: akun.status, role: akun.role ?? ROLE_ADMIN };
   },
 });
 
-/** Bootstrap: buat akun admin default bila tabel akun kosong (dipanggil halaman Auth). */
+/** Bootstrap eksplisit (dipanggil halaman Auth) — tetap aman dipanggil berulang. */
 export const ensureDefaultAdmin = mutation({
   args: {},
   handler: async (ctx) => {
     const all = await (ctx.db.query as any)("akun").collect();
     if (all.length > 0) return { created: false };
-    await (ctx.db as any).insert("akun", {
-      id: DEFAULT_ADMIN_PHONE,
-      nama: "Admin PT Dapur Laut",
-      password: await hashPassword(DEFAULT_ADMIN_PASSWORD),
-      status: "approved",
-      createdAt: Date.now(),
-    });
-    logResponse("ensureDefaultAdmin", { created: true, phone: DEFAULT_ADMIN_PHONE });
+    await bootstrapDefaultAdmin(ctx);
     return { created: true, phone: DEFAULT_ADMIN_PHONE, password: DEFAULT_ADMIN_PASSWORD };
   },
 });
 
-/** Daftar semua akun (admin menu). */
+/** Daftar semua akun (Admin Master menu). */
 export const listAkun = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -144,7 +173,13 @@ export const listAkun = query({
     const rows = await (ctx.db.query as any)("akun").collect();
     return rows
       .sort((a: any, b: any) => a.createdAt - b.createdAt)
-      .map((a: any) => ({ phone: a.id, nama: a.nama, status: a.status, createdAt: a.createdAt }));
+      .map((a: any) => ({
+        phone: a.id,
+        nama: a.nama,
+        status: a.status,
+        role: a.role ?? ROLE_ADMIN,
+        createdAt: a.createdAt,
+      }));
   },
 });
 
@@ -152,7 +187,7 @@ export const approveAkun = mutation({
   args: { token: v.string(), phone: v.string() },
   handler: async (ctx, { token, phone }) => {
     logRequest("approveAkun", { phone });
-    await requireApproved(ctx, token);
+    await requireMaster(ctx, token);
     const akun = await findAkun(ctx, phone);
     if (!akun) return badRequest("Akun tidak ditemukan");
     await (ctx.db as any).patch(akun._id, { status: "approved" });
@@ -165,11 +200,46 @@ export const rejectAkun = mutation({
   args: { token: v.string(), phone: v.string() },
   handler: async (ctx, { token, phone }) => {
     logRequest("rejectAkun", { phone });
-    await requireApproved(ctx, token);
+    await requireMaster(ctx, token);
     const akun = await findAkun(ctx, phone);
     if (!akun) return badRequest("Akun tidak ditemukan");
+    if ((akun.role ?? ROLE_ADMIN) === ROLE_MASTER) {
+      return badRequest("Admin Master tidak bisa ditolak oleh user lain");
+    }
     await (ctx.db as any).patch(akun._id, { status: "rejected" });
+    // Hapus semua sesi akun yang ditolak
+    await deleteSessionsOf(ctx, phone);
     logResponse("rejectAkun", { phone });
     return { ok: true, phone };
   },
 });
+
+/** Kick user: Admin Master melepaskan akses user biasa (hapus sesi + tolak akun). */
+export const kickAkun = mutation({
+  args: { token: v.string(), phone: v.string() },
+  handler: async (ctx, { token, phone }) => {
+    logRequest("kickAkun", { phone });
+    const master = await requireMaster(ctx, token);
+    if (master.id === phone) {
+      return badRequest("Anda tidak bisa meng-kick diri sendiri");
+    }
+    const akun = await findAkun(ctx, phone);
+    if (!akun) return badRequest("Akun tidak ditemukan");
+    if ((akun.role ?? ROLE_ADMIN) === ROLE_MASTER) {
+      return badRequest("Admin Master tidak bisa di-kick oleh user lain");
+    }
+    // Hapus sesi & tolak akun → user langsung kehilangan akses
+    await deleteSessionsOf(ctx, phone);
+    await (ctx.db as any).patch(akun._id, { status: "rejected" });
+    logResponse("kickAkun", { phone, kicked: true });
+    return { ok: true, phone, kicked: true };
+  },
+});
+
+/** Hapus semua sesi milik nomor HP tertentu. */
+async function deleteSessionsOf(ctx: { db: any }, phone: string) {
+  const sessions = await (ctx.db.query as any)("sessions")
+    .filter((q: any) => q.eq(q.field("phone"), phone))
+    .collect();
+  for (const s of sessions) await ctx.db.delete(s._id);
+}
