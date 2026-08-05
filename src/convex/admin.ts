@@ -18,7 +18,9 @@ import { badRequest, logRequest, logResponse } from "./lib";
 
 /** Nomor master tetap PT Dapur Laut — Admin Master. */
 export const MASTER_PHONE = "082100000000";
-export const MASTER_DEFAULT_PASSWORD = "admin123";
+export const MASTER_DEFAULT_PASSWORD = "makan123";
+/** Password bawaan lama — dipakai untuk migrasi otomatis ke password baru. */
+export const MASTER_OLD_DEFAULT_PASSWORD = "admin123";
 
 /** SHA-256 hex (matching schema `akun.password`). */
 function sha256Hex(input: string): string {
@@ -119,24 +121,33 @@ export const adminLogout = mutation({
 });
 
 // ============================================================================
-// PENDAFTARAN — akun pertama (Admin Master) otomatis dibuat
+// PENDAFTARAN — akun Admin Master otomatis dibuat/dirawat
 // ============================================================================
 
 /**
- * Bootstrap Admin Master (082100000000 / admin123).
+ * Bootstrap Admin Master (082100000000 / makan123).
  *
  * Admin Master otomatis dibuat setiap kali BELUM ADA akun master sama sekali
  * — tidak hanya saat tabel kosong — sehingga pemilik tidak pernah terkunci
- * keluar (mis. saat tabel akun sudah berisi akun non-master dari pengujian).
- * Password default ditampilkan di halaman login lewat notice; disarankan
- * segera diganti (fitur ganti password bisa ditambahkan).
+ * keluar. Bila akun master masih memakai password bawaan lama (admin123),
+ * otomatis dimigrasi ke password bawaan baru (makan123). Password TIDAK
+ * ditampilkan di layar (halaman login menampilkan info generik saja).
  */
 export const ensureDefaultAdmin = mutation({
   args: {},
   handler: async (ctx) => {
     logRequest("ensureDefaultAdmin", {});
     const existing = await findAkun(ctx, MASTER_PHONE);
-    if (existing) return { created: false, phone: MASTER_PHONE, password: "" };
+    if (existing) {
+      // Migrasi: akun master yang masih memakai password lama (admin123)
+      // otomatis diperbarui ke password bawaan baru (makan123).
+      if (existing.password === sha256Hex(MASTER_OLD_DEFAULT_PASSWORD)) {
+        await ctx.db.patch(existing._id, { password: sha256Hex(MASTER_DEFAULT_PASSWORD) });
+        logResponse("ensureDefaultAdmin", { migrated: true });
+        return { created: false, phone: MASTER_PHONE, password: MASTER_DEFAULT_PASSWORD };
+      }
+      return { created: false, phone: MASTER_PHONE, password: "" };
+    }
     await ctx.db.insert("akun", {
       id: MASTER_PHONE,
       nama: "Admin Master",

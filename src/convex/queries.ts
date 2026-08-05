@@ -305,6 +305,7 @@ export const listInvoicePihak = query({
 
 /**
  * Invoice Reseller/Supplier yang tenggatnya ≤ 3 hari (H-3) atau sudah lewat.
+ * Hanya invoice berstatus Pending (belum lunas) yang diingatkan.
  * Dipakai notifikasi otomatis di header aplikasi.
  */
 export const listInvoiceTenggat = query({
@@ -313,7 +314,12 @@ export const listInvoiceTenggat = query({
     const rows = await ctx.db.query("invoice").collect();
     const today = todayStr();
     return rows
-      .filter((r) => (r.tipe === "Reseller" || r.tipe === "Supplier") && !!r.tenggat)
+      .filter(
+        (r) =>
+          (r.tipe === "Reseller" || r.tipe === "Supplier") &&
+          !!r.tenggat &&
+          (r.statusPembayaran ?? "Pending") !== "Lunas",
+      )
       .map((r) => ({
         idInvoice: r.idInvoice,
         tipe: r.tipe,

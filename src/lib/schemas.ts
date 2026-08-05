@@ -113,6 +113,8 @@ export const invoiceSchema = z
     tenggat: tanggalSchema.optional().default(""),
     // Mata uang: default Rupiah (Rp); khusus Supplier bisa pilih Dolar ($)
     mataUang: z.enum(["Rp", "$"]).default("Rp"),
+    // Status pembayaran: default Pending; bisa diubah jadi Lunas setelah invoice jadi
+    statusPembayaran: z.enum(["Lunas", "Pending"]).optional().default("Pending"),
     items: z.array(invoiceItemSchema).min(1, "Invoice minimal berisi 1 barang"),
   })
   .superRefine((data, ctx) => {

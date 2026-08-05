@@ -101,6 +101,7 @@ export default function InvoicePage() {
   const pasars = useQuery(api.queries.listPasar);
   const createInvoice = useMutation(api.business.createInvoice);
   const deleteInvoice = useMutation(api.business.deleteInvoice);
+  const setStatusInvoice = useMutation(api.business.setStatusInvoice);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -111,6 +112,7 @@ export default function InvoicePage() {
   const [namaPihak, setNamaPihak] = useState("");
   const [tenggat, setTenggat] = useState("");
   const [mataUang, setMataUang] = useState<MataUang>("Rp");
+  const [statusPembayaran, setStatusPembayaran] = useState<"Lunas" | "Pending">("Pending");
   const [items, setItems] = useState<InvoiceItem[]>([emptyItem()]);
   const [saving, setSaving] = useState(false);
   const [filterTipe, setFilterTipe] = useState<string>("");
@@ -186,6 +188,7 @@ export default function InvoicePage() {
     setNamaPihak("");
     setTenggat("");
     setMataUang("Rp");
+    setStatusPembayaran("Pending");
     setItems([emptyItem()]);
     setOpen(true);
   };
@@ -206,6 +209,7 @@ export default function InvoicePage() {
     setNamaPihak("");
     setTenggat("");
     setMataUang("Rp");
+    setStatusPembayaran("Pending");
     setItems([emptyItem()]);
   };
 
@@ -235,6 +239,7 @@ export default function InvoicePage() {
           namaPihak,
           tenggat,
           mataUang,
+          statusPembayaran,
           items: cleanItems,
         },
       });
@@ -268,6 +273,44 @@ export default function InvoicePage() {
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">{formatDate(r.tenggat)}</p>
             <DueBadge tenggat={r.tenggat} />
+          </div>
+        );
+      },
+    },
+    {
+      key: "statusPembayaran",
+      label: "Status Bayar",
+      render: (r) => {
+        const st = r.statusPembayaran ?? "Pending";
+        return (
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                st === "Lunas" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {st === "Lunas" ? <CheckCircle2 className="size-3" /> : <CalendarClock className="size-3" />}
+              {st}
+            </span>
+            <Select
+              value={st}
+              onValueChange={async (v) => {
+                try {
+                  await setStatusInvoice({ idInvoice: r.idInvoice, status: v as "Lunas" | "Pending" });
+                  toast.success(`Invoice ${r.idInvoice} — status: ${v}`);
+                } catch (e: any) {
+                  toast.error(e?.data?.message ?? e?.message ?? "Gagal mengubah status");
+                }
+              }}
+            >
+              <SelectTrigger className="h-6 w-24 cursor-pointer text-[11px]" aria-label="Ubah status pembayaran">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Lunas">Lunas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         );
       },
@@ -327,7 +370,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja."
         icon={FileText}
         actions={
           <Button onClick={openCreate}>
@@ -473,6 +516,19 @@ export default function InvoicePage() {
                 </div>
               )
             )}
+            <div>
+              <Label className="text-xs font-medium">Status Pembayaran *</Label>
+              <Select value={statusPembayaran} onValueChange={(v) => setStatusPembayaran(v as "Lunas" | "Pending")}>
+                <SelectTrigger className="mt-1.5 cursor-pointer">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pending">Pending — belum dibayar</SelectItem>
+                  <SelectItem value="Lunas">Lunas — sudah dibayar</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] text-muted-foreground">Status bisa diubah kapan saja dari tabel invoice.</p>
+            </div>
           </div>
 
           {/* Multi-item table — responsif (scroll horizontal di layar kecil) */}
@@ -696,6 +752,10 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
             <p className="font-semibold">{formatDate(invoice.tenggat)}</p>
           </div>
         )}
+        <div>
+          <p className="text-xs text-slate-500">Status Pembayaran</p>
+          <p className="font-semibold">{invoice.statusPembayaran ?? "Pending"}</p>
+        </div>
       </div>
 
       <table className="w-full border-collapse text-sm">

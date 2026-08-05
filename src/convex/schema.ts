@@ -30,6 +30,7 @@ export const PENGELUARAN_JENISES = [
 export const MATA_UANG = ["Rp", "$"] as const;
 export const TETESAN_TIPES = ["Modal", "Penjualan"] as const;
 export const TETESAN_TIPE_BARANG = ["Baku", "Jadi"] as const;
+export const INVOICE_STATUS_PEMBAYARAN = ["Lunas", "Pending"] as const;
 
 const schema = defineSchema(
   {
@@ -155,6 +156,7 @@ const schema = defineSchema(
       totalModal: v.number(),
       totalPenjualan: v.number(),
       margin: v.number(),
+      statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending" (default Pending)
     })
       .index("by_idInvoice", ["idInvoice"])
       .index("by_tanggal", ["tanggal"])

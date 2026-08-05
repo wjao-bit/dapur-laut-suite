@@ -343,7 +343,8 @@ export const bayarUtang = mutation({
 });
 
 // ============================================================================
-// INVOICE (multi-barang) — efek stok + kas otomatis; mataUang Rp/$ (Supplier)
+// INVOICE (multi-barang) — efek stok + kas otomatis; mataUang Rp/$ (Supplier);
+// status pembayaran Lunas/Pending bisa diubah kapan saja.
 // ============================================================================
 
 export const createInvoice = mutation({
@@ -355,6 +356,7 @@ export const createInvoice = mutation({
     const d = parsed.data;
     const totals = computeInvoiceTotals(d.tipe as InvoiceTipe, d.items as InvoiceItem[]);
     const mataUang = (doc as any)?.mataUang === "$" ? "$" : "Rp"; // default Rupiah; Supplier bisa pilih "$"
+    const statusPembayaran = d.statusPembayaran === "Lunas" ? "Lunas" : "Pending";
 
     const existing = await findOneByKey(ctx, "invoice", "idInvoice", d.idInvoice);
     const id: Id<"invoice"> | undefined = existing ? (existing._id as Id<"invoice">) : undefined;
@@ -367,6 +369,7 @@ export const createInvoice = mutation({
         namaPihak: d.namaPihak,
         tenggat: d.tenggat ?? "",
         mataUang,
+        statusPembayaran,
         items: d.items,
         total: totals.total,
         totalModal: totals.totalModal,
@@ -381,6 +384,7 @@ export const createInvoice = mutation({
         namaPihak: d.namaPihak,
         tenggat: d.tenggat ?? "",
         mataUang,
+        statusPembayaran,
         items: d.items,
         total: totals.total,
         totalModal: totals.totalModal,
@@ -437,6 +441,22 @@ export const createInvoice = mutation({
 
     logResponse("createInvoice", { idInvoice: d.idInvoice, ...totals });
     return { idInvoice: d.idInvoice, ...totals };
+  },
+});
+
+/** Ubah status pembayaran invoice (Lunas/Pending) — bisa diubah kapan saja. */
+export const setStatusInvoice = mutation({
+  args: { idInvoice: v.string(), status: v.string() },
+  handler: async (ctx, { idInvoice, status }) => {
+    logRequest("setStatusInvoice", { idInvoice, status });
+    if (status !== "Lunas" && status !== "Pending") {
+      return badRequest("Status pembayaran harus 'Lunas' atau 'Pending'", { status });
+    }
+    const inv = await findOneByKey(ctx, "invoice", "idInvoice", idInvoice);
+    if (!inv) return badRequest("Invoice tidak ditemukan", { idInvoice });
+    await ctx.db.patch(inv._id, { statusPembayaran: status });
+    logResponse("setStatusInvoice", { idInvoice, status });
+    return { idInvoice, status };
   },
 });
 
