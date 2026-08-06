@@ -82,10 +82,23 @@ export function parseNum(v: string | number | null | undefined): number {
     // "1.500,75" → titik = ribuan, koma = desimal
     normalized = cleaned.replace(/\./g, "").replace(",", ".");
   } else if (hasComma) {
+    // "0,7" → koma = desimal
     normalized = cleaned.replace(",", ".");
-  } else if (hasDot && cleaned.split(".").length > 2) {
-    // "1.500.000" → titik sebagai pemisah ribuan
-    normalized = cleaned.replace(/\./g, "");
+  } else if (hasDot) {
+    // Ambigu: "1.500" (ribuan) vs "0.7" / "1.5" (desimal).
+    // Aturan: titik = ribuan bila ada >1 titik, ATAU grup terakhir tepat 3
+    // digit dan angka sebelum titik bukan "0" (mis. "25.000", "1.500").
+    // Selain itu titik = desimal ("0.7", "1.5", "3.14159", "0.750").
+    const parts = cleaned.split(".");
+    const last = parts[parts.length - 1];
+    const isThousands =
+      parts.length > 2 ||
+      (parts.length === 2 &&
+        parts[0] !== "" &&
+        parts[0] !== "0" &&
+        parts[0] !== "-0" &&
+        last.length === 3);
+    normalized = isThousands ? cleaned.replace(/\./g, "") : cleaned;
   } else {
     normalized = cleaned;
   }

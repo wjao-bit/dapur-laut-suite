@@ -37,7 +37,7 @@ import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
-import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
+import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
 import { daysUntil, formatCurrency, type MataUang } from "@/lib/business";
 import {
   computeInvoiceTotals,
@@ -57,10 +57,10 @@ const TIPE_LABEL: Record<string, string> = {
 export function itemSubtotal(tipe: string, it: any): number {
   const qty =
     tipe === "Pasar"
-      ? (Number(it.stokAwal) || 0) - (Number(it.stokAkhir) || 0)
-      : Number(it.qty) || 0;
+      ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
+      : parseNum(it.qty);
   const harga =
-    tipe === "Supplier" ? Number(it.hargaModal) || 0 : Number(it.hargaJual) || 0;
+    tipe === "Supplier" ? parseNum(it.hargaModal) : parseNum(it.hargaJual);
   return Math.max(0, qty * harga);
 }
 
@@ -233,23 +233,23 @@ export default function InvoicePage() {
         .filter((it) => {
           const hasName = !!it.kodeBarang || !!it.namaBarang;
           const hasVal =
-            Number(it.qty) > 0 ||
-            Number(it.hargaModal) > 0 ||
-            Number(it.hargaJual) > 0 ||
-            Number(it.stokAwal) > 0 ||
-            Number(it.stokAkhir) > 0;
+            parseNum(it.qty) > 0 ||
+            parseNum(it.hargaModal) > 0 ||
+            parseNum(it.hargaJual) > 0 ||
+            parseNum(it.stokAwal) > 0 ||
+            parseNum(it.stokAkhir) > 0;
           return hasName || hasVal;
         })
         .map((it) => {
-          const stokAwal = tipe === "Pasar" ? Number(it.stokAwal) || 0 : 0;
-          const stokAkhir = tipe === "Pasar" ? Number(it.stokAkhir) || 0 : 0;
+          const stokAwal = tipe === "Pasar" ? parseNum(it.stokAwal) : 0;
+          const stokAkhir = tipe === "Pasar" ? parseNum(it.stokAkhir) : 0;
           return {
             kodeBarang: it.kodeBarang,
             namaBarang: it.namaBarang,
-            hargaModal: Number(it.hargaModal) || 0,
-            hargaJual: Number(it.hargaJual) || 0,
+            hargaModal: parseNum(it.hargaModal),
+            hargaJual: parseNum(it.hargaJual),
             // Pasar: qty = stok awal (konsisten); subtotal = (awal - akhir) x harga jual
-            qty: stokAwal || Number(it.qty) || 0,
+            qty: stokAwal || parseNum(it.qty),
             subtotal: itemSubtotal(tipe, it),
             stokAwal: tipe === "Pasar" ? stokAwal : undefined,
             stokAkhir: tipe === "Pasar" ? stokAkhir : undefined,
@@ -649,8 +649,9 @@ export default function InvoicePage() {
                             type="number"
                             inputMode="decimal"
                             min={0}
+                            step="any"
                             value={it.hargaModal || ""}
-                            onChange={(e) => updateItem(idx, { hargaModal: Number(e.target.value) })}
+                            onChange={(e) => updateItem(idx, { hargaModal: parseNum(e.target.value) })}
                           />
                         </td>
                         {tipe === "Pasar" ? (
@@ -663,7 +664,7 @@ export default function InvoicePage() {
                                 min={0.01}
                                 step="any"
                                 value={it.stokAwal || ""}
-                                onChange={(e) => updateItem(idx, { stokAwal: Number(e.target.value), qty: Number(e.target.value) })}
+                                onChange={(e) => updateItem(idx, { stokAwal: parseNum(e.target.value), qty: parseNum(e.target.value) })}
                               />
                             </td>
                             <td className="px-2 py-2">
@@ -674,11 +675,11 @@ export default function InvoicePage() {
                                 min={0}
                                 step="any"
                                 value={it.stokAkhir || ""}
-                                onChange={(e) => updateItem(idx, { stokAkhir: Number(e.target.value) })}
+                                onChange={(e) => updateItem(idx, { stokAkhir: parseNum(e.target.value) })}
                               />
                             </td>
                             <td className="px-2 py-2 text-right font-semibold text-teal-600 tabular-nums">
-                              {Math.max(0, (Number(it.stokAwal) || 0) - (Number(it.stokAkhir) || 0))}
+                              {Math.max(0, parseNum(it.stokAwal) - parseNum(it.stokAkhir))}
                             </td>
                           </>
                         ) : (
@@ -690,7 +691,7 @@ export default function InvoicePage() {
                               min={0}
                               step="any"
                               value={it.qty || ""}
-                              onChange={(e) => updateItem(idx, { qty: e.target.value === "" ? 0 : Number(e.target.value) })}
+                              onChange={(e) => updateItem(idx, { qty: parseNum(e.target.value) })}
                             />
                           </td>
                         )}
@@ -701,8 +702,9 @@ export default function InvoicePage() {
                               type="number"
                               inputMode="decimal"
                               min={0}
+                              step="any"
                               value={it.hargaJual || ""}
-                              onChange={(e) => updateItem(idx, { hargaJual: Number(e.target.value) })}
+                              onChange={(e) => updateItem(idx, { hargaJual: parseNum(e.target.value) })}
                             />
                           </td>
                         )}
@@ -828,12 +830,12 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           {invoice.items.map((it: any, i: number) => {
             const qty =
               invoice.tipe === "Pasar"
-                ? (Number(it.stokAwal) || 0) - (Number(it.stokAkhir) || 0)
+                ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
                 : it.qty;
             const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
-            const stored = Number(it.subtotal) || 0;
+            const stored = parseNum(it.subtotal);
             // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
-            const subtotal = stored > 0 ? stored : Math.max(0, (Number(qty) || 0) * (Number(harga) || 0));
+            const subtotal = stored > 0 ? stored : Math.max(0, parseNum(qty) * parseNum(harga));
             return (
               <tr key={i}>
                 <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
@@ -848,22 +850,12 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
         </tbody>
       </table>
 
+      {/*
+        Nota penjualan (Reseller/DPL/Pasar) TIDAK menampilkan Total Modal &
+        Margin — hanya total akhir. Supplier tetap menampilkan total pembelian.
+      */}
       <div className="mt-4 flex justify-end">
         <div className="w-64 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Total Modal</span>
-            <span className="tabular-nums">{formatCurrency(invoice.totalModal, mu)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Total Penjualan</span>
-            <span className="tabular-nums">{formatCurrency(invoice.totalPenjualan, mu)}</span>
-          </div>
-          {invoice.tipe !== "Supplier" && (
-            <div className="flex justify-between">
-              <span className="text-slate-500">Margin</span>
-              <span className="font-semibold text-teal-700 tabular-nums">{formatCurrency(invoice.margin, mu)}</span>
-            </div>
-          )}
           <div className="flex justify-between border-t border-slate-300 pt-1 text-base font-bold">
             <span>Total</span>
             <span className="tabular-nums">{formatCurrency(invoice.tipe === "Supplier" ? invoice.total : invoice.totalPenjualan, mu)}</span>

@@ -4,6 +4,7 @@
 // Menjalankan handler Convex ASLI (createInvoice & createInvoiceTetesan)
 // dengan database mock in-memory, untuk invoice berisi 1 s.d. 30 barang,
 // di semua tipe: Supplier / Reseller / DPL / Pasar / Modal / Penjualan.
+// Plus regresi: input desimal (0,7) & parseNum.
 //
 // Cara jalan:  node scripts/test-invoice.mjs
 // ============================================================================
@@ -24,6 +25,7 @@ const ENTRY_SRC = `
 import { createInvoice, createInvoiceTetesan } from "@/convex/business.ts";
 import { validate, invoiceSchema, invoiceTetesanSchema } from "@/lib/schemas.ts";
 import { computeInvoiceTotals, computeTetesanTotals } from "@/lib/business.ts";
+import { parseNum } from "@/lib/format.ts";
 
 function makeDb() {
   const tables = new Map();
@@ -97,6 +99,7 @@ export const schemaInvoice = (doc) => validate(invoiceSchema, doc);
 export const schemaTetesan = (doc) => validate(invoiceTetesanSchema, doc);
 export const totalsInvoice = (tipe, items) => computeInvoiceTotals(tipe, items);
 export const totalsTetesan = (tipe, items) => computeTetesanTotals(tipe, items);
+export const parseNumFn = parseNum;
 export function snapshot(ctx) {
   return {
     invoice: ctx.db.query("invoice").collect(),
@@ -344,6 +347,96 @@ console.log("\n  — Regresi: Penjualan Tetesan dengan STOK 0 harus tetap bisa d
 {
   const v = mod.schemaTetesan({ idInvoice: "TET-EMPTY", tanggal: "2026-08-06", tipe: "Modal", namaPihak: "X", mataUang: "Rp", items: [] });
   check("invoice tetesan tanpa barang ditolak", v.success === false);
+}
+
+console.log("\n" + "=".repeat(70));
+console.log("BAGIAN 4 — Regresi input DESIMAL (0,7) — parseNum & semua tipe invoice");
+console.log("=".repeat(70));
+
+// --- parseNum: format Indonesia tidak boleh jadi NaN ---
+{
+  const p = mod.parseNumFn;
+  const cases = [
+    ["0,7", 0.7],
+    ["0.7", 0.7],
+    ["1.500", 1500],
+    ["1.500,75", 1500.75],
+    ["Rp 25.000", 25000],
+    ["", 0],
+    ["abc", 0],
+    ["-3", -3],
+  ];
+  for (const [input, expect] of cases) {
+    const got = p(input);
+    check(`parseNum("${input}") = ${expect}`, Math.abs(got - expect) < 1e-9, `got ${got}`);
+  }
+}
+
+// --- Invoice schema menerima qty desimal 0,7 (Reseller/DPL) & stok pasar 1 → 0,3 ---
+{
+  const items = makeItems("Reseller", 1);
+  items[0].qty = 0.7;
+  items[0].hargaJual = 15000;
+  const doc = { idInvoice: "INV-DEC-R", tanggal: "2026-08-06", tipe: "Reseller", namaPihak: "Pihak Desimal", tenggat: "", mataUang: "Rp", items };
+  const v = mod.schemaInvoice(doc);
+  check("Reseller qty 0,7 diterima schema", v.success === true, JSON.stringify(v.errors));
+  if (v.success) {
+    const t = mod.totalsInvoice("Reseller", v.data.items);
+    check("Reseller 0,7 × 15000 = 10500", Math.abs(t.totalPenjualan - 10500) < 1e-9, `got ${t.totalPenjualan}`);
+  }
+}
+{
+  const items = [
+    { kodeBarang: "BRG001", namaBarang: "Ikan Asin", hargaModal: 10000, qty: 1, hargaJual: 15000, stokAwal: 1, stokAkhir: 0.3, subtotal: 0 },
+  ];
+  const doc = { idInvoice: "INV-DEC-P", tanggal: "2026-08-06", tipe: "Pasar", namaPihak: "Victoria", tenggat: "", mataUang: "Rp", items };
+  const v = mod.schemaInvoice(doc);
+  check("Pasar stok 1 → 0,3 diterima schema", v.success === true, JSON.stringify(v.errors));
+  if (v.success) {
+    const t = mod.totalsInvoice("Pasar", v.data.items);
+    check("Pasar terjual 0,7 × 15000 = 10500", Math.abs(t.totalPenjualan - 10500) < 1e-9, `got ${t.totalPenjualan}`);
+  }
+}
+
+// --- Handler ASLI menyimpan qty desimal di semua tipe (kas & stok sesuai) ---
+for (const tipe of TIPES) {
+  const ctx = freshCtx();
+  const items = makeItems(tipe, 1);
+  if (tipe === "Pasar") {
+    items[0].stokAwal = 1;
+    items[0].stokAkhir = 0.3;
+    items[0].qty = 1;
+  } else {
+    items[0].qty = 0.7;
+  }
+  const doc = { idInvoice: `INV-DEC${tipe.slice(0, 1)}`, tanggal: "2026-08-06", tipe, namaPihak: "Pihak " + tipe, tenggat: "", mataUang: "Rp", items };
+  const r = await mod.invokeCreateInvoice(ctx, doc);
+  check(`[${tipe}] invoice qty desimal (0,7) TERSIMPAN`, r.ok === true, r.msg);
+  if (!r.ok) continue;
+  const snap = mod.snapshot(ctx);
+  const inv = snap.invoice.find((x) => x.idInvoice === doc.idInvoice);
+  const terjual = tipe === "Pasar" ? 0.7 : 0.7;
+  const total = tipe === "Supplier" ? 10000 * terjual : 15000 * terjual;
+  const kas = snap.kas.find((k) => k.id === `INV-${doc.idInvoice}`);
+  if (tipe === "Supplier") {
+    check(`[${tipe}] kas keluar = ${total}`, !!kas && Math.abs(kas.kasKeluar - total) < 1e-9);
+  } else {
+    check(`[${tipe}] kas masuk = ${total}`, !!kas && Math.abs(kas.kasMasuk - total) < 1e-9);
+  }
+  check(`[${tipe}] stok riwayat −0,7 tercatat`, snap.stokHistory.some((h) => Math.abs(Math.abs(h.perubahan) - 0.7) < 1e-9 || (tipe === "Pasar" && (h.keterangan ?? "").includes("Kirim"))));
+}
+
+// --- Invoice Tetesan qty desimal 0,7 ---
+{
+  const ctx = freshCtx();
+  const items = [{ kodeBarang: "TET001", namaBarang: "Tepung", harga: 10000, qty: 0.7, subtotal: 0 }];
+  const doc = { idInvoice: "TET-DEC", tanggal: "2026-08-06", tipe: "Penjualan", namaPihak: "Toko", mataUang: "Rp", items };
+  const r = await mod.invokeCreateTetesan(ctx, doc);
+  check("[Tetesan Penjualan] qty 0,7 TERSIMPAN", r.ok === true, r.msg);
+  if (r.ok) {
+    const snap = mod.snapshot(ctx);
+    check("[Tetesan Penjualan] total 7000 & stok −0,7", snap.invoiceTetesan.some((x) => x.idInvoice === "TET-DEC" && Math.abs(x.total - 7000) < 1e-9) && snap.tetesanHistory.some((h) => Math.abs(h.perubahan + 0.7) < 1e-9));
+  }
 }
 
 // ---------------------------------------------------------------------------
