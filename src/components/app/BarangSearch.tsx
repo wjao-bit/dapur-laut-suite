@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Loader2, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { formatRupiah } from "@/lib/format";
 
 export interface BarangOption {
   kode: string;
@@ -34,11 +35,44 @@ interface BarangSearchProps {
   nextKode?: string;
 }
 
+/** Bungkus potongan teks yang cocok dengan query memakai sorotan kuning. */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+  const lower = text.toLowerCase();
+  const ql = q.toLowerCase();
+  const parts: { s: string; hit: boolean }[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const idx = lower.indexOf(ql, i);
+    if (idx < 0) {
+      parts.push({ s: text.slice(i), hit: false });
+      break;
+    }
+    if (idx > i) parts.push({ s: text.slice(i, idx), hit: false });
+    parts.push({ s: text.slice(idx, idx + ql.length), hit: true });
+    i = idx + ql.length;
+  }
+  return (
+    <>
+      {parts.map((p, k) =>
+        p.hit ? (
+          <mark key={k} className="rounded-sm bg-yellow-200 px-0.5 text-foreground">
+            {p.s}
+          </mark>
+        ) : (
+          <span key={k}>{p.s}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 /**
- * Input pencarian barang: ketik nama → otomatis tampilkan kode & item yang cocok.
- * Dipakai di semua form input barang (Invoice, Retur, Gudang, dll). Bila tidak
- * ada yang cocok, tampilkan notifikasi bahwa barang belum terdaftar, plus
- * tombol "Tambah ke database" (opsional via onCreateNew).
+ * Input pencarian barang bergaya POS: ketik nama → dropdown berisi nama dengan
+ * teks cocok disorot + kode & harga. Bila tidak ada yang cocok, panel
+ * "Tambah ke database" (bila onCreateNew disediakan) SELALU tampil — tidak
+ * tergantung fokus — supaya pengguna langsung bisa menambahkan barang baru.
  */
 export function BarangSearch({
   barang,
@@ -57,9 +91,10 @@ export function BarangSearch({
   const boxRef = useRef<HTMLDivElement>(null);
 
   const q = value.trim().toLowerCase();
+  const hasQuery = q.length > 0;
 
   const matches = useMemo(() => {
-    if (!q) return [];
+    if (!hasQuery) return [];
     return barang
       .filter(
         (b) =>
@@ -68,10 +103,11 @@ export function BarangSearch({
           (b.kategori ?? "").toLowerCase().includes(q),
       )
       .slice(0, 8);
-  }, [barang, q]);
+  }, [barang, q, hasQuery]);
 
-  const showList = focused && q.length > 0;
-  const noMatch = showList && matches.length === 0;
+  // Daftar hasil hanya saat fokus; panel "tidak ditemukan" selalu tampil.
+  const showList = focused && hasQuery;
+  const noMatch = hasQuery && matches.length === 0;
 
   return (
     <div ref={boxRef} className={cn("relative", className)}>
@@ -104,25 +140,33 @@ export function BarangSearch({
       )}
 
       {showList && matches.length > 0 && (
-        <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+        <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
           {matches.map((b) => (
             <button
               key={b.kode}
               type="button"
-              className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+              className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
               onMouseDown={(e) => {
                 e.preventDefault();
                 onPick(b);
-                onChange(b.nama);
                 setOpen(false);
                 (document.activeElement as HTMLElement)?.blur();
               }}
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="font-medium text-foreground">{b.nama}</span>
-                {b.kategori && <span className="shrink-0 text-[10px] text-muted-foreground">{b.kategori}</span>}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-foreground">
+                  <Highlight text={b.nama} query={value} />
+                </span>
+                <span className="mt-0.5 flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] text-muted-foreground">{b.kode}</span>
+                  {b.kategori && <span className="text-[10px] text-muted-foreground">· {b.kategori}</span>}
+                </span>
               </span>
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{b.kode}</span>
+              {typeof b.harga === "number" && b.harga > 0 && (
+                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                  {formatRupiah(b.harga)}
+                </span>
+              )}
             </button>
           ))}
         </div>

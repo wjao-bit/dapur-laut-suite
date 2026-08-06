@@ -65,6 +65,15 @@ function emptyRow(): Row {
   return { kodeBarang: "", namaBarang: "", harga: 0, qty: 1, subtotal: 0 };
 }
 
+function isRowEmpty(r: Row): boolean {
+  return (
+    !r.kodeBarang &&
+    !r.namaBarang &&
+    parseNum(r.harga) <= 0 &&
+    parseNum(r.qty) <= 0
+  );
+}
+
 function nextInvoiceId(list: any[] | undefined): string {
   let max = 0;
   for (const i of list ?? []) {
@@ -95,6 +104,9 @@ export default function TetesanPage() {
   const [printInv, setPrintInv] = useState<any>(null);
   /** Baris yang sedang membuat master baru ke database. */
   const [creatingBarangIdx, setCreatingBarangIdx] = useState<number | null>(null);
+  /** Kotak pencarian cepat di atas daftar barang. */
+  const [quickSearch, setQuickSearch] = useState("");
+  const [quickCreating, setQuickCreating] = useState(false);
 
   const stokMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -126,6 +138,7 @@ export default function TetesanPage() {
     setIdInvoice(nextInvoiceId(invoices));
     setNamaPihak("");
     setRows([emptyRow()]);
+    setQuickSearch("");
     setOpen(true);
   };
 
@@ -168,6 +181,45 @@ export default function TetesanPage() {
       toast.error(e?.data?.message ?? e?.message ?? "Gagal menambahkan ke database");
     } finally {
       setCreatingBarangIdx(null);
+    }
+  };
+
+  /** Tambah bahan baku/barang jadi dari kotak pencarian cepat → langsung masuk daftar. */
+  const addQuickItem = (b: any) => {
+    const newRow: Row = {
+      kodeBarang: b.kode,
+      namaBarang: b.nama,
+      harga: parseNum(b[masterKey]) || 0,
+      qty: 1,
+      subtotal: 0,
+    };
+    setRows((prev) => {
+      const emptyIdx = prev.findIndex(isRowEmpty);
+      if (emptyIdx >= 0) return prev.map((r, i) => (i === emptyIdx ? newRow : r));
+      return [...prev, newRow];
+    });
+    setQuickSearch("");
+    toast.success(`${b.nama} masuk daftar invoice`);
+  };
+
+  /** Buat master baru dari kotak pencarian cepat (belum ada di database). */
+  const quickCreateBarang = async (nama: string) => {
+    const name = String(nama ?? "").trim();
+    if (!name) return;
+    setQuickCreating(true);
+    try {
+      const kode = nextMasterKode;
+      if (tab === "Modal") {
+        await upsertBahanBaku({ doc: { kode, nama: name, hargaModal: 0, stokAwal: 0, kategori: "" } });
+      } else {
+        await upsertBarangJadi({ doc: { kode, nama: name, hargaJual: 0, stokAwal: 0, kategori: "" } });
+      }
+      addQuickItem({ kode, nama: name });
+      toast.success(`${name} ditambahkan ke database (${kode})`);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menambahkan ke database");
+    } finally {
+      setQuickCreating(false);
     }
   };
 
@@ -400,6 +452,26 @@ export default function TetesanPage() {
           </div>
 
           <div className="rounded-lg border">
+            {/* Kotak pencarian cepat — pilih bahan baku/barang jadi → masuk daftar */}
+            <div className="border-b bg-muted/20 px-3 py-2.5">
+              <Label className="text-xs font-medium">Cari / Pilih {tab === "Modal" ? "Bahan Baku" : "Barang Jadi"}</Label>
+              <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                <BarangSearch
+                  className="w-full sm:w-96"
+                  barang={(master ?? []) as any}
+                  value={quickSearch}
+                  onChange={setQuickSearch}
+                  onPick={addQuickItem}
+                  onCreateNew={quickCreateBarang}
+                  creatingNew={quickCreating}
+                  nextKode={nextMasterKode}
+                  placeholder={tab === "Modal" ? "Cari / Pilih Bahan Baku…" : "Cari / Pilih Barang Jadi…"}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Ketuk hasil untuk menambah ke daftar. Barang yang belum ada langsung dibuat ke database.
+                </p>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>

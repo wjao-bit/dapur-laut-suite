@@ -68,6 +68,18 @@ function emptyItem(): InvoiceItem {
   return { kodeBarang: "", namaBarang: "", hargaModal: 0, qty: 1, hargaJual: 0, subtotal: 0 };
 }
 
+function isRowEmpty(it: InvoiceItem): boolean {
+  return (
+    !it.kodeBarang &&
+    !it.namaBarang &&
+    parseNum(it.qty) <= 0 &&
+    parseNum(it.hargaModal) <= 0 &&
+    parseNum(it.hargaJual) <= 0 &&
+    parseNum(it.stokAwal) <= 0 &&
+    parseNum(it.stokAkhir) <= 0
+  );
+}
+
 /** Badge sisa hari menuju jatuh tempo (Reseller/Supplier). */
 function DueBadge({ tenggat }: { tenggat?: string }) {
   if (!tenggat) return <span className="text-muted-foreground">—</span>;
@@ -132,6 +144,9 @@ export default function InvoicePage() {
   const [printInv, setPrintInv] = useState<any>(null);
   /** Baris yang sedang membuat barang baru ke database (index item). */
   const [creatingBarangIdx, setCreatingBarangIdx] = useState<number | null>(null);
+  /** Kotak pencarian cepat di atas daftar barang. */
+  const [quickSearch, setQuickSearch] = useState("");
+  const [quickCreating, setQuickCreating] = useState(false);
 
   /** Nomor invoice otomatis berikutnya: INV001, INV002, dst (unik). */
   const nextInvoiceId = useMemo(() => {
@@ -223,6 +238,42 @@ export default function InvoicePage() {
     }
   };
 
+  /** Tambah barang dari kotak pencarian cepat → langsung masuk daftar item. */
+  const addQuickItem = (b: any) => {
+    const newItem: InvoiceItem = {
+      kodeBarang: b.kode,
+      namaBarang: b.nama,
+      hargaModal: parseNum(b.harga) || 0,
+      qty: 1,
+      hargaJual: parseNum(b.harga) || 0,
+      subtotal: 0,
+    };
+    setItems((prev) => {
+      const emptyIdx = prev.findIndex(isRowEmpty);
+      if (emptyIdx >= 0) return prev.map((it, i) => (i === emptyIdx ? newItem : it));
+      return [...prev, newItem];
+    });
+    setQuickSearch("");
+    toast.success(`${b.nama} masuk daftar invoice`);
+  };
+
+  /** Buat barang baru dari kotak pencarian cepat (belum ada di database). */
+  const quickCreateBarang = async (nama: string) => {
+    const name = String(nama ?? "").trim();
+    if (!name) return;
+    setQuickCreating(true);
+    try {
+      const kode = nextBarangKode;
+      await upsertBarang({ doc: { kode, nama: name, harga: 0, kategori: "" } });
+      addQuickItem({ kode, nama: name, harga: 0 });
+      toast.success(`Barang "${name}" ditambahkan ke database (${kode})`);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menambahkan barang ke database");
+    } finally {
+      setQuickCreating(false);
+    }
+  };
+
   const openCreate = () => {
     setTipe("Reseller");
     setTanggal(todayStr());
@@ -232,6 +283,7 @@ export default function InvoicePage() {
     setMataUang("Rp");
     setStatusPembayaran("Pending");
     setItems([emptyItem()]);
+    setQuickSearch("");
     setOpen(true);
   };
 
@@ -453,7 +505,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja. Ketik nama barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja. Cari barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis."
         icon={FileText}
         actions={
           <Button onClick={openCreate}>
@@ -616,6 +668,26 @@ export default function InvoicePage() {
 
           {/* Multi-item table — responsif (scroll horizontal di layar kecil) */}
           <div className="rounded-lg border">
+            {/* Kotak pencarian cepat — seperti referensi POS: pilih barang → masuk daftar */}
+            <div className="border-b bg-muted/20 px-3 py-2.5">
+              <Label className="text-xs font-medium">Cari / Pilih Barang</Label>
+              <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                <BarangSearch
+                  className="w-full sm:w-96"
+                  barang={(barang ?? []) as any}
+                  value={quickSearch}
+                  onChange={setQuickSearch}
+                  onPick={addQuickItem}
+                  onCreateNew={quickCreateBarang}
+                  creatingNew={quickCreating}
+                  nextKode={nextBarangKode}
+                  placeholder="Cari / Pilih Barang…"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Ketuk hasil untuk menambah ke daftar. Barang yang belum ada langsung dibuat ke database.
+                </p>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
                 <thead>
