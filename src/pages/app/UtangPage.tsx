@@ -139,8 +139,12 @@ export default function UtangPage() {
   };
 
   const handleDelete = async (id: string) => {
-    await deleteUtang({ table: "utang", id });
-    toast.success("Utang dihapus");
+    try {
+      await deleteUtang({ table: "utang", id });
+      toast.success("Utang dihapus");
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus utang");
+    }
   };
 
   const columns: Column<any>[] = [
@@ -227,7 +231,8 @@ export default function UtangPage() {
       <div className="mb-4 grid gap-2 sm:grid-cols-2 sm:max-w-md">
         <div>
           <Label className="text-xs font-medium">Filter Karyawan</Label>
-          <Select value={filterKaryawan} onValueChange={setFilterKaryawan}>
+          {/* Nilai "__all" hanyalah penanda; diubah jadi "" agar menampilkan SEMUA (fix bug tabel kosong). */}
+          <Select value={filterKaryawan} onValueChange={(v) => setFilterKaryawan(v === "__all" ? "" : v)}>
             <SelectTrigger className="mt-1.5">
               <SelectValue placeholder="Semua" />
             </SelectTrigger>
@@ -243,7 +248,7 @@ export default function UtangPage() {
         </div>
         <div>
           <Label className="text-xs font-medium">Filter Status</Label>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v === "__all" ? "" : v)}>
             <SelectTrigger className="mt-1.5">
               <SelectValue placeholder="Semua status" />
             </SelectTrigger>

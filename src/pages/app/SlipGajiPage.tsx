@@ -21,6 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
@@ -88,6 +99,15 @@ export default function SlipGajiPage() {
     }
   };
 
+  const handleDeleteSlip = async (id: string) => {
+    try {
+      await deleteSlipGaji({ table: "slipgaji", id });
+      toast.success("Slip gaji dihapus — kas & utang dikembalikan otomatis");
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus slip gaji");
+    }
+  };
+
   const totalPotongan = (r: any) =>
     (r.potonganAbsensi ?? 0) + (r.potonganUtang ?? 0) + (r.potonganCasbon ?? 0) + (r.denda ?? 0);
 
@@ -147,17 +167,27 @@ export default function SlipGajiPage() {
             <Printer className="mr-1 size-3" />
             Cetak
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-rose-600 hover:text-rose-600"
-            onClick={async () => {
-              await deleteSlipGaji({ table: "slipgaji", id: r.id });
-              toast.success("Slip gaji dihapus");
-            }}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7 text-rose-600 hover:text-rose-600" title="Hapus">
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus slip gaji ini?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Entri kas gaji & denda akan dihapus, dan potongan utang/casbon yang sudah dipotong akan dikembalikan ke saldo karyawan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Batal</AlertDialogCancel>
+                <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={() => handleDeleteSlip(r.id)}>
+                  Hapus
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ),
     },

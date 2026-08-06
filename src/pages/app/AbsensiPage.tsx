@@ -259,7 +259,9 @@ export default function AbsensiPage() {
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
               <Label className="text-xs font-medium">Filter Karyawan</Label>
-              <Select value={filterKaryawan} onValueChange={setFilterKaryawan}>
+              {/* Nilai "__all" hanyalah penanda; onValueChange mengubahnya jadi "" agar
+                  filter menampilkan SEMUA karyawan (fix bug tabel kosong). */}
+              <Select value={filterKaryawan} onValueChange={(v) => setFilterKaryawan(v === "__all" ? "" : v)}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Semua karyawan" />
                 </SelectTrigger>

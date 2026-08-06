@@ -7,11 +7,11 @@ import { computeKasBalances, todayStr } from "../lib/business";
 // ============================================================================
 
 export function logRequest(route: string, payload: unknown) {
-  console.log(`[PT Dapur Laut] ${route} request:`, JSON.stringify(payload, null, 2));
+  console.log(`[Dapur Laut] ${route} request:`, JSON.stringify(payload, null, 2));
 }
 
 export function logResponse(route: string, payload: unknown) {
-  console.log(`[PT Dapur Laut] ${route} response:`, JSON.stringify(payload, null, 2));
+  console.log(`[Dapur Laut] ${route} response:`, JSON.stringify(payload, null, 2));
 }
 
 /**
@@ -21,7 +21,7 @@ export function logResponse(route: string, payload: unknown) {
  * label generik "Payload tidak sesuai schema".
  */
 export function badRequest(message: string, extra?: unknown): never {
-  console.error(`[PT Dapur Laut] Invalid request:`, message, extra ?? "");
+  console.error(`[Dapur Laut] Invalid request:`, message, extra ?? "");
   throw new ConvexError({ error: message, message, detail: (extra ?? null) as any });
 }
 

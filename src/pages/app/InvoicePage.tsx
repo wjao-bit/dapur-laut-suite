@@ -22,6 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
@@ -254,6 +265,15 @@ export default function InvoicePage() {
     }
   };
 
+  const handleDeleteInvoice = async (id: string) => {
+    try {
+      await deleteInvoice({ idInvoice: id });
+      toast.success("Invoice dihapus — kas & stok dikembalikan otomatis");
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menghapus invoice");
+    }
+  };
+
   const columns: Column<any>[] = [
     {
       key: "idInvoice",
@@ -349,18 +369,27 @@ export default function InvoicePage() {
           <Button variant="ghost" size="icon" className="size-7" title="Lihat & Cetak" onClick={() => setPrintInv(r)}>
             <Eye className="size-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-rose-600 hover:text-rose-600"
-            title="Hapus"
-            onClick={async () => {
-              await deleteInvoice({ idInvoice: r.idInvoice });
-              toast.success("Invoice dihapus");
-            }}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7 text-rose-600 hover:text-rose-600" title="Hapus">
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus invoice {r.idInvoice}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Kas dan riwayat stok dari invoice ini akan dikembalikan otomatis. Tindakan ini tidak dapat dibatalkan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Batal</AlertDialogCancel>
+                <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={() => handleDeleteInvoice(r.idInvoice)}>
+                  Hapus
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ),
     },

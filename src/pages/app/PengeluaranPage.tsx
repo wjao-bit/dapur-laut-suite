@@ -111,8 +111,12 @@ export default function PengeluaranPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Batal</AlertDialogCancel>
               <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={async () => {
-                await deletePengeluaran({ table: "pengeluaran", id: r.id });
-                toast.success("Pengeluaran dihapus");
+                try {
+                  await deletePengeluaran({ table: "pengeluaran", id: r.id });
+                  toast.success("Pengeluaran dihapus");
+                } catch (e: any) {
+                  toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus");
+                }
               }}>
                 Hapus
               </AlertDialogAction>
@@ -144,7 +148,8 @@ export default function PengeluaranPage() {
         <div className="lg:col-span-3 grid gap-2 sm:grid-cols-3">
           <div>
             <Label className="text-xs font-medium">Filter Jenis</Label>
-            <Select value={filterJenis} onValueChange={setFilterJenis}>
+            {/* Nilai "__all" hanyalah penanda; diubah jadi "" agar menampilkan SEMUA jenis (fix bug tabel kosong). */}
+            <Select value={filterJenis} onValueChange={(v) => setFilterJenis(v === "__all" ? "" : v)}>
               <SelectTrigger className="mt-1.5">
                 <SelectValue placeholder="Semua jenis" />
               </SelectTrigger>
