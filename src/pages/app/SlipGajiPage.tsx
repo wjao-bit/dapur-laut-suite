@@ -380,7 +380,7 @@ export function SlipGajiPrintDoc({ slip, nama, jabatan }: { slip: any; nama: str
       )}
 
       <div className="mt-10">
-        <SignatureRow label="Pimpinan PT Dapur Laut" />
+        <SignatureRow label="Pimpinan Dapur Laut" />
       </div>
     </div>
   );

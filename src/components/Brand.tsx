@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Logo mark PT Dapur Laut — ikan/ombak dalam bentuk geometris modern. */
+/** Logo mark Dapur Laut — ikan/ombak dalam bentuk geometris modern. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <div
@@ -33,7 +33,7 @@ export function BrandLockup({ className, markClassName }: { className?: string; 
     <div className={cn("flex items-center gap-2.5", className)}>
       <LogoMark className={cn("size-9", markClassName)} />
       <div className="leading-tight">
-        <p className="text-[15px] font-bold tracking-tight text-foreground">PT Dapur Laut</p>
+        <p className="text-[15px] font-bold tracking-tight text-foreground">Dapur Laut</p>
         <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
           Manajemen Bisnis &amp; Distribusi
         </p>
@@ -49,9 +49,9 @@ export function PrintBrandHeader({ subtitle }: { subtitle?: string }) {
       <div className="flex items-center gap-3">
         <LogoMark className="size-12 rounded-lg" />
         <div>
-          <p className="text-xl font-bold tracking-tight text-slate-900">PT Dapur Laut</p>
+          <p className="text-xl font-bold tracking-tight text-slate-900">Dapur Laut</p>
           <p className="text-[11px] text-slate-600">
-            Jl. Pelabuhan Raya No. 88, Jakarta Utara · Telp. (021) 4390-1122 · dapurlaut.co.id
+            Kepulauan Riau · Batam, Tanjung Uncang, Tunas Regency
           </p>
         </div>
       </div>

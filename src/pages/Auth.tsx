@@ -138,11 +138,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               className="mx-auto cursor-pointer rounded-xl transition-transform hover:scale-105"
               aria-label="Ke beranda"
             >
-              <img src={logo} alt="Logo PT Dapur Laut" width={64} height={64} className="rounded-lg" />
+              <img src={logo} alt="Logo Dapur Laut" width={64} height={64} className="rounded-lg" />
             </button>
             <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide text-sky-700 uppercase">
               <Ship className="size-3.5" />
-              PT Dapur Laut
+              Dapur Laut
             </div>
             <CardTitle className="text-xl tracking-tight">
               {mode === "login" ? "Masuk Admin" : "Daftar Akun Admin"}
@@ -295,7 +295,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           )}
 
           <div className="border-t px-6 py-3 text-center text-[11px] text-muted-foreground">
-            Sistem Manajemen Bisnis PT Dapur Laut — akses khusus admin
+            Sistem Manajemen Bisnis Dapur Laut — akses khusus admin
           </div>
         </Card>
       </div>

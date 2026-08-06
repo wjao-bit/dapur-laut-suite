@@ -70,7 +70,7 @@ export function PrintFrame({
           <PrintBrandHeader />
           <div className="mt-6">{children}</div>
           <div className="mt-10 border-t border-slate-200 pt-3 text-[10px] text-slate-400 print:block">
-            Dokumen ini dibuat otomatis oleh Sistem Manajemen Bisnis PT Dapur Laut.
+            Dokumen ini dibuat otomatis oleh Sistem Manajemen Bisnis Dapur Laut.
           </div>
         </div>
       </div>
@@ -93,7 +93,7 @@ export function SignatureRow({ label = "Hormat kami" }: { label?: string }) {
         <p>{label}</p>
         <div className="mt-14" />
         <p className="font-semibold">____________________</p>
-        <p className="text-xs text-slate-500">(Pimpinan PT Dapur Laut)</p>
+        <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
       </div>
     </div>
   );

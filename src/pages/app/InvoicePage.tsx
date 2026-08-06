@@ -831,7 +831,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
             <p>Hormat kami,</p>
             <div className="mt-14" />
             <p className="font-semibold">____________________</p>
-            <p className="text-xs text-slate-500">(Pimpinan PT Dapur Laut)</p>
+            <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
           </div>
         </div>
       </div>

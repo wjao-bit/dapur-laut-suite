@@ -9,7 +9,7 @@ export default function KaryawanPage() {
   return (
     <MasterCrud
       title="Karyawan"
-      description="Data pegawai PT Dapur Laut. IDKaryawan UNIQUE — dipakai di absensi, utang, dan slip gaji."
+      description="Data pegawai Dapur Laut. IDKaryawan UNIQUE — dipakai di absensi, utang, dan slip gaji."
       icon={Users}
       rows={rows as any}
       loading={rows === undefined}

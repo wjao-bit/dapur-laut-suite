@@ -77,7 +77,7 @@ export default function Landing() {
           <Link to="/" className="flex items-center gap-2.5">
             <LogoMark className="size-9" />
             <div className="leading-tight">
-              <p className="text-[15px] font-bold tracking-tight">PT Dapur Laut</p>
+              <p className="text-[15px] font-bold tracking-tight">Dapur Laut</p>
               <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">Manajemen Bisnis</p>
             </div>
           </Link>
@@ -156,7 +156,7 @@ export default function Landing() {
               transition={{ duration: 0.5, delay: 0.08 }}
               className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
             >
-              Kelola Bisnis <span className="text-teal-600">PT Dapur Laut</span> dalam Satu Aplikasi
+              Kelola Bisnis <span className="text-teal-600">Dapur Laut</span> dalam Satu Aplikasi
             </motion.h1>
 
             <motion.p
@@ -292,7 +292,7 @@ export default function Landing() {
                 <div className="mb-4 flex items-center gap-2 border-b pb-4">
                   <LogoMark className="size-8" />
                   <div>
-                    <p className="text-sm font-bold">Dashboard PT Dapur Laut</p>
+                    <p className="text-sm font-bold">Dashboard Dapur Laut</p>
                     <p className="text-[10px] text-muted-foreground">Ringkasan kas, stok & margin</p>
                   </div>
                 </div>
@@ -331,7 +331,7 @@ export default function Landing() {
                 <div className="flex items-center justify-between border-b pb-3">
                   <div>
                     <p className="text-sm font-bold text-slate-900">Laporan Keuangan</p>
-                    <p className="text-[10px] text-slate-500">PT Dapur Laut · Periode bulan ini</p>
+                    <p className="text-[10px] text-slate-500">Dapur Laut · Periode bulan ini</p>
                   </div>
                   <span className="rounded-full bg-teal-100 px-2.5 py-1 text-[10px] font-bold text-teal-700">PDF READY</span>
                 </div>
@@ -358,7 +358,7 @@ export default function Landing() {
             <div className="order-1 lg:order-2">
               <p className="text-xs font-bold tracking-widest text-teal-600 uppercase">Cetak PDF</p>
               <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-                Dokumen Resmi dengan Branding PT Dapur Laut
+                Dokumen Resmi dengan Branding Dapur Laut
               </h2>
               <p className="mt-4 leading-relaxed text-muted-foreground">
                 Invoice, slip gaji, dan laporan dicetak dalam format rapi dengan logo, tabel multi-baris, total,
@@ -410,10 +410,10 @@ export default function Landing() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
           <div className="flex items-center gap-2.5">
             <LogoMark className="size-7" />
-            <p className="text-sm font-semibold">PT Dapur Laut</p>
+            <p className="text-sm font-semibold">Dapur Laut</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} PT Dapur Laut · Sistem Manajemen Bisnis Terpadu
+            © {new Date().getFullYear()} Dapur Laut · Sistem Manajemen Bisnis Terpadu
           </p>
         </div>
       </footer>

@@ -292,7 +292,7 @@ function TetesanLaporanDoc({ laporan, from, to, kategori, namaItem }: any) {
     <div>
       <div className="mb-2 flex items-center justify-center gap-2">
         <Droplets className="size-4 text-sky-700" />
-        <p className="text-center text-base font-bold tracking-wide text-sky-800 uppercase">Laporan Tetesan — PT Dapur Laut</p>
+        <p className="text-center text-base font-bold tracking-wide text-sky-800 uppercase">Laporan Tetesan — Dapur Laut</p>
       </div>
       <div className="mx-auto mb-4 h-0.5 w-40 bg-gradient-to-r from-sky-800 via-amber-500 to-sky-800" />
       <p className="mb-1 text-center text-xs text-slate-500">

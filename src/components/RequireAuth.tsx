@@ -56,7 +56,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       <GateScreen
         icon={<Hourglass className="size-5" />}
         title="Menunggu Persetujuan Admin"
-        description={`Akun ${session.phone} masih menunggu diverifikasi oleh administrator. Silakan hubungi admin PT Dapur Laut, lalu coba masuk lagi.`}
+        description={`Akun ${session.phone} masih menunggu diverifikasi oleh administrator. Silakan hubungi admin Dapur Laut, lalu coba masuk lagi.`}
         onLogout={signOut}
       />
     );

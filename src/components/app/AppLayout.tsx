@@ -340,7 +340,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground sm:flex">
               <Ship className="size-3.5 text-sky-600" />
-              PT Dapur Laut
+              Dapur Laut
             </span>
             <TenggatBell />
             <div className="flex items-center gap-2">
@@ -357,7 +357,7 @@ export default function AppLayout() {
         </main>
 
         <footer className="px-6 py-4 text-center text-xs text-muted-foreground print:hidden">
-          © {new Date().getFullYear()} PT Dapur Laut — Sistem Manajemen Bisnis Terpadu
+          © {new Date().getFullYear()} Dapur Laut — Sistem Manajemen Bisnis Terpadu
         </footer>
       </div>
     </div>

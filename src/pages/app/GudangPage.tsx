@@ -256,7 +256,7 @@ export default function GudangPage() {
       </Sheet>
 
       {/* Cetak PDF gudang */}
-      <PrintFrame open={printOpen} onClose={() => setPrintOpen(false)} title="Laporan Stok Gudang — PT Dapur Laut">
+      <PrintFrame open={printOpen} onClose={() => setPrintOpen(false)} title="Laporan Stok Gudang — Dapur Laut">
         <GudangPrintDoc rows={gudang ?? []} />
       </PrintFrame>
     </div>

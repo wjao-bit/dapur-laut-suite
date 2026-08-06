@@ -46,7 +46,7 @@ export default function DashboardPage() {
     if (stats && stats.jumlahBarang === 0) {
       seedDemo()
         .then((res) => {
-          if (res.seeded) toast.success("Data contoh PT Dapur Laut berhasil dimuat");
+          if (res.seeded) toast.success("Data contoh Dapur Laut berhasil dimuat");
         })
         .catch(() => undefined);
     }
@@ -72,7 +72,7 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         title="Dashboard"
-        description="Ringkasan kas, stok, penjualan, dan margin PT Dapur Laut."
+        description="Ringkasan kas, stok, penjualan, dan margin Dapur Laut."
         icon={Sparkles}
         actions={
           <Button onClick={() => navigate("/dashboard/invoice")}>

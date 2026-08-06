@@ -493,7 +493,7 @@ function TetesanPrintDoc({ invoice }: { invoice: any }) {
           <p>Hormat kami,</p>
           <div className="mt-14" />
           <p className="font-semibold">____________________</p>
-          <p className="text-xs text-slate-500">(Pimpinan PT Dapur Laut)</p>
+          <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
         </div>
       </div>
 
@@ -501,9 +501,9 @@ function TetesanPrintDoc({ invoice }: { invoice: any }) {
       <div className="mt-10 flex items-center justify-center gap-4 border-t border-slate-200 pt-3 text-[10px] text-slate-500">
         <span className="flex items-center gap-1">
           <Landmark className="size-3" />
-          PT Dapur Laut — Jl. Raya Pelabuhan No. 12, Surabaya
+          Dapur Laut — Kepulauan Riau · Batam, Tanjung Uncang, Tunas Regency
         </span>
-        <span>Telp. (031) 555-0001 · dapurlaut@example.com</span>
+        <span>dapurlaut@example.com</span>
       </div>
     </div>
   );

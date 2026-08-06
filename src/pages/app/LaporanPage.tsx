@@ -348,7 +348,7 @@ export default function LaporanPage() {
       <PrintFrame
         open={!!printTab}
         onClose={() => setPrintTab(null)}
-        title={`Laporan ${printTab ?? ""} — PT Dapur Laut`}
+        title={`Laporan ${printTab ?? ""} — Dapur Laut`}
       >
         {printTab === "stok" && (
           <LaporanDoc title="Laporan Stok Gudang" period={periodLabel}>
