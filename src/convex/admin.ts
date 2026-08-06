@@ -74,6 +74,46 @@ async function requireMaster(ctx: any, token: string) {
   return akun;
 }
 
+/**
+ * Bootstrap/sinkron akun Admin Master. Dipanggil dari adminLogin dan
+ * ensureDefaultAdmin: akun 082100000000 DIJAMIN ada dengan role "Admin Master"
+ * dan password bawaan (makan123) — apa pun kondisi data lama di database.
+ * Ini memastikan pemilik tidak pernah terkunci keluar dari sistem.
+ *
+ * Mengembalikan { akun, created } — created=true bila akun baru dibuat.
+ */
+async function syncMasterAccount(ctx: any): Promise<{ akun: any; created: boolean }> {
+  let akun = await findAkun(ctx, MASTER_PHONE);
+  const wantPassword = sha256Hex(MASTER_DEFAULT_PASSWORD);
+  if (!akun) {
+    await ctx.db.insert("akun", {
+      id: MASTER_PHONE,
+      nama: "Admin Master",
+      password: wantPassword,
+      status: "approved",
+      role: "Admin Master",
+      createdAt: Date.now(),
+    });
+    akun = await findAkun(ctx, MASTER_PHONE);
+    return { akun, created: true };
+  }
+  if (
+    akun.password !== wantPassword ||
+    akun.role !== "Admin Master" ||
+    akun.status !== "approved"
+  ) {
+    // Migrasi akun master: password lama / role / status apa pun disinkronkan
+    // ke kondisi bawaan agar login pemilik selalu berhasil.
+    await ctx.db.patch(akun._id, {
+      password: wantPassword,
+      role: "Admin Master",
+      status: "approved",
+    });
+    akun = await findAkun(ctx, MASTER_PHONE);
+  }
+  return { akun, created: false };
+}
+
 // ============================================================================
 // SESI — getSession / adminLogin / adminLogout
 // ============================================================================
@@ -97,7 +137,13 @@ export const adminLogin = mutation({
   handler: async (ctx, { phone, password }) => {
     const cleanPhone = normalizePhone(phone);
     logRequest("adminLogin", { phone: cleanPhone });
-    const akun = await findAkun(ctx, cleanPhone);
+    // Login dengan nomor master → pastikan akun master ada & password
+    // bawaannya (makan123) selalu valid. Ini juga sekaligus "mendaftarkan"
+    // akun master bila belum pernah ada di database.
+    let akun = await findAkun(ctx, cleanPhone);
+    if (cleanPhone === MASTER_PHONE) {
+      akun = (await syncMasterAccount(ctx)).akun;
+    }
     if (!akun || akun.password !== sha256Hex(password || "")) {
       return badRequest("Nomor HP atau password salah");
     }
@@ -127,37 +173,18 @@ export const adminLogout = mutation({
 /**
  * Bootstrap Admin Master (082100000000 / makan123).
  *
- * Admin Master otomatis dibuat setiap kali BELUM ADA akun master sama sekali
- * — tidak hanya saat tabel kosong — sehingga pemilik tidak pernah terkunci
- * keluar. Bila akun master masih memakai password bawaan lama (admin123),
- * otomatis dimigrasi ke password bawaan baru (makan123). Password TIDAK
- * ditampilkan di layar (halaman login menampilkan info generik saja).
+ * Admin Master otomatis dibuat/dirawat setiap kali halaman login dibuka:
+ * dibuat bila belum ada, dan disinkronkan (password/role/status) bila data
+ * lama tidak sesuai bawaan. Password TIDAK ditampilkan di layar (halaman
+ * login menampilkan info generik saja).
  */
 export const ensureDefaultAdmin = mutation({
   args: {},
   handler: async (ctx) => {
     logRequest("ensureDefaultAdmin", {});
-    const existing = await findAkun(ctx, MASTER_PHONE);
-    if (existing) {
-      // Migrasi: akun master yang masih memakai password lama (admin123)
-      // otomatis diperbarui ke password bawaan baru (makan123).
-      if (existing.password === sha256Hex(MASTER_OLD_DEFAULT_PASSWORD)) {
-        await ctx.db.patch(existing._id, { password: sha256Hex(MASTER_DEFAULT_PASSWORD) });
-        logResponse("ensureDefaultAdmin", { migrated: true });
-        return { created: false, phone: MASTER_PHONE, password: MASTER_DEFAULT_PASSWORD };
-      }
-      return { created: false, phone: MASTER_PHONE, password: "" };
-    }
-    await ctx.db.insert("akun", {
-      id: MASTER_PHONE,
-      nama: "Admin Master",
-      password: sha256Hex(MASTER_DEFAULT_PASSWORD),
-      status: "approved",
-      role: "Admin Master",
-      createdAt: Date.now(),
-    });
-    logResponse("ensureDefaultAdmin", { created: true });
-    return { created: true, phone: MASTER_PHONE, password: MASTER_DEFAULT_PASSWORD };
+    const { created } = await syncMasterAccount(ctx);
+    logResponse("ensureDefaultAdmin", { phone: MASTER_PHONE, created });
+    return { created, phone: MASTER_PHONE, password: "" };
   },
 });
 
