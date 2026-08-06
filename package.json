@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:responsive": "node scripts/audit-responsive.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",
@@ -88,6 +89,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.1",
     "vite": "^7.2.6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "happy-dom": "^20.11.1"
   }
 }

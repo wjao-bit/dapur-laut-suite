@@ -260,26 +260,26 @@ export default function SlipGajiPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-xs font-medium">Bonus Kerajinan (Rp)</Label>
-                <Input type="number" min={0} className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(Number(e.target.value))} />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(Number(e.target.value))} />
               </div>
               <div>
                 <Label className="text-xs font-medium">Bonus Bulanan (Rp)</Label>
-                <Input type="number" min={0} className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(Number(e.target.value))} />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(Number(e.target.value))} />
               </div>
             </div>
             {/* 1 kolom di layar kecil agar kolom angka tidak sempit di Android */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <Label className="text-xs font-medium">Denda (Rp)</Label>
-                <Input type="number" min={0} className="mt-1.5" value={denda} onChange={(e) => setDenda(Number(e.target.value))} placeholder="masuk Kas" />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={denda} onChange={(e) => setDenda(Number(e.target.value))} placeholder="masuk Kas" />
               </div>
               <div>
                 <Label className="text-xs font-medium">Potongan Utang (Rp)</Label>
-                <Input type="number" min={0} className="mt-1.5" value={potonganUtang} onChange={(e) => setPotonganUtang(Number(e.target.value))} placeholder="0 = otomatis" />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={potonganUtang} onChange={(e) => setPotonganUtang(Number(e.target.value))} placeholder="0 = otomatis" />
               </div>
               <div>
                 <Label className="text-xs font-medium">Potongan Casbon (Rp)</Label>
-                <Input type="number" min={0} className="mt-1.5" value={potonganCasbon} onChange={(e) => setPotonganCasbon(Number(e.target.value))} placeholder="0 = otomatis" />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={potonganCasbon} onChange={(e) => setPotonganCasbon(Number(e.target.value))} placeholder="0 = otomatis" />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">

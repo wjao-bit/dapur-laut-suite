@@ -191,7 +191,7 @@ export default function AdminPage() {
           </div>
         </div>
       ) : (
-        <div className="mb-4 grid grid-cols-3 gap-3 sm:max-w-lg">
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-lg">
           <SectionCard title="Menunggu" className="border-amber-200">
             <p className="text-2xl font-bold text-amber-600 tabular-nums">{totals.pending}</p>
           </SectionCard>

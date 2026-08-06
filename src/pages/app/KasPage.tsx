@@ -342,7 +342,7 @@ export default function KasPage() {
           </DialogHeader>
           <div>
             <Label className="text-xs font-medium">Nominal Saldo Awal (Rp) *</Label>
-            <Input type="number" min={0} className="mt-1.5 text-lg font-semibold" value={saldoAwal} onChange={(e) => setSaldoAwal(Number(e.target.value))} />
+            <Input type="number" min={0} inputMode="decimal" className="mt-1.5 text-lg font-semibold" value={saldoAwal} onChange={(e) => setSaldoAwal(Number(e.target.value))} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaldoDialog(false)}>Batal</Button>

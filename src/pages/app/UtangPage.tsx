@@ -324,11 +324,11 @@ export default function UtangPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs font-medium">Nominal *</Label>
-                <Input type="number" min={0} className="mt-1.5" value={values.nominal} onChange={(e) => setValues({ ...values, nominal: Number(e.target.value) })} />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={values.nominal} onChange={(e) => setValues({ ...values, nominal: Number(e.target.value) })} />
               </div>
               <div>
                 <Label className="text-xs font-medium">Sudah Dibayar</Label>
-                <Input type="number" min={0} className="mt-1.5" value={values.dibayar} onChange={(e) => setValues({ ...values, dibayar: Number(e.target.value) })} />
+                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={values.dibayar} onChange={(e) => setValues({ ...values, dibayar: Number(e.target.value) })} />
               </div>
             </div>
             <div>
@@ -355,6 +355,7 @@ export default function UtangPage() {
             <Input
               type="number"
               min={1}
+              inputMode="decimal"
               className="mt-1.5 text-lg font-semibold"
               value={bayarJumlah}
               onChange={(e) => setBayarJumlah(Number(e.target.value))}
