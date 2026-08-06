@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
-import { genId } from "@/lib/format";
+import { genId, parseNum } from "@/lib/format";
 
 export interface FieldDef {
   key: string;
@@ -257,11 +257,13 @@ export function MasterCrud({
                     className="mt-1.5"
                     type={f.type === "number" ? "number" : "text"}
                     min={f.min}
+                    inputMode={f.type === "number" ? "decimal" : undefined}
+                    step={f.type === "number" ? "any" : undefined}
                     value={String(values[f.key] ?? "")}
                     onChange={(e) =>
                       setValues((v) => ({
                         ...v,
-                        [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value,
+                        [f.key]: f.type === "number" ? parseNum(e.target.value) : e.target.value,
                       }))
                     }
                     placeholder={f.placeholder}

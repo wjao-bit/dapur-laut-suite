@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
-import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
+import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
 import { PENGELUARAN_JENISES } from "@/lib/business";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -71,7 +71,7 @@ export default function PengeluaranPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await upsertPengeluaran({ doc: { id, tanggal, jenis, nominal: Number(nominal), keterangan, idKaryawan } });
+      await upsertPengeluaran({ doc: { id, tanggal, jenis, nominal: parseNum(nominal), keterangan, idKaryawan } });
       toast.success(
         jenis === "Utang Karyawan" && idKaryawan
           ? `Pengeluaran dicatat — utang ${namaKaryawan(idKaryawan)} bertambah otomatis`
@@ -239,7 +239,7 @@ export default function PengeluaranPage() {
                 inputMode="decimal"
                 className="mt-1.5"
                 value={nominal}
-                onChange={(e) => setNominal(e.target.value === "" ? 0 : Number(e.target.value))}
+                onChange={(e) => setNominal(parseNum(e.target.value))}
               />
             </div>
             <div>
@@ -249,7 +249,7 @@ export default function PengeluaranPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleSave} disabled={saving || nominal <= 0 || (jenis === "Utang Karyawan" && !idKaryawan)}>
+            <Button onClick={handleSave} disabled={saving || parseNum(nominal) <= 0 || (jenis === "Utang Karyawan" && !idKaryawan)}>
               {saving ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>

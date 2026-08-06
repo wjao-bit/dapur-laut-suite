@@ -25,7 +25,7 @@ import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
-import { formatDate, todayStr } from "@/lib/format";
+import { formatDate, todayStr, parseNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export default function GudangPage() {
@@ -59,7 +59,7 @@ export default function GudangPage() {
         doc: {
           id: `GDG-${Date.now().toString(36).toUpperCase()}`,
           namaBarang,
-          stokAwal: Number(stokAwal),
+          stokAwal: parseNum(stokAwal),
           tanggalStokAwal,
           keterangan,
         },
@@ -81,7 +81,7 @@ export default function GudangPage() {
     if (!adjBarang) return;
     setSaving(true);
     try {
-      await adjustStok({ namaBarang: adjBarang, stokBaru: Number(adjStok), keterangan: adjKet || undefined });
+      await adjustStok({ namaBarang: adjBarang, stokBaru: parseNum(adjStok), keterangan: adjKet || undefined });
       toast.success(`Stok ${adjBarang} disesuaikan menjadi ${adjStok}`);
       setAdjBarang(null);
     } catch (e: any) {
@@ -185,7 +185,7 @@ export default function GudangPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs font-medium">Stok Awal</Label>
-                <Input type="number" inputMode="decimal" className="mt-1.5" value={stokAwal} onChange={(e) => setStokAwal(Number(e.target.value))} />
+                <Input type="number" inputMode="decimal" step="any" className="mt-1.5" value={stokAwal} onChange={(e) => setStokAwal(parseNum(e.target.value))} />
               </div>
               <div>
                 <Label className="text-xs font-medium">Tgl Stok Awal</Label>
@@ -214,7 +214,7 @@ export default function GudangPage() {
           <div className="space-y-3">
             <div>
               <Label className="text-xs font-medium">Stok Baru *</Label>
-              <Input type="number" inputMode="decimal" className="mt-1.5 text-lg font-semibold" value={adjStok} onChange={(e) => setAdjStok(Number(e.target.value))} />
+              <Input type="number" inputMode="decimal" step="any" className="mt-1.5 text-lg font-semibold" value={adjStok} onChange={(e) => setAdjStok(parseNum(e.target.value))} />
             </div>
             <div>
               <Label className="text-xs font-medium">Keterangan</Label>

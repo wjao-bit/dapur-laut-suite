@@ -61,3 +61,34 @@ export function genId(prefix: string): string {
   const r = Math.random().toString(36).slice(2, 5).toUpperCase();
   return `${prefix}-${t}${r}`;
 }
+
+/**
+ * Parsing angka yang toleran terhadap format Indonesia (dan umum):
+ * menerima "0,7", "0.7", "1.500" (ribuan), "1.500,75", "Rp 25.000", " 12 " dst.
+ * SELALU mengembalikan angka valid (bukan NaN) — input kosong/tidak valid → 0.
+ *
+ * Dipakai semua input angka di form agar nilai desimal seperti 0,7 tidak
+ * pernah menjadi NaN (yang membuat payload ditolak backend).
+ */
+export function parseNum(v: string | number | null | undefined): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (v === null || v === undefined) return 0;
+  const cleaned = String(v).trim().replace(/[^\d.,\-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === ",") return 0;
+  let normalized: string;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  if (hasComma && hasDot) {
+    // "1.500,75" → titik = ribuan, koma = desimal
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot && cleaned.split(".").length > 2) {
+    // "1.500.000" → titik sebagai pemisah ribuan
+    normalized = cleaned.replace(/\./g, "");
+  } else {
+    normalized = cleaned;
+  }
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+}

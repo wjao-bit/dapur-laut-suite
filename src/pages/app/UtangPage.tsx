@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
-import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
+import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
 import { UTANG_JENISES } from "@/lib/business";
 
 const EMPTY = {
@@ -105,14 +105,14 @@ export default function UtangPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const sisa = Math.max(0, Number(values.nominal) - Number(values.dibayar));
+      const sisa = Math.max(0, parseNum(values.nominal) - parseNum(values.dibayar));
       await upsertUtang({
         doc: {
           ...values,
-          nominal: Number(values.nominal),
-          dibayar: Number(values.dibayar),
+          nominal: parseNum(values.nominal),
+          dibayar: parseNum(values.dibayar),
           sisaUtang: sisa,
-          status: sisa <= 0 ? "Lunas" : Number(values.dibayar) > 0 ? "Parsial" : "Belum",
+          status: sisa <= 0 ? "Lunas" : parseNum(values.dibayar) > 0 ? "Parsial" : "Belum",
         },
       });
       toast.success("Data utang disimpan");
@@ -128,7 +128,7 @@ export default function UtangPage() {
     if (!bayarId) return;
     setSaving(true);
     try {
-      await bayarUtang({ id: bayarId, jumlah: Number(bayarJumlah) });
+      await bayarUtang({ id: bayarId, jumlah: parseNum(bayarJumlah) });
       toast.success("Pembayaran utang dicatat — kas bertambah");
       setBayarId(null);
     } catch (e: any) {
@@ -324,11 +324,11 @@ export default function UtangPage() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs font-medium">Nominal *</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={values.nominal} onChange={(e) => setValues({ ...values, nominal: Number(e.target.value) })} />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={values.nominal} onChange={(e) => setValues({ ...values, nominal: parseNum(e.target.value) })} />
               </div>
               <div>
                 <Label className="text-xs font-medium">Sudah Dibayar</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={values.dibayar} onChange={(e) => setValues({ ...values, dibayar: Number(e.target.value) })} />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={values.dibayar} onChange={(e) => setValues({ ...values, dibayar: parseNum(e.target.value) })} />
               </div>
             </div>
             <div>
@@ -356,14 +356,15 @@ export default function UtangPage() {
               type="number"
               min={1}
               inputMode="decimal"
+              step="any"
               className="mt-1.5 text-lg font-semibold"
               value={bayarJumlah}
-              onChange={(e) => setBayarJumlah(Number(e.target.value))}
+              onChange={(e) => setBayarJumlah(parseNum(e.target.value))}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBayarId(null)}>Batal</Button>
-            <Button onClick={handleBayar} disabled={saving || bayarJumlah <= 0}>
+            <Button onClick={handleBayar} disabled={saving || parseNum(bayarJumlah) <= 0}>
               <Wallet className="mr-2 size-4" />
               Catat Pembayaran
             </Button>

@@ -35,7 +35,7 @@ import {
 import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
-import { formatRupiah, formatDate, formatMonth, thisMonth } from "@/lib/format";
+import { formatRupiah, formatDate, formatMonth, thisMonth, parseNum } from "@/lib/format";
 
 export default function SlipGajiPage() {
   const slipgaji = useQuery(api.queries.listSlipGaji, {});
@@ -77,11 +77,11 @@ export default function SlipGajiPage() {
       const res = await createSlipGaji({
         idKaryawan,
         periode,
-        bonusKerajinan: Number(bonusKerajinan) || 0,
-        bonusBulanan: Number(bonusBulanan) || 0,
-        denda: Number(denda) || 0,
-        potonganUtangManual: Number(potonganUtang) || 0,
-        potonganCasbonManual: Number(potonganCasbon) || 0,
+        bonusKerajinan: parseNum(bonusKerajinan),
+        bonusBulanan: parseNum(bonusBulanan),
+        denda: parseNum(denda),
+        potonganUtangManual: parseNum(potonganUtang),
+        potonganCasbonManual: parseNum(potonganCasbon),
       });
       toast.success(`Slip gaji ${res.nama} dibuat — Gaji bersih ${formatRupiah(res.gajiBersih)}`);
       // Notifikasi otomatis jika masih ada sisa utang/casbon
@@ -260,26 +260,26 @@ export default function SlipGajiPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-xs font-medium">Bonus Kerajinan (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(Number(e.target.value))} />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(parseNum(e.target.value))} />
               </div>
               <div>
                 <Label className="text-xs font-medium">Bonus Bulanan (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(Number(e.target.value))} />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(parseNum(e.target.value))} />
               </div>
             </div>
             {/* 1 kolom di layar kecil agar kolom angka tidak sempit di Android */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <Label className="text-xs font-medium">Denda (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={denda} onChange={(e) => setDenda(Number(e.target.value))} placeholder="masuk Kas" />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={denda} onChange={(e) => setDenda(parseNum(e.target.value))} placeholder="masuk Kas" />
               </div>
               <div>
                 <Label className="text-xs font-medium">Potongan Utang (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={potonganUtang} onChange={(e) => setPotonganUtang(Number(e.target.value))} placeholder="0 = otomatis" />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={potonganUtang} onChange={(e) => setPotonganUtang(parseNum(e.target.value))} placeholder="0 = otomatis" />
               </div>
               <div>
                 <Label className="text-xs font-medium">Potongan Casbon (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" className="mt-1.5" value={potonganCasbon} onChange={(e) => setPotonganCasbon(Number(e.target.value))} placeholder="0 = otomatis" />
+                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={potonganCasbon} onChange={(e) => setPotonganCasbon(parseNum(e.target.value))} placeholder="0 = otomatis" />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">

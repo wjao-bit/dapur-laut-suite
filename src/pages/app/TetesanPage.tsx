@@ -45,7 +45,7 @@ import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
-import { formatDate, todayStr } from "@/lib/format";
+import { formatDate, todayStr, parseNum } from "@/lib/format";
 import { formatCurrency, type MataUang, type TetesanTipe } from "@/lib/business";
 
 const TIPE_LABEL: Record<string, string> = {
@@ -102,7 +102,7 @@ export default function TetesanPage() {
   const masterKey = tab === "Modal" ? "hargaModal" : "hargaJual";
 
   const total = useMemo(
-    () => rows.reduce((s, r) => s + (Number(r.harga) || 0) * Math.max(0, Number(r.qty) || 0), 0),
+    () => rows.reduce((s, r) => s + parseNum(r.harga) * Math.max(0, parseNum(r.qty)), 0),
     [rows],
   );
 
@@ -119,7 +119,7 @@ export default function TetesanPage() {
     setRows((prev) =>
       prev.map((r, i) =>
         i === idx
-          ? { ...r, kodeBarang: b.kode, namaBarang: b.nama, harga: Number(b[masterKey]) || 0 }
+          ? { ...r, kodeBarang: b.kode, namaBarang: b.nama, harga: parseNum(b[masterKey]) }
           : r,
       ),
     );
@@ -138,13 +138,13 @@ export default function TetesanPage() {
       // Buang baris kosong (barang belum dipilih & semua nilai 0) agar tidak
       // memblokir penyimpanan invoice tetesan.
       const items = rows
-        .filter((r) => !!r.kodeBarang || !!r.namaBarang || Number(r.harga) > 0 || Number(r.qty) > 0)
+        .filter((r) => !!r.kodeBarang || !!r.namaBarang || parseNum(r.harga) > 0 || parseNum(r.qty) > 0)
         .map((r) => ({
           kodeBarang: r.kodeBarang,
           namaBarang: r.namaBarang,
-          harga: Number(r.harga) || 0,
-          qty: Number(r.qty) || 0,
-          subtotal: (Number(r.harga) || 0) * (Number(r.qty) || 0),
+          harga: parseNum(r.harga),
+          qty: parseNum(r.qty),
+          subtotal: parseNum(r.harga) * parseNum(r.qty),
         }));
       if (items.length === 0) {
         toast.error("Tambahkan minimal 1 barang sebelum menyimpan invoice.");
@@ -378,7 +378,7 @@ export default function TetesanPage() {
                 </thead>
                 <tbody>
                   {rows.map((r, idx) => {
-                    const subtotal = (Number(r.harga) || 0) * Math.max(0, Number(r.qty) || 0);
+                    const subtotal = parseNum(r.harga) * Math.max(0, parseNum(r.qty));
                     const stokTersedia = tab === "Penjualan" ? stokMap.get(r.namaBarang) ?? 0 : null;
                     return (
                       <tr key={idx} className="border-b last:border-0">
@@ -402,8 +402,9 @@ export default function TetesanPage() {
                             type="number"
                             inputMode="decimal"
                             min={0}
+                            step="any"
                             value={r.harga || ""}
-                            onChange={(e) => updateRow(idx, { harga: Number(e.target.value) })}
+                            onChange={(e) => updateRow(idx, { harga: parseNum(e.target.value) })}
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -414,7 +415,7 @@ export default function TetesanPage() {
                             min={0}
                             step="any"
                             value={r.qty || ""}
-                            onChange={(e) => updateRow(idx, { qty: e.target.value === "" ? 0 : Number(e.target.value) })}
+                            onChange={(e) => updateRow(idx, { qty: parseNum(e.target.value) })}
                           />
                         </td>
                         <td className="min-w-32 px-2 py-2 text-right font-semibold tabular-nums">{formatCurrency(subtotal)}</td>

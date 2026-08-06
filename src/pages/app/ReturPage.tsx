@@ -24,7 +24,7 @@ import {
 import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { BarangSearch } from "@/components/app/BarangSearch";
-import { formatDate, todayStr, genId } from "@/lib/format";
+import { formatDate, todayStr, genId, parseNum } from "@/lib/format";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ReturPage() {
@@ -61,7 +61,7 @@ export default function ReturPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const qtyNum = Math.max(0, Number(qty) || 0);
+      const qtyNum = Math.max(0, parseNum(qty));
       await upsertRetur({ doc: { id, tanggal, tipe, namaPihak, namaBarang, qty: qtyNum, keterangan } });
       toast.success(`Retur ${qtyNum} × ${namaBarang} dicatat — stok gudang bertambah`);
       setOpen(false);
@@ -193,8 +193,9 @@ export default function ReturPage() {
                   inputMode="decimal"
                   className="mt-1.5"
                   value={qty}
-                  onChange={(e) => setQty(e.target.value === "" ? 0 : Number(e.target.value))}
+                  onChange={(e) => setQty(parseNum(e.target.value))}
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">Boleh desimal, mis. 0,7</p>
               </div>
             </div>
             <div>
@@ -204,7 +205,7 @@ export default function ReturPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleSave} disabled={saving || !namaPihak || !namaBarang || !(Number(qty) > 0)}>
+            <Button onClick={handleSave} disabled={saving || !namaPihak || !namaBarang || !(parseNum(qty) > 0)}>
               {saving ? "Menyimpan..." : "Simpan Retur"}
             </Button>
           </DialogFooter>

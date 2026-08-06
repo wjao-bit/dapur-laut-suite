@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
-import { formatRupiah, formatDate, todayStr, genId } from "@/lib/format";
+import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -80,8 +80,8 @@ export default function KasPage() {
         doc: {
           id,
           tanggal,
-          kasMasuk: mode === "masuk" ? Number(nominal) : 0,
-          kasKeluar: mode === "keluar" ? Number(nominal) : 0,
+          kasMasuk: mode === "masuk" ? parseNum(nominal) : 0,
+          kasKeluar: mode === "keluar" ? parseNum(nominal) : 0,
           keterangan,
         },
       });
@@ -130,7 +130,7 @@ export default function KasPage() {
   const handleSaldoAwal = async () => {
     setSaving(true);
     try {
-      await setSaldoAwalKas({ nominal: Number(saldoAwal) });
+      await setSaldoAwalKas({ nominal: parseNum(saldoAwal) });
       toast.success("Saldo awal kas diperbarui");
       setSaldoDialog(false);
     } catch (e: any) {
@@ -317,7 +317,7 @@ export default function KasPage() {
                   inputMode="decimal"
                   className="mt-1.5"
                   value={nominal}
-                  onChange={(e) => setNominal(e.target.value === "" ? 0 : Number(e.target.value))}
+                  onChange={(e) => setNominal(parseNum(e.target.value))}
                 />
               </div>
             </div>
@@ -328,7 +328,7 @@ export default function KasPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false); setEditing(null); }}>Batal</Button>
-            <Button onClick={handleSave} disabled={saving || nominal <= 0}>{saving ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Simpan"}</Button>
+            <Button onClick={handleSave} disabled={saving || parseNum(nominal) <= 0}>{saving ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -342,7 +342,7 @@ export default function KasPage() {
           </DialogHeader>
           <div>
             <Label className="text-xs font-medium">Nominal Saldo Awal (Rp) *</Label>
-            <Input type="number" min={0} inputMode="decimal" className="mt-1.5 text-lg font-semibold" value={saldoAwal} onChange={(e) => setSaldoAwal(Number(e.target.value))} />
+            <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5 text-lg font-semibold" value={saldoAwal} onChange={(e) => setSaldoAwal(parseNum(e.target.value))} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaldoDialog(false)}>Batal</Button>
