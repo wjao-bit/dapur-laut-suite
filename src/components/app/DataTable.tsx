@@ -107,7 +107,7 @@ export function DataTable<T extends { id?: string }>({
                   <button
                     type="button"
                     onClick={() => toggleSort(col.key)}
-                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
                   >
                     {col.label}
                     {sort?.key === col.key ? (

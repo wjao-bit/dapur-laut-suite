@@ -136,7 +136,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     cn(
-                      "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors",
+                      "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
                       isActive
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -197,7 +197,7 @@ function TenggatBell() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "relative cursor-pointer rounded-md p-2 transition-colors hover:bg-muted",
+          "relative cursor-pointer rounded-md p-2 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
           items.length > 0 ? "text-amber-600" : "text-muted-foreground",
         )}
         aria-label="Notifikasi tenggat pembayaran"
@@ -268,7 +268,7 @@ function TenggatRow({ i, overdue, onClose }: { i: any; overdue?: boolean; onClos
         navigate(`/dashboard/invoice?view=${encodeURIComponent(i.idInvoice)}`);
       }}
       className={cn(
-        "flex w-full cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60",
+        "flex w-full cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
         overdue ? "border-rose-200 bg-rose-50/60" : "border-amber-200 bg-amber-50/60",
       )}
     >
@@ -312,7 +312,7 @@ export default function AppLayout() {
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+              className="absolute top-4 right-4 rounded-md p-1.5 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
               aria-label="Tutup menu"
             >
               <X className="size-5" />
@@ -328,7 +328,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-muted-foreground transition-colors hover:bg-muted md:hidden"
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none md:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Buka menu navigasi"
             >

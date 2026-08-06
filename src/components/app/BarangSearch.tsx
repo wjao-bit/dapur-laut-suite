@@ -77,12 +77,13 @@ export function BarangSearch({
       {value && (
         <button
           type="button"
-          className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:bg-muted"
+          className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
           onMouseDown={(e) => {
             e.preventDefault();
             onChange("");
           }}
           title="Bersihkan"
+          aria-label="Bersihkan pencarian"
         >
           <X className="size-3" />
         </button>
@@ -94,7 +95,7 @@ export function BarangSearch({
             <button
               key={b.kode}
               type="button"
-              className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs hover:bg-accent"
+              className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
               onMouseDown={(e) => {
                 e.preventDefault();
                 onPick(b);

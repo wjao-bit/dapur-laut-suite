@@ -49,12 +49,13 @@ export function StatCard({
   sub?: string;
   loading?: boolean;
 }) {
+  // Tone ikon memakai shade 700 di atas tint 50 → kontras ikon memenuhi WCAG AA (≥4.5:1).
   const tones: Record<string, string> = {
     default: "bg-muted text-muted-foreground",
-    income: "bg-sky-50 text-sky-600",
-    expense: "bg-rose-50 text-rose-600",
-    stock: "bg-emerald-50 text-emerald-600",
-    brand: "bg-teal-50 text-teal-600",
+    income: "bg-sky-50 text-sky-700",
+    expense: "bg-rose-50 text-rose-700",
+    stock: "bg-emerald-50 text-emerald-700",
+    brand: "bg-teal-50 text-teal-700",
   };
   return (
     <Card className="border-border/70 shadow-none">
