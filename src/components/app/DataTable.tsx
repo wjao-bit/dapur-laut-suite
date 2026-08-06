@@ -128,8 +128,15 @@ export function DataTable<T extends { id?: string }>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted?.map((row) => (
-            <TableRow key={keyField(row)} className="hover:bg-muted/30">
+          {sorted?.map((row, idx) => (
+            // Key React harus SELALU unik. Prioritas: _id (dokumen Convex),
+            // lalu keyField bisnis + index — mencegah error
+            // "Encountered two children with the same key" saat ada data
+            // duplikat (mis. absensi dobel di tanggal yang sama).
+            <TableRow
+              key={(row as any)?._id ?? `${keyField(row)}__${idx}`}
+              className="hover:bg-muted/30"
+            >
               {columns.map((col) => (
                 <TableCell
                   key={col.key}
