@@ -63,6 +63,22 @@ export function genId(prefix: string): string {
 }
 
 /**
+ * Kode otomatis berikutnya: cari suffix numerik terbesar dari kode yang sudah
+ * ada (mis. "BRG012" → 12, "100236" → 100236), lalu kembalikan prefix + n+1
+ * (mis. "BRG013"). Bila tidak ada suffix angka sama sekali → prefix + 001.
+ * Dipakai fitur "Tambah barang ke database" saat nama barang belum terdaftar
+ * di form invoice, sehingga kode item menyesuaikan otomatis tanpa duplikat.
+ */
+export function nextSeqKode(existing: string[] | undefined | null, prefix: string, pad = 3): string {
+  let max = 0;
+  for (const k of existing ?? []) {
+    const m = /(\d+)$/.exec(String(k ?? "").trim());
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${prefix}${String(max + 1).padStart(pad, "0")}`;
+}
+
+/**
  * Parsing angka yang toleran terhadap format Indonesia (dan umum):
  * menerima "0,7", "0.7", "1.500" (ribuan), "1.500,75", "Rp 25.000", " 12 " dst.
  * SELALU mengembalikan angka valid (bukan NaN) — input kosong/tidak valid → 0.

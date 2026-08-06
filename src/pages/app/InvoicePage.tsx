@@ -37,7 +37,7 @@ import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
-import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
+import { formatRupiah, formatDate, todayStr, genId, parseNum, nextSeqKode } from "@/lib/format";
 import { daysUntil, formatCurrency, type MataUang } from "@/lib/business";
 import {
   computeInvoiceTotals,
@@ -113,6 +113,7 @@ export default function InvoicePage() {
   const createInvoice = useMutation(api.business.createInvoice);
   const deleteInvoice = useMutation(api.business.deleteInvoice);
   const setStatusInvoice = useMutation(api.business.setStatusInvoice);
+  const upsertBarang = useMutation(api.business.upsertBarang);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -129,6 +130,8 @@ export default function InvoicePage() {
   const [filterTipe, setFilterTipe] = useState<string>("");
   const [filterPihak, setFilterPihak] = useState<string>("");
   const [printInv, setPrintInv] = useState<any>(null);
+  /** Baris yang sedang membuat barang baru ke database (index item). */
+  const [creatingBarangIdx, setCreatingBarangIdx] = useState<number | null>(null);
 
   /** Nomor invoice otomatis berikutnya: INV001, INV002, dst (unik). */
   const nextInvoiceId = useMemo(() => {
@@ -139,6 +142,12 @@ export default function InvoicePage() {
     }
     return `INV${String(max + 1).padStart(3, "0")}`;
   }, [invoices]);
+
+  /** Kode barang otomatis berikutnya (BRG001, BRG002, …) saat menambah barang baru. */
+  const nextBarangKode = useMemo(
+    () => nextSeqKode((barang ?? []).map((b: any) => b.kode), "BRG"),
+    [barang],
+  );
 
   // Notifikasi tenggat ditekan (AppLayout) → /dashboard/invoice?view=<id> → buka detail
   useEffect(() => {
@@ -191,6 +200,28 @@ export default function InvoicePage() {
   const addRow = () => setItems((prev) => [...prev, emptyItem()]);
   const removeRow = (idx: number) =>
     setItems((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
+
+  /**
+   * Barang yang diketik belum ada di database → buat sekarang dengan kode
+   * otomatis (BRG001, BRG002, …) lalu isi baris invoice. Harga jual yang sudah
+   * diketik dipakai sebagai harga default di master barang.
+   */
+  const handleCreateBarang = async (idx: number, nama: string) => {
+    const name = String(nama ?? "").trim();
+    if (!name) return;
+    setCreatingBarangIdx(idx);
+    try {
+      const kode = nextBarangKode;
+      const harga = items[idx] ? parseNum(items[idx].hargaJual) : 0;
+      await upsertBarang({ doc: { kode, nama: name, harga, kategori: "" } });
+      updateItem(idx, { kodeBarang: kode, namaBarang: name });
+      toast.success(`Barang "${name}" ditambahkan ke database (${kode})`);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menambahkan barang ke database");
+    } finally {
+      setCreatingBarangIdx(null);
+    }
+  };
 
   const openCreate = () => {
     setTipe("Reseller");
@@ -422,7 +453,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja. Ketik nama barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis."
         icon={FileText}
         actions={
           <Button onClick={openCreate}>
@@ -482,7 +513,7 @@ export default function InvoicePage() {
           <DialogHeader>
             <DialogTitle>Buat Invoice</DialogTitle>
             <DialogDescription>
-              Pilih tipe, isi pihak & barang. Total dihitung otomatis; stok dan kas menyesuaikan.
+              Pilih tipe, isi pihak & barang. Total dihitung otomatis; stok dan kas menyesuaikan. Barang baru bisa langsung ditambahkan ke database saat diketik.
             </DialogDescription>
           </DialogHeader>
 
@@ -639,6 +670,9 @@ export default function InvoicePage() {
                                   hargaModal: it.hargaModal || (b.harga ?? 0),
                                 })
                               }
+                              onCreateNew={(nama) => handleCreateBarang(idx, nama)}
+                              creatingNew={creatingBarangIdx === idx}
+                              nextKode={nextBarangKode}
                               placeholder="Ketik nama barang…"
                             />
                           </div>

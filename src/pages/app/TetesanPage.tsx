@@ -45,7 +45,7 @@ import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
-import { formatDate, todayStr, parseNum } from "@/lib/format";
+import { formatDate, todayStr, parseNum, nextSeqKode } from "@/lib/format";
 import { formatCurrency, type MataUang, type TetesanTipe } from "@/lib/business";
 
 const TIPE_LABEL: Record<string, string> = {
@@ -82,6 +82,8 @@ export default function TetesanPage() {
   const stokRows = useQuery(api.queries.listTetesanStok);
   const createInvoice = useMutation(api.business.createInvoiceTetesan);
   const deleteInvoice = useMutation(api.business.deleteInvoiceTetesan);
+  const upsertBahanBaku = useMutation(api.business.upsertBahanBaku);
+  const upsertBarangJadi = useMutation(api.business.upsertBarangJadi);
 
   const [tab, setTab] = useState<TetesanTipe>("Penjualan");
   const [open, setOpen] = useState(false);
@@ -91,6 +93,8 @@ export default function TetesanPage() {
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [saving, setSaving] = useState(false);
   const [printInv, setPrintInv] = useState<any>(null);
+  /** Baris yang sedang membuat master baru ke database. */
+  const [creatingBarangIdx, setCreatingBarangIdx] = useState<number | null>(null);
 
   const stokMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -100,6 +104,16 @@ export default function TetesanPage() {
 
   const master = tab === "Modal" ? bahanBaku : barangJadi;
   const masterKey = tab === "Modal" ? "hargaModal" : "hargaJual";
+
+  /** Kode master otomatis berikutnya sesuai tab: BBK001 (bahan baku) / BJK001 (barang jadi). */
+  const nextMasterKode = useMemo(
+    () =>
+      nextSeqKode(
+        ((tab === "Modal" ? bahanBaku : barangJadi) ?? []).map((b: any) => b.kode),
+        tab === "Modal" ? "BBK" : "BJK",
+      ),
+    [tab, bahanBaku, barangJadi],
+  );
 
   const total = useMemo(
     () => rows.reduce((s, r) => s + parseNum(r.harga) * Math.max(0, parseNum(r.qty)), 0),
@@ -131,6 +145,31 @@ export default function TetesanPage() {
 
   const addRow = () => setRows((prev) => [...prev, emptyRow()]);
   const removeRow = (idx: number) => setRows((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
+
+  /**
+   * Bahan baku / barang jadi yang diketik belum terdaftar → buat master baru
+   * dengan kode otomatis (BBK001 / BJK001, dst) lalu isi baris invoice.
+   */
+  const handleCreateBarang = async (idx: number, nama: string) => {
+    const name = String(nama ?? "").trim();
+    if (!name) return;
+    setCreatingBarangIdx(idx);
+    try {
+      const kode = nextMasterKode;
+      const harga = rows[idx] ? parseNum(rows[idx].harga) : 0;
+      if (tab === "Modal") {
+        await upsertBahanBaku({ doc: { kode, nama: name, hargaModal: harga, stokAwal: 0, kategori: "" } });
+      } else {
+        await upsertBarangJadi({ doc: { kode, nama: name, hargaJual: harga, stokAwal: 0, kategori: "" } });
+      }
+      updateRow(idx, { kodeBarang: kode, namaBarang: name });
+      toast.success(`${name} ditambahkan ke database (${kode})`);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menambahkan ke database");
+    } finally {
+      setCreatingBarangIdx(null);
+    }
+  };
 
   const handleSubmit = async () => {
     setSaving(true);
@@ -247,7 +286,7 @@ export default function TetesanPage() {
     <div>
       <PageHeader
         title="Invoice Tetesan"
-        description="Invoice Modal (bahan baku, harga modal) & Invoice Penjualan (barang jadi, harga jual). Harga modal hanya tersimpan di database, tidak tampil di invoice penjualan."
+        description="Invoice Modal (bahan baku, harga modal) & Invoice Penjualan (barang jadi, harga jual). Harga modal hanya tersimpan di database, tidak tampil di invoice penjualan. Bahan baku/barang jadi baru bisa langsung ditambahkan ke database saat diketik."
         icon={Droplets}
         actions={
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -320,7 +359,7 @@ export default function TetesanPage() {
           <DialogHeader>
             <DialogTitle>Invoice {tab === "Modal" ? "Modal" : "Penjualan"} Tetesan</DialogTitle>
             <DialogDescription>
-              {TIPE_LABEL[tab]}. Stok & kas diperbarui otomatis.
+              {TIPE_LABEL[tab]}. Stok & kas diperbarui otomatis. Barang baru bisa langsung ditambahkan ke database saat diketik.
             </DialogDescription>
           </DialogHeader>
 
@@ -388,6 +427,9 @@ export default function TetesanPage() {
                             value={r.namaBarang}
                             onChange={(v) => updateRow(idx, { namaBarang: v })}
                             onPick={(b) => selectBarang(idx, b)}
+                            onCreateNew={(nama) => handleCreateBarang(idx, nama)}
+                            creatingNew={creatingBarangIdx === idx}
+                            nextKode={nextMasterKode}
                             placeholder={tab === "Modal" ? "Ketik bahan baku…" : "Ketik barang jadi…"}
                           />
                           {tab === "Penjualan" && r.namaBarang && (

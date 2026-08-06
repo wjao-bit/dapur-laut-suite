@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Loader2, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +22,23 @@ interface BarangSearchProps {
   className?: string;
   /** Pesan saat tidak ada yang cocok (barang belum ada di database). */
   notFoundText?: string;
+  /**
+   * Opsional: bila diberikan, saat barang tidak ditemukan akan muncul tombol
+   * "Tambah ke database" yang memanggil onCreateNew(nama). Biasanya dipakai di
+   * form invoice untuk membuat barang baru + kode otomatis secara instan.
+   */
+  onCreateNew?: (nama: string) => void;
+  /** Sedang menyimpan barang baru (menampilkan spinner di tombol). */
+  creatingNew?: boolean;
+  /** Preview kode yang akan dipakai saat barang baru dibuat (mis. "BRG001"). */
+  nextKode?: string;
 }
 
 /**
  * Input pencarian barang: ketik nama → otomatis tampilkan kode & item yang cocok.
  * Dipakai di semua form input barang (Invoice, Retur, Gudang, dll). Bila tidak
- * ada yang cocok, tampilkan notifikasi bahwa barang belum terdaftar.
+ * ada yang cocok, tampilkan notifikasi bahwa barang belum terdaftar, plus
+ * tombol "Tambah ke database" (opsional via onCreateNew).
  */
 export function BarangSearch({
   barang,
@@ -37,6 +48,9 @@ export function BarangSearch({
   placeholder = "Ketik nama barang…",
   className,
   notFoundText = "Barang belum terdaftar — data akan dibuat otomatis saat disimpan.",
+  onCreateNew,
+  creatingNew = false,
+  nextKode,
 }: BarangSearchProps) {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -114,9 +128,34 @@ export function BarangSearch({
         </div>
       )}
 
-      {noMatch && (
+      {noMatch && !onCreateNew && (
         <div className="absolute z-30 mt-1 w-full rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700">
           {notFoundText}
+        </div>
+      )}
+
+      {noMatch && onCreateNew && (
+        <div className="absolute z-30 mt-1 w-full rounded-md border bg-popover p-1.5 shadow-md">
+          <p className="px-1 pb-1.5 text-[11px] text-muted-foreground">
+            <span className="font-medium text-amber-700">"{value.trim()}"</span> belum terdaftar di database.
+          </p>
+          <button
+            type="button"
+            disabled={creatingNew}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (!creatingNew && value.trim()) onCreateNew(value.trim());
+            }}
+            className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-2 text-left text-xs font-medium text-teal-700 transition-colors hover:bg-teal-100 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
+          >
+            <span className="flex items-center gap-1.5">
+              {creatingNew ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+              {creatingNew ? "Menyimpan ke database…" : `Tambah "${value.trim()}" ke database`}
+            </span>
+            {nextKode && (
+              <span className="shrink-0 font-mono text-[10px] text-teal-600">Kode: {nextKode}</span>
+            )}
+          </button>
         </div>
       )}
     </div>
