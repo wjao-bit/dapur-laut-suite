@@ -495,16 +495,18 @@ export const upsertRetur = mutation({
     const parsed = validate(returSchema, doc);
     if (!parsed.success) return badRequest("Data retur tidak valid", parsed.errors);
     const d = parsed.data;
+    // Normalisasi qty desimal (mis. 0,7 kg) agar riwayat stok & gudang konsisten
+    const qty = Math.round((Number(d.qty) || 0) * 100) / 100;
     const res = await upsertByKey(ctx, "retur", "id", d.id, {
       tanggal: d.tanggal,
       tipe: d.tipe,
       namaPihak: d.namaPihak,
       namaBarang: d.namaBarang,
-      qty: d.qty,
+      qty,
       keterangan: d.keterangan ?? "",
     });
     // Retur menambah stok gudang
-    await addStokHistory(ctx, d.namaBarang, d.tanggal, d.qty, "Retur", `Retur dari ${d.tipe} ${d.namaPihak} (${d.id})`);
+    await addStokHistory(ctx, d.namaBarang, d.tanggal, qty, "Retur", `Retur dari ${d.tipe} ${d.namaPihak} (${d.id})`);
     logResponse("upsertRetur", res);
     return res;
   },

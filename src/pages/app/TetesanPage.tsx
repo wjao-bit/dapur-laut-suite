@@ -367,10 +367,11 @@ export default function TetesanPage() {
                           <Input
                             className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                             type="number"
-                            inputMode="numeric"
-                            min={1}
+                            inputMode="decimal"
+                            min={0}
+                            step="any"
                             value={r.qty || ""}
-                            onChange={(e) => updateRow(idx, { qty: Number(e.target.value) })}
+                            onChange={(e) => updateRow(idx, { qty: e.target.value === "" ? 0 : Number(e.target.value) })}
                           />
                         </td>
                         <td className="min-w-32 px-2 py-2 text-right font-semibold tabular-nums">{formatCurrency(subtotal)}</td>

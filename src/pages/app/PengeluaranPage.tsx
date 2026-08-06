@@ -227,7 +227,15 @@ export default function PengeluaranPage() {
             )}
             <div>
               <Label className="text-xs font-medium">Nominal (Rp) *</Label>
-              <Input type="number" min={1} className="mt-1.5" value={nominal} onChange={(e) => setNominal(Number(e.target.value))} />
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
+                className="mt-1.5"
+                value={nominal}
+                onChange={(e) => setNominal(e.target.value === "" ? 0 : Number(e.target.value))}
+              />
             </div>
             <div>
               <Label className="text-xs font-medium">Keterangan</Label>

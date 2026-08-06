@@ -162,7 +162,8 @@ export const returSchema = z.object({
   }),
   namaPihak: z.string().min(1, "Nama pihak wajib diisi"),
   namaBarang: z.string().min(1, "Nama barang wajib diisi"),
-  qty: z.number().min(1, "Qty retur minimal 1"),
+  // Qty boleh desimal (mis. 0,7 kg) — hanya harus lebih dari 0
+  qty: z.number().min(0.01, "Qty retur harus lebih dari 0"),
   keterangan: z.string().optional().default(""),
 });
 
@@ -243,7 +244,8 @@ export const tetesanItemSchema = z.object({
   kodeBarang: z.string().min(1, "Kode barang wajib diisi"),
   namaBarang: z.string().min(1, "Nama barang wajib diisi"),
   harga: z.number().min(0, "Harga wajib diisi (0 atau lebih)"),
-  qty: z.number().min(1, "Qty wajib diisi minimal 1"),
+  // Qty boleh desimal (mis. 0,7) — hanya harus lebih dari 0
+  qty: z.number().min(0.01, "Qty wajib diisi lebih dari 0"),
   subtotal: z.number().min(0),
 });
 

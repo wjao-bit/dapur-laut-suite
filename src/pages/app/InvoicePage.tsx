@@ -607,8 +607,9 @@ export default function InvoicePage() {
                               <Input
                                 className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                                 type="number"
-                                inputMode="numeric"
-                                min={1}
+                                inputMode="decimal"
+                                min={0.01}
+                                step="any"
                                 value={it.stokAwal || ""}
                                 onChange={(e) => updateItem(idx, { stokAwal: Number(e.target.value), qty: Number(e.target.value) })}
                               />
@@ -617,8 +618,9 @@ export default function InvoicePage() {
                               <Input
                                 className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                                 type="number"
-                                inputMode="numeric"
+                                inputMode="decimal"
                                 min={0}
+                                step="any"
                                 value={it.stokAkhir || ""}
                                 onChange={(e) => updateItem(idx, { stokAkhir: Number(e.target.value) })}
                               />
@@ -632,10 +634,11 @@ export default function InvoicePage() {
                             <Input
                               className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
                               type="number"
-                              inputMode="numeric"
-                              min={1}
+                              inputMode="decimal"
+                              min={0}
+                              step="any"
                               value={it.qty || ""}
-                              onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                              onChange={(e) => updateItem(idx, { qty: e.target.value === "" ? 0 : Number(e.target.value) })}
                             />
                           </td>
                         )}

@@ -61,8 +61,9 @@ export default function ReturPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await upsertRetur({ doc: { id, tanggal, tipe, namaPihak, namaBarang, qty: Number(qty), keterangan } });
-      toast.success(`Retur ${qty} × ${namaBarang} dicatat — stok gudang bertambah`);
+      const qtyNum = Math.max(0, Number(qty) || 0);
+      await upsertRetur({ doc: { id, tanggal, tipe, namaPihak, namaBarang, qty: qtyNum, keterangan } });
+      toast.success(`Retur ${qtyNum} × ${namaBarang} dicatat — stok gudang bertambah`);
       setOpen(false);
       resetForm();
     } catch (e: any) {
@@ -185,7 +186,15 @@ export default function ReturPage() {
               </div>
               <div>
                 <Label className="text-xs font-medium">Qty *</Label>
-                <Input type="number" min={1} className="mt-1.5" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  className="mt-1.5"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value === "" ? 0 : Number(e.target.value))}
+                />
               </div>
             </div>
             <div>
@@ -195,7 +204,7 @@ export default function ReturPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleSave} disabled={saving || !namaPihak || !namaBarang}>
+            <Button onClick={handleSave} disabled={saving || !namaPihak || !namaBarang || !(Number(qty) > 0)}>
               {saving ? "Menyimpan..." : "Simpan Retur"}
             </Button>
           </DialogFooter>
