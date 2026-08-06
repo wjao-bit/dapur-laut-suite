@@ -226,7 +226,7 @@ export default function SlipGajiPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-xs font-medium">Karyawan *</Label>
                 <Select value={idKaryawan} onValueChange={setIdKaryawan}>
@@ -257,7 +257,7 @@ export default function SlipGajiPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-xs font-medium">Bonus Kerajinan (Rp)</Label>
                 <Input type="number" min={0} className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(Number(e.target.value))} />
@@ -267,7 +267,8 @@ export default function SlipGajiPage() {
                 <Input type="number" min={0} className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(Number(e.target.value))} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            {/* 1 kolom di layar kecil agar kolom angka tidak sempit di Android */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <Label className="text-xs font-medium">Denda (Rp)</Label>
                 <Input type="number" min={0} className="mt-1.5" value={denda} onChange={(e) => setDenda(Number(e.target.value))} placeholder="masuk Kas" />

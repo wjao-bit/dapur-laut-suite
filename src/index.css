@@ -127,6 +127,18 @@
 }
 
 /* ============================================================================
+   SCROLL LAYAR SENTUH — scroll horizontal tabel & area konten tetap mulus dan
+   tidak "menyeret" halaman saat menggeser tabel di Android/iOS.
+   ============================================================================ */
+.overflow-x-auto,
+.overflow-x-scroll,
+.overflow-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* ============================================================================
    SIDEBAR DESKTOP — fallback eksplisit (anti-purge / anti-stale-build).
    Memastikan menu navigasi SELALU tampil di layar lebar (>=768px) meskipun
    utility Tailwind md:block tidak ter-generate di bundle. Berlaku hanya saat

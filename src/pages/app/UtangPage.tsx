@@ -219,7 +219,7 @@ export default function UtangPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-md sm:grid-cols-2">
         <SectionCard title="Total Sisa Utang" className="border-rose-200">
           <p className="text-2xl font-bold text-rose-600 tabular-nums">{formatRupiah(totals.sisa)}</p>
         </SectionCard>
@@ -228,7 +228,7 @@ export default function UtangPage() {
         </SectionCard>
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 sm:max-w-md">
+      <div className="mb-4 grid gap-2 sm:max-w-md sm:grid-cols-2">
         <div>
           <Label className="text-xs font-medium">Filter Karyawan</Label>
           {/* Nilai "__all" hanyalah penanda; diubah jadi "" agar menampilkan SEMUA (fix bug tabel kosong). */}

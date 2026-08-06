@@ -235,7 +235,8 @@ export default function KasPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      {/* Ringkasan — 1 kolom di layar kecil agar angka Rupiah besar tidak terpotong */}
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SectionCard title="Total Kas Masuk" className="border-sky-200">
           <p className="text-2xl font-bold text-sky-600 tabular-nums">{formatRupiah(summary.masuk)}</p>
         </SectionCard>
