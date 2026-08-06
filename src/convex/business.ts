@@ -996,12 +996,11 @@ export const createInvoiceTetesan = mutation({
       }
       await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, 0, totals.total, `Invoice Modal Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Modal Tetesan");
     } else {
-      // Stok barang jadi berkurang; validasi stok cukup; kas masuk (penjualan)
+      // Stok barang jadi berkurang; kas masuk (penjualan).
+      // Stok BOLEH minus (konsisten dengan Gudang: "barang tetap bisa masuk,
+      // stok bisa minus") sehingga invoice penjualan tidak pernah gagal
+      // disimpan hanya karena stok 0/belum di-set.
       for (const it of items) {
-        const cur = await currentTetesanStok(ctx, it.namaBarang);
-        if (cur < it.qty) {
-          return badRequest(`Stok "${it.namaBarang}" tidak mencukupi (tersedia ${cur}, diminta ${it.qty})`, { item: it });
-        }
         await addTetesanStokHistory(ctx, it.namaBarang, "Jadi", d.tanggal, -it.qty, "Invoice Penjualan", `Invoice Penjualan ${d.idInvoice}`);
         const b = await findOneByKey(ctx, "barangJadi", "kode", it.kodeBarang);
         if (!b) {
@@ -1021,14 +1020,6 @@ export const createInvoiceTetesan = mutation({
     return { idInvoice: d.idInvoice, total: totals.total };
   },
 });
-
-/** Stok tetesan saat ini = stokAwal + Σ riwayat. */
-async function currentTetesanStok(ctx: any, namaBarang: string): Promise<number> {
-  const row = await findOneByKey(ctx, "tetesanStok", "namaBarang", namaBarang);
-  const history = await ctx.db.query("tetesanStokHistory").filter((q: any) => q.eq(q.field("namaBarang"), namaBarang)).collect();
-  const net = history.reduce((s: number, h: any) => s + (h.perubahan || 0), 0);
-  return (row?.stokAwal ?? 0) + net;
-}
 
 export const deleteInvoiceTetesan = mutation({
   args: { idInvoice: v.string() },

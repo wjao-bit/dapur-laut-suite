@@ -135,13 +135,21 @@ export default function TetesanPage() {
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const items = rows.map((r) => ({
-        kodeBarang: r.kodeBarang,
-        namaBarang: r.namaBarang,
-        harga: Number(r.harga) || 0,
-        qty: Number(r.qty) || 0,
-        subtotal: (Number(r.harga) || 0) * (Number(r.qty) || 0),
-      }));
+      // Buang baris kosong (barang belum dipilih & semua nilai 0) agar tidak
+      // memblokir penyimpanan invoice tetesan.
+      const items = rows
+        .filter((r) => !!r.kodeBarang || !!r.namaBarang || Number(r.harga) > 0 || Number(r.qty) > 0)
+        .map((r) => ({
+          kodeBarang: r.kodeBarang,
+          namaBarang: r.namaBarang,
+          harga: Number(r.harga) || 0,
+          qty: Number(r.qty) || 0,
+          subtotal: (Number(r.harga) || 0) * (Number(r.qty) || 0),
+        }));
+      if (items.length === 0) {
+        toast.error("Tambahkan minimal 1 barang sebelum menyimpan invoice.");
+        return;
+      }
       const res = await createInvoice({ doc: { idInvoice, tanggal, tipe: tab, namaPihak, mataUang: "Rp", items } });
       toast.success(
         tab === "Modal"
@@ -150,8 +158,14 @@ export default function TetesanPage() {
       );
       setOpen(false);
     } catch (e: any) {
-      const msg = e?.data?.message ?? e?.message ?? "Terjadi kesalahan";
-      toast.error(msg);
+      const data = e?.data ?? e;
+      const detail: string[] = Array.isArray(data?.detail) ? data.detail : [];
+      const ringkas = detail
+        .slice(0, 3)
+        .map((s: string) => s.replace(/^items\.\d+\./, "").replace(/\./g, " "))
+        .join(" · ");
+      const msg = data?.message ?? e?.message ?? "Terjadi kesalahan";
+      toast.error(ringkas ? `Gagal simpan — ${ringkas}` : msg);
     } finally {
       setSaving(false);
     }

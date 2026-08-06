@@ -227,21 +227,38 @@ export default function InvoicePage() {
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const cleanItems = items.map((it) => {
-        const stokAwal = tipe === "Pasar" ? Number(it.stokAwal) || 0 : 0;
-        const stokAkhir = tipe === "Pasar" ? Number(it.stokAkhir) || 0 : 0;
-        return {
-          kodeBarang: it.kodeBarang,
-          namaBarang: it.namaBarang,
-          hargaModal: Number(it.hargaModal) || 0,
-          hargaJual: Number(it.hargaJual) || 0,
-          // Pasar: qty = stok awal (konsisten); subtotal = (awal - akhir) x harga jual
-          qty: stokAwal || Number(it.qty) || 0,
-          subtotal: itemSubtotal(tipe, it),
-          stokAwal: tipe === "Pasar" ? stokAwal : undefined,
-          stokAkhir: tipe === "Pasar" ? stokAkhir : undefined,
-        };
-      });
+      // Buang baris yang benar-benar kosong (barang belum dipilih & semua
+      // nilai 0) agar tidak memblokir penyimpanan invoice.
+      const cleanItems = items
+        .filter((it) => {
+          const hasName = !!it.kodeBarang || !!it.namaBarang;
+          const hasVal =
+            Number(it.qty) > 0 ||
+            Number(it.hargaModal) > 0 ||
+            Number(it.hargaJual) > 0 ||
+            Number(it.stokAwal) > 0 ||
+            Number(it.stokAkhir) > 0;
+          return hasName || hasVal;
+        })
+        .map((it) => {
+          const stokAwal = tipe === "Pasar" ? Number(it.stokAwal) || 0 : 0;
+          const stokAkhir = tipe === "Pasar" ? Number(it.stokAkhir) || 0 : 0;
+          return {
+            kodeBarang: it.kodeBarang,
+            namaBarang: it.namaBarang,
+            hargaModal: Number(it.hargaModal) || 0,
+            hargaJual: Number(it.hargaJual) || 0,
+            // Pasar: qty = stok awal (konsisten); subtotal = (awal - akhir) x harga jual
+            qty: stokAwal || Number(it.qty) || 0,
+            subtotal: itemSubtotal(tipe, it),
+            stokAwal: tipe === "Pasar" ? stokAwal : undefined,
+            stokAkhir: tipe === "Pasar" ? stokAkhir : undefined,
+          };
+        });
+      if (cleanItems.length === 0) {
+        toast.error("Tambahkan minimal 1 barang sebelum menyimpan invoice.");
+        return;
+      }
       const res = await createInvoice({
         doc: {
           idInvoice,
@@ -258,8 +275,14 @@ export default function InvoicePage() {
       setOpen(false);
       resetForm();
     } catch (e: any) {
-      const msg = e?.data?.message ?? e?.message ?? "Terjadi kesalahan";
-      toast.error(msg.includes("schema") ? "Data tidak valid. Periksa kembali isian invoice." : msg);
+      const data = e?.data ?? e;
+      const detail: string[] = Array.isArray(data?.detail) ? data.detail : [];
+      const ringkas = detail
+        .slice(0, 3)
+        .map((s: string) => s.replace(/^items\.\d+\./, "").replace(/\./g, " "))
+        .join(" · ");
+      const msg = data?.message ?? e?.message ?? "Terjadi kesalahan";
+      toast.error(ringkas ? `Gagal simpan — ${ringkas}` : msg);
     } finally {
       setSaving(false);
     }

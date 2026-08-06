@@ -110,7 +110,14 @@ export const invoiceSchema = z
     tanggal: tanggalSchema,
     tipe: z.enum(INVOICE_TIPES as [string, ...string[]]),
     namaPihak: z.string().min(1, "Nama pihak wajib diisi"),
-    tenggat: tanggalSchema.optional().default(""),
+    // Tenggat bersifat OPSIONAL — string kosong (tidak diisi) HARUS diterima.
+    // Jangan pakai tanggalSchema.optional() langsung karena regex-nya menolak
+    // "" sehingga invoice tanpa tanggal jatuh tempo tidak bisa disimpan.
+    tenggat: z
+      .string()
+      .refine((s) => s === "" || /^\d{4}-\d{2}-\d{2}$/.test(s), "Tenggat harus format YYYY-MM-DD")
+      .optional()
+      .default(""),
     // Mata uang: default Rupiah (Rp); khusus Supplier bisa pilih Dolar ($)
     mataUang: z.enum(["Rp", "$"]).default("Rp"),
     // Status pembayaran: default Pending; bisa diubah jadi Lunas setelah invoice jadi

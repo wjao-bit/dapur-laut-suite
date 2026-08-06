@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "preview": "vite preview",
-    "audit:responsive": "node scripts/audit-responsive.mjs"
+    "audit:responsive": "node scripts/audit-responsive.mjs",
+    "test:invoice": "node scripts/test-invoice.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",
