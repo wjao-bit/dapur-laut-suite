@@ -16,6 +16,9 @@ import { todayStr, computeInvoicePayment } from "../lib/business";
 //   status  = "Lunas" bila sisa <= 0, selain itu "Pending"
 // dan riwayat pembayaran (tanggal, nominal, keterangan) disimpan di
 // `riwayatBayar` agar riwayat lengkap (multi-bayar) terlihat di tabel & nota.
+//
+// Catatan: bila invoice sudah Lunas (sisa 0) lalu dibayar lagi, nominal
+// tambahan ditolak diam-diam (tidak dicatat ke riwayat, tidak patch DB).
 // ============================================================================
 
 /** Catat pembayaran invoice biasa (Supplier/Reseller/DPL/Pasar). */
@@ -36,6 +39,12 @@ export const bayarInvoice = mutation({
     const total = inv.totalPenjualan || inv.total || 0;
     const prevDibayar = inv.dibayar ?? 0;
     const { dibayar, sisa, status, tercatat } = computeInvoicePayment(total, prevDibayar, nominal);
+
+    // Sudah Lunas (tercatat 0) → tidak perlu patch DB & tidak menambah riwayat kosong
+    if (tercatat <= 0) {
+      logResponse("bayarInvoice", { idInvoice, dibayar, sisa, status, total });
+      return { idInvoice, dibayar, sisa, status, total };
+    }
 
     const riwayat = Array.isArray(inv.riwayatBayar) ? [...inv.riwayatBayar] : [];
     riwayat.push({
@@ -67,6 +76,12 @@ export const bayarInvoiceTetesan = mutation({
     const total = inv.total || 0;
     const prevDibayar = inv.dibayar ?? 0;
     const { dibayar, sisa, status, tercatat } = computeInvoicePayment(total, prevDibayar, nominal);
+
+    // Sudah Lunas (tercatat 0) → tidak perlu patch DB & tidak menambah riwayat kosong
+    if (tercatat <= 0) {
+      logResponse("bayarInvoiceTetesan", { idInvoice, dibayar, sisa, status, total });
+      return { idInvoice, dibayar, sisa, status, total };
+    }
 
     const riwayat = Array.isArray(inv.riwayatBayar) ? [...inv.riwayatBayar] : [];
     riwayat.push({

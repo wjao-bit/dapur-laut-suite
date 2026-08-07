@@ -126,7 +126,7 @@ function ConvexConfigScreen() {
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-sm">
         <LogoMark className="mx-auto size-14" />
         <h1 className="mt-6 text-xl font-bold tracking-tight">
-          PT Dapur Laut belum terhubung
+          Dapur Laut belum terhubung
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           Koneksi ke server data (Convex) belum dikonfigurasi. Variabel lingkungan{" "}
