@@ -133,6 +133,8 @@ const schema = defineSchema(
 
     // ------------------------------------------------------------------ 9.
     // Invoice (multi-barang) — idInvoice UNIQUE, mataUang default "Rp"
+    // Pembayaran: dibayar = total yg sudah dibayar, sisa = total - dibayar,
+    // riwayatBayar = daftar pembayaran (tanggal, nominal, keterangan).
     invoice: defineTable({
       idInvoice: v.string(), // UNIQUE
       tanggal: v.string(),
@@ -157,6 +159,17 @@ const schema = defineSchema(
       totalPenjualan: v.number(),
       margin: v.number(),
       statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending" (default Pending)
+      dibayar: v.optional(v.number()),
+      sisa: v.optional(v.number()),
+      riwayatBayar: v.optional(
+        v.array(
+          v.object({
+            tanggal: v.string(),
+            nominal: v.number(),
+            keterangan: v.optional(v.string()),
+          }),
+        ),
+      ),
     })
       .index("by_idInvoice", ["idInvoice"])
       .index("by_tanggal", ["tanggal"])
@@ -296,7 +309,8 @@ const schema = defineSchema(
       kategori: v.optional(v.string()),
     }).index("by_kode", ["kode"]),
 
-    // Invoice Tetesan — tipe Modal / Penjualan (idInvoice UNIQUE)
+    // Invoice Tetesan — tipe Modal / Penjualan (idInvoice UNIQUE).
+    // Pembayaran: statusPembayaran / dibayar / sisa / riwayatBayar.
     invoiceTetesan: defineTable({
       idInvoice: v.string(), // UNIQUE
       tanggal: v.string(),
@@ -313,6 +327,18 @@ const schema = defineSchema(
         }),
       ),
       total: v.number(),
+      statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending"
+      dibayar: v.optional(v.number()),
+      sisa: v.optional(v.number()),
+      riwayatBayar: v.optional(
+        v.array(
+          v.object({
+            tanggal: v.string(),
+            nominal: v.number(),
+            keterangan: v.optional(v.string()),
+          }),
+        ),
+      ),
     })
       .index("by_idInvoice", ["idInvoice"])
       .index("by_tanggal", ["tanggal"])
