@@ -14,6 +14,7 @@ import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as business from "../business.js";
 import type * as http from "../http.js";
 import type * as lib from "../lib.js";
+import type * as payment from "../payment.js";
 import type * as queries from "../queries.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   business: typeof business;
   http: typeof http;
   lib: typeof lib;
+  payment: typeof payment;
   queries: typeof queries;
   seed: typeof seed;
   users: typeof users;
