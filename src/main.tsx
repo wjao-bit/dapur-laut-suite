@@ -108,15 +108,23 @@ class RootErrorBoundary extends React.Component<
  * web publish tampil putih (semua query gagal dengan "Server Error"). Deployment
  * dev (resilient-hawk-825) berisi seluruh fungsi + data dan terbukti berfungsi.
  *
- * Strategi: gunakan nilai env bila tersedia DAN bukan deployment produksi yang
- * kosong; selain itu selalu pakai deployment dev yang berisi seluruh fungsi.
+ * Strategi: gunakan nilai env bila tersedia DAN bukan deployment yang
+ * diketahui rusak/kosong; selain itu selalu pakai deployment dev yang berisi
+ * seluruh fungsi.
  */
 const FALLBACK_CONVEX_URL = "https://resilient-hawk-825.convex.cloud";
-const EMPTY_PRODUCTION_URL = "https://enchanted-kangaroo-934.convex.cloud";
+
+// Deployment yang DIBUKTIKAN rusak/kosong (tidak berisi fungsi backend) atau
+// deployment lama yang sudah tidak dipakai — jangan pernah dipakai, selalu
+// fallback ke deployment dev yang berisi seluruh fungsi + data.
+const BROKEN_CONVEX_URLS = [
+  "https://enchanted-kangaroo-934.convex.cloud",
+  "https://happy-otter-123.convex.cloud",
+];
 
 const envConvexUrl: string | undefined = (import.meta.env.VITE_CONVEX_URL as string | undefined)?.trim();
 const convexUrl: string =
-  envConvexUrl && envConvexUrl !== EMPTY_PRODUCTION_URL
+  envConvexUrl && !BROKEN_CONVEX_URLS.includes(envConvexUrl)
     ? envConvexUrl
     : FALLBACK_CONVEX_URL;
 
