@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock } from "lucide-react";
+import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,7 @@ import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
+import { PaymentDialog } from "@/components/app/PaymentDialog";
 import { formatRupiah, formatDate, todayStr, genId, parseNum, nextSeqKode } from "@/lib/format";
 import { daysUntil, formatCurrency, type MataUang } from "@/lib/business";
 import {
@@ -62,6 +63,22 @@ export function itemSubtotal(tipe: string, it: any): number {
   const harga =
     tipe === "Supplier" ? parseNum(it.hargaModal) : parseNum(it.hargaJual);
   return Math.max(0, qty * harga);
+}
+
+/** Total tagihan invoice (penjualan untuk non-Supplier, pembelian untuk Supplier). */
+export function invoiceTotal(r: any): number {
+  return r.totalPenjualan || r.total || 0;
+}
+
+/** Total yang sudah dibayar (default 0; invoice berstatus Lunas dianggap lunas). */
+export function invoiceDibayar(r: any): number {
+  if (typeof r?.dibayar === "number" && r.dibayar > 0) return r.dibayar;
+  return (r?.statusPembayaran ?? "Pending") === "Lunas" ? invoiceTotal(r) : 0;
+}
+
+/** Sisa tagihan (total − sudah dibayar). */
+export function invoiceSisa(r: any): number {
+  return Math.max(0, invoiceTotal(r) - invoiceDibayar(r));
 }
 
 function emptyItem(): InvoiceItem {
@@ -125,6 +142,7 @@ export default function InvoicePage() {
   const createInvoice = useMutation(api.business.createInvoice);
   const deleteInvoice = useMutation(api.business.deleteInvoice);
   const setStatusInvoice = useMutation(api.business.setStatusInvoice);
+  const bayarInvoice = useMutation(api.payment.bayarInvoice);
   const upsertBarang = useMutation(api.business.upsertBarang);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -147,6 +165,9 @@ export default function InvoicePage() {
   /** Kotak pencarian cepat di atas daftar barang. */
   const [quickSearch, setQuickSearch] = useState("");
   const [quickCreating, setQuickCreating] = useState(false);
+  /** Invoice yang sedang dibayar (dialog pembayaran). */
+  const [payInv, setPayInv] = useState<any>(null);
+  const [paySaving, setPaySaving] = useState(false);
 
   /** Nomor invoice otomatis berikutnya: INV001, INV002, dst (unik). */
   const nextInvoiceId = useMemo(() => {
@@ -271,6 +292,30 @@ export default function InvoicePage() {
       toast.error(e?.data?.message ?? e?.message ?? "Gagal menambahkan barang ke database");
     } finally {
       setQuickCreating(false);
+    }
+  };
+
+  /** Simpan pembayaran invoice → otomatis kurangi sisa tagihan. */
+  const handleBayarSave = async (nominal: number, tanggal: string, keterangan: string) => {
+    if (!payInv) return;
+    setPaySaving(true);
+    try {
+      const res = await bayarInvoice({
+        idInvoice: payInv.idInvoice,
+        nominal,
+        tanggal,
+        keterangan,
+      });
+      toast.success(
+        res.sisa <= 0
+          ? `Invoice ${res.idInvoice} LUNAS — total dibayar ${formatCurrency(res.dibayar, payInv.mataUang ?? "Rp")}`
+          : `Pembayaran ${formatCurrency(nominal, payInv.mataUang ?? "Rp")} tercatat — sisa ${formatCurrency(res.sisa, payInv.mataUang ?? "Rp")}`,
+      );
+      setPayInv(null);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menyimpan pembayaran");
+    } finally {
+      setPaySaving(false);
     }
   };
 
@@ -407,16 +452,17 @@ export default function InvoicePage() {
       key: "statusPembayaran",
       label: "Status Bayar",
       render: (r) => {
-        const st = r.statusPembayaran ?? "Pending";
+        const st = (r.statusPembayaran ?? "Pending") === "Lunas" ? "Lunas" : "Pending";
+        const sisa = invoiceSisa(r);
         return (
           <div className="flex items-center gap-1.5">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                st === "Lunas" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                st === "Lunas" ? "bg-emerald-100 text-emerald-700" : sisa > 0 && r.dibayar > 0 ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-700"
               }`}
             >
               {st === "Lunas" ? <CheckCircle2 className="size-3" /> : <CalendarClock className="size-3" />}
-              {st}
+              {st === "Lunas" ? "Lunas" : r.dibayar > 0 ? "Parsial" : "Pending"}
             </span>
             <Select
               value={st}
@@ -453,6 +499,24 @@ export default function InvoicePage() {
       ),
     },
     {
+      key: "sisa",
+      label: "Sisa",
+      align: "right",
+      sortValue: (r) => invoiceSisa(r),
+      render: (r) => {
+        const sisa = invoiceSisa(r);
+        const mu: MataUang = r.mataUang === "$" ? "$" : "Rp";
+        if (sisa <= 0)
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+              <CheckCircle2 className="size-3" />
+              Lunas
+            </span>
+          );
+        return <span className="font-semibold text-rose-600 tabular-nums">{formatCurrency(sisa, mu)}</span>;
+      },
+    },
+    {
       key: "margin",
       label: "Margin",
       align: "right",
@@ -472,6 +536,16 @@ export default function InvoicePage() {
       align: "right",
       render: (r) => (
         <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-emerald-600 hover:text-emerald-700"
+            title="Bayar"
+            onClick={() => setPayInv(r)}
+            disabled={invoiceSisa(r) <= 0}
+          >
+            <Wallet className="size-3.5" />
+          </Button>
           <Button variant="ghost" size="icon" className="size-7" title="Lihat & Cetak" onClick={() => setPrintInv(r)}>
             <Eye className="size-3.5" />
           </Button>
@@ -505,7 +579,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja. Cari barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja; aksi Bayar untuk mencatat pembayaran & mengurangi sisa tagihan otomatis. Cari barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis."
         icon={FileText}
         actions={
           <Button onClick={openCreate}>
@@ -869,6 +943,23 @@ export default function InvoicePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog pembayaran invoice */}
+      <PaymentDialog
+        open={!!payInv}
+        onOpenChange={(o) => {
+          if (!o) setPayInv(null);
+        }}
+        idInvoice={payInv?.idInvoice ?? ""}
+        pihak={payInv?.namaPihak}
+        total={payInv ? invoiceTotal(payInv) : 0}
+        dibayar={payInv ? invoiceDibayar(payInv) : 0}
+        sisa={payInv ? invoiceSisa(payInv) : 0}
+        mataUang={(payInv?.mataUang ?? "Rp") as MataUang}
+        riwayat={payInv?.riwayatBayar ?? []}
+        saving={paySaving}
+        onSave={handleBayarSave}
+      />
+
       {/* Print dokumen invoice */}
       <PrintFrame
         open={!!printInv}
@@ -883,105 +974,165 @@ export default function InvoicePage() {
 
 export function InvoicePrintDoc({ invoice }: { invoice: any }) {
   const mu: MataUang = invoice.mataUang === "$" ? "$" : "Rp";
+  const dibayar = invoiceDibayar(invoice);
+  const sisa = invoiceSisa(invoice);
+  const lunas = sisa <= 0;
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between text-sm">
-        <div>
-          <p className="text-xs text-slate-500">Nomor Invoice</p>
-          <p className="text-lg font-bold text-slate-900">{invoice.idInvoice}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-500">Tanggal</p>
-          <p className="font-semibold">{formatDate(invoice.tanggal)}</p>
+    <div className="relative">
+      {/* Watermark status pembayaran (BELUM LUNAS / LUNAS) */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+        <div
+          className={`-rotate-12 rounded-xl border-4 px-8 py-4 text-3xl font-black uppercase tracking-[0.25em] opacity-20 ${
+            lunas ? "border-emerald-600 text-emerald-600" : "border-rose-600 text-rose-600"
+          }`}
+        >
+          {lunas ? "LUNAS" : "BELUM LUNAS"}
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-4 py-3 text-sm">
-        <div>
-          <p className="text-xs text-slate-500">Tipe Transaksi</p>
-          <p className="font-semibold">{invoice.tipe}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Pihak</p>
-          <p className="font-semibold">{invoice.namaPihak}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Mata Uang</p>
-          <p className="font-semibold">{mu}</p>
-        </div>
-        {invoice.tenggat && (
+      <div className="relative z-10">
+        <div className="mb-4 flex items-center justify-between text-sm">
           <div>
-            <p className="text-xs text-slate-500">Tenggat Pembayaran</p>
-            <p className="font-semibold">{formatDate(invoice.tenggat)}</p>
+            <p className="text-xs text-slate-500">Nomor Invoice</p>
+            <p className="text-lg font-bold text-slate-900">{invoice.idInvoice}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Tanggal</p>
+            <p className="font-semibold">{formatDate(invoice.tanggal)}</p>
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-4 py-3 text-sm">
+          <div>
+            <p className="text-xs text-slate-500">Tipe Transaksi</p>
+            <p className="font-semibold">{invoice.tipe}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Pihak</p>
+            <p className="font-semibold">{invoice.namaPihak}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Mata Uang</p>
+            <p className="font-semibold">{mu}</p>
+          </div>
+          {invoice.tenggat && (
+            <div>
+              <p className="text-xs text-slate-500">Tenggat Pembayaran</p>
+              <p className="font-semibold">{formatDate(invoice.tenggat)}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs text-slate-500">Status Pembayaran</p>
+            <p className={`font-semibold ${lunas ? "text-emerald-700" : "text-rose-600"}`}>
+              {lunas ? "Lunas" : "Belum Lunas"}
+            </p>
+          </div>
+        </div>
+
+        {/* Ringkasan pembayaran */}
+        <div className="mb-4 grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-md border border-slate-200 px-3 py-2">
+            <p className="text-xs text-slate-500">Total Tagihan</p>
+            <p className="font-bold tabular-nums">{formatCurrency(invoiceTotal(invoice), mu)}</p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+            <p className="text-xs text-emerald-700">Sudah Dibayar</p>
+            <p className="font-bold text-emerald-700 tabular-nums">{formatCurrency(dibayar, mu)}</p>
+          </div>
+          <div className={`rounded-md border px-3 py-2 ${lunas ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
+            <p className={`text-xs ${lunas ? "text-emerald-700" : "text-rose-600"}`}>Sisa Tagihan</p>
+            <p className={`font-bold tabular-nums ${lunas ? "text-emerald-700" : "text-rose-600"}`}>{formatCurrency(sisa, mu)}</p>
+          </div>
+        </div>
+
+        {/* Riwayat pembayaran */}
+        {Array.isArray(invoice.riwayatBayar) && invoice.riwayatBayar.length > 0 && (
+          <div className="mb-4 rounded-md border border-slate-200 px-4 py-2 text-sm">
+            <p className="mb-1 text-xs font-semibold text-slate-500">Riwayat Pembayaran</p>
+            {invoice.riwayatBayar.map((r: any, i: number) => (
+              <div key={i} className="flex justify-between border-t border-slate-100 py-1 text-xs first:border-0">
+                <span className="text-slate-600">
+                  {formatDate(r.tanggal)}
+                  {r.keterangan ? ` · ${r.keterangan}` : ""}
+                </span>
+                <span className="font-semibold tabular-nums">{formatCurrency(r.nominal, mu)}</span>
+              </div>
+            ))}
           </div>
         )}
-        <div>
-          <p className="text-xs text-slate-500">Status Pembayaran</p>
-          <p className="font-semibold">{invoice.statusPembayaran ?? "Pending"}</p>
-        </div>
-      </div>
 
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
-            <th className="border border-slate-200 px-2 py-2">No</th>
-            <th className="border border-slate-200 px-2 py-2">Kode</th>
-            <th className="border border-slate-200 px-2 py-2">Nama Barang</th>
-            <th className="border border-slate-200 px-2 py-2 text-right">Qty</th>
-            <th className="border border-slate-200 px-2 py-2 text-right">Harga</th>
-            <th className="border border-slate-200 px-2 py-2 text-right">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoice.items.map((it: any, i: number) => {
-            const qty =
-              invoice.tipe === "Pasar"
-                ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
-                : it.qty;
-            const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
-            const stored = parseNum(it.subtotal);
-            // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
-            const subtotal = stored > 0 ? stored : Math.max(0, parseNum(qty) * parseNum(harga));
-            return (
-              <tr key={i}>
-                <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
-                <td className="border border-slate-200 px-2 py-1.5">{it.kodeBarang}</td>
-                <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{qty}</td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(harga, mu)}</td>
-                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(subtotal, mu)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
+              <th className="border border-slate-200 px-2 py-2">No</th>
+              <th className="border border-slate-200 px-2 py-2">Kode</th>
+              <th className="border border-slate-200 px-2 py-2">Nama Barang</th>
+              <th className="border border-slate-200 px-2 py-2 text-right">Qty</th>
+              <th className="border border-slate-200 px-2 py-2 text-right">Harga</th>
+              <th className="border border-slate-200 px-2 py-2 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoice.items.map((it: any, i: number) => {
+              const qty =
+                invoice.tipe === "Pasar"
+                  ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
+                  : it.qty;
+              const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
+              const stored = parseNum(it.subtotal);
+              // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
+              const subtotal = stored > 0 ? stored : Math.max(0, parseNum(qty) * parseNum(harga));
+              return (
+                <tr key={i}>
+                  <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
+                  <td className="border border-slate-200 px-2 py-1.5">{it.kodeBarang}</td>
+                  <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
+                  <td className="border border-slate-200 px-2 py-1.5 text-right">{qty}</td>
+                  <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(harga, mu)}</td>
+                  <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(subtotal, mu)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
 
-      {/*
-        Nota penjualan (Reseller/DPL/Pasar) TIDAK menampilkan Total Modal &
-        Margin — hanya total akhir. Supplier tetap menampilkan total pembelian.
-      */}
-      <div className="mt-4 flex justify-end">
-        <div className="w-64 space-y-1 text-sm">
-          <div className="flex justify-between border-t border-slate-300 pt-1 text-base font-bold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatCurrency(invoice.tipe === "Supplier" ? invoice.total : invoice.totalPenjualan, mu)}</span>
+        {/*
+          Nota penjualan (Reseller/DPL/Pasar) TIDAK menampilkan Total Modal &
+          Margin — hanya total akhir. Supplier tetap menampilkan total pembelian.
+        */}
+        <div className="mt-4 flex justify-end">
+          <div className="w-64 space-y-1 text-sm">
+            <div className="flex justify-between text-slate-600">
+              <span>Sudah Dibayar</span>
+              <span className="tabular-nums">{formatCurrency(dibayar, mu)}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>Sisa</span>
+              <span className={`font-semibold tabular-nums ${lunas ? "text-emerald-700" : "text-rose-600"}`}>
+                {formatCurrency(sisa, mu)}
+              </span>
+            </div>
+            <div className="flex justify-between border-t border-slate-300 pt-1 text-base font-bold">
+              <span>Total</span>
+              <span className="tabular-nums">{formatCurrency(invoice.tipe === "Supplier" ? invoice.total : invoice.totalPenjualan, mu)}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-12">
-        <div className="grid grid-cols-2 gap-8 text-sm">
-          <div>
-            <p>Diterima oleh,</p>
-            <div className="mt-14" />
-            <p className="font-semibold">____________________</p>
-            <p className="text-xs text-slate-500">({invoice.namaPihak})</p>
-          </div>
-          <div>
-            <p>Hormat kami,</p>
-            <div className="mt-14" />
-            <p className="font-semibold">____________________</p>
-            <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
+        <div className="mt-12">
+          <div className="grid grid-cols-2 gap-8 text-sm">
+            <div>
+              <p>Diterima oleh,</p>
+              <div className="mt-14" />
+              <p className="font-semibold">____________________</p>
+              <p className="text-xs text-slate-500">({invoice.namaPihak})</p>
+            </div>
+            <div>
+              <p>Hormat kami,</p>
+              <div className="mt-14" />
+              <p className="font-semibold">____________________</p>
+              <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
+            </div>
           </div>
         </div>
       </div>

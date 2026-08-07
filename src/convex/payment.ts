@@ -1,5 +1,10 @@
+import { v } from "convex/values";
+import { mutation } from "./_generated/server";
+import { badRequest, findOneByKey, logRequest, logResponse } from "./lib";
+import { todayStr, computeInvoicePayment } from "../lib/business";
+
 // ============================================================================
-// PEMBAYARAN INVOICE — Dapur Laut
+// PEMBAYARAN INVOICE
 //
 // Aksi pembayaran untuk setiap invoice yang sudah jadi:
 //   - bayarInvoice        : invoice biasa (Supplier/Reseller/DPL/Pasar)
@@ -10,13 +15,8 @@
 //   sisa    = max(0, total - dibayar)
 //   status  = "Lunas" bila sisa <= 0, selain itu "Pending"
 // dan riwayat pembayaran (tanggal, nominal, keterangan) disimpan di
-// `riwayatBayar` agar riwayat lengkap terlihat di tabel & nota.
+// `riwayatBayar` agar riwayat lengkap (multi-bayar) terlihat di tabel & nota.
 // ============================================================================
-
-import { v } from "convex/values";
-import { mutation } from "./_generated/server";
-import { badRequest, findOneByKey, logRequest, logResponse } from "./lib";
-import { todayStr } from "../lib/business";
 
 /** Catat pembayaran invoice biasa (Supplier/Reseller/DPL/Pasar). */
 export const bayarInvoice = mutation({
@@ -32,15 +32,15 @@ export const bayarInvoice = mutation({
     const inv = (await findOneByKey(ctx, "invoice", "idInvoice", idInvoice)) as any;
     if (!inv) return badRequest("Invoice tidak ditemukan", { idInvoice });
 
+    // Jumlah yang dibayar: penjualan utk Reseller/DPL/Pasar, pembelian utk Supplier
     const total = inv.totalPenjualan || inv.total || 0;
     const prevDibayar = inv.dibayar ?? 0;
-    const dibayar = Math.min(total, prevDibayar + nominal);
-    const sisa = Math.max(0, total - dibayar);
-    const status = sisa <= 0 ? "Lunas" : "Pending";
+    const { dibayar, sisa, status, tercatat } = computeInvoicePayment(total, prevDibayar, nominal);
+
     const riwayat = Array.isArray(inv.riwayatBayar) ? [...inv.riwayatBayar] : [];
     riwayat.push({
       tanggal: tanggal || todayStr(),
-      nominal: Math.min(nominal, Math.max(0, total - prevDibayar)),
+      nominal: tercatat,
       keterangan: keterangan ?? "",
     });
 
@@ -66,13 +66,12 @@ export const bayarInvoiceTetesan = mutation({
 
     const total = inv.total || 0;
     const prevDibayar = inv.dibayar ?? 0;
-    const dibayar = Math.min(total, prevDibayar + nominal);
-    const sisa = Math.max(0, total - dibayar);
-    const status = sisa <= 0 ? "Lunas" : "Pending";
+    const { dibayar, sisa, status, tercatat } = computeInvoicePayment(total, prevDibayar, nominal);
+
     const riwayat = Array.isArray(inv.riwayatBayar) ? [...inv.riwayatBayar] : [];
     riwayat.push({
       tanggal: tanggal || todayStr(),
-      nominal: Math.min(nominal, Math.max(0, total - prevDibayar)),
+      nominal: tercatat,
       keterangan: keterangan ?? "",
     });
 

@@ -344,7 +344,8 @@ export const bayarUtang = mutation({
 
 // ============================================================================
 // INVOICE (multi-barang) — efek stok + kas otomatis; mataUang Rp/$ (Supplier);
-// status pembayaran Lunas/Pending bisa diubah kapan saja.
+// status pembayaran Lunas/Pending; aksi Bayar mencatat pembayaran (dibayar,
+// sisa, riwayatBayar) dan mengurangi sisa tagihan otomatis.
 // ============================================================================
 
 export const createInvoice = mutation({
@@ -357,24 +358,30 @@ export const createInvoice = mutation({
     const totals = computeInvoiceTotals(d.tipe as InvoiceTipe, d.items as InvoiceItem[]);
     const mataUang = (doc as any)?.mataUang === "$" ? "$" : "Rp"; // default Rupiah; Supplier bisa pilih "$"
     const statusPembayaran = d.statusPembayaran === "Lunas" ? "Lunas" : "Pending";
+    // Jumlah yang harus dibayar: penjualan utk Reseller/DPL/Pasar, pembelian utk Supplier
+    const totalTagihan = totals.totalPenjualan || totals.total || 0;
 
     const existing = await findOneByKey(ctx, "invoice", "idInvoice", d.idInvoice);
     const id: Id<"invoice"> | undefined = existing ? (existing._id as Id<"invoice">) : undefined;
 
     // Simpan invoice (upsert by idInvoice → ON CONFLICT DO UPDATE)
     if (id) {
+      // Re-save: jangan timpa status pembayaran / dibayar / riwayat yang sudah
+      // tercatat (aksi Bayar & setStatusInvoice). Sisa dihitung ulang bila
+      // total berubah karena item diedit.
+      const prevDibayar = (existing as any).dibayar ?? 0;
       await ctx.db.patch(id, {
         tanggal: d.tanggal,
         tipe: d.tipe as InvoiceTipe,
         namaPihak: d.namaPihak,
         tenggat: d.tenggat ?? "",
         mataUang,
-        statusPembayaran,
         items: d.items,
         total: totals.total,
         totalModal: totals.totalModal,
         totalPenjualan: totals.totalPenjualan,
         margin: totals.margin,
+        sisa: Math.max(0, totalTagihan - prevDibayar),
       });
     } else {
       await ctx.db.insert("invoice", {
@@ -390,6 +397,9 @@ export const createInvoice = mutation({
         totalModal: totals.totalModal,
         totalPenjualan: totals.totalPenjualan,
         margin: totals.margin,
+        dibayar: 0,
+        sisa: totalTagihan,
+        riwayatBayar: [],
       });
     }
 
@@ -444,7 +454,11 @@ export const createInvoice = mutation({
   },
 });
 
-/** Ubah status pembayaran invoice (Lunas/Pending) — bisa diubah kapan saja. */
+/**
+ * Ubah status pembayaran invoice (Lunas/Pending) — bisa diubah kapan saja.
+ * Bila diset Lunas, dibayar/sisa ikut disinkronkan (dibayar = tagihan, sisa = 0)
+ * agar konsisten dengan aksi Bayar.
+ */
 export const setStatusInvoice = mutation({
   args: { idInvoice: v.string(), status: v.string() },
   handler: async (ctx, { idInvoice, status }) => {
@@ -454,7 +468,13 @@ export const setStatusInvoice = mutation({
     }
     const inv = await findOneByKey(ctx, "invoice", "idInvoice", idInvoice);
     if (!inv) return badRequest("Invoice tidak ditemukan", { idInvoice });
-    await ctx.db.patch(inv._id, { statusPembayaran: status });
+    if (status === "Lunas") {
+      const totalTagihan = (inv as any).totalPenjualan || (inv as any).total || 0;
+      await ctx.db.patch(inv._id, { statusPembayaran: "Lunas", dibayar: totalTagihan, sisa: 0 });
+    } else {
+      // Pending: pertahankan pembayaran yg sudah tercatat (dibayar/sisa/riwayat)
+      await ctx.db.patch(inv._id, { statusPembayaran: "Pending" });
+    }
     logResponse("setStatusInvoice", { idInvoice, status });
     return { idInvoice, status };
   },
@@ -925,6 +945,8 @@ export const upsertTetesanStok = mutation({
  *   Gudang berkurang (bahan baku diambil dari gudang), kas keluar.
  * - Penjualan : jual barang jadi (harga jual) → stok Jadi berkurang, kas masuk.
  *   Harga modal TIDAK tampil di invoice penjualan (hanya tersimpan di DB).
+ * Pembayaran: dibayar/sisa/riwayatBayar diinisialisasi saat buat & diperbarui
+ * oleh aksi Bayar (payment.bayarInvoiceTetesan).
  */
 export const createInvoiceTetesan = mutation({
   args: { doc: v.any() },
@@ -954,6 +976,8 @@ export const createInvoiceTetesan = mutation({
 
     const existing = await findOneByKey(ctx, "invoiceTetesan", "idInvoice", d.idInvoice);
     if (existing) {
+      // Re-save: jangan timpa status/dibayar/riwayat pembayaran yang sudah tercatat.
+      const prevDibayar = (existing as any).dibayar ?? 0;
       await ctx.db.patch(existing._id, {
         tanggal: d.tanggal,
         tipe,
@@ -961,6 +985,7 @@ export const createInvoiceTetesan = mutation({
         mataUang,
         items,
         total: totals.total,
+        sisa: Math.max(0, totals.total - prevDibayar),
       });
     } else {
       await ctx.db.insert("invoiceTetesan", {
@@ -971,6 +996,10 @@ export const createInvoiceTetesan = mutation({
         mataUang,
         items,
         total: totals.total,
+        statusPembayaran: "Pending",
+        dibayar: 0,
+        sisa: totals.total,
+        riwayatBayar: [],
       });
     }
 

@@ -1,10 +1,11 @@
 // ============================================================================
-// TEST PEMBUATAN INVOICE — Dapur Laut
+// TEST PEMBUATAN INVOICE & PEMBAYARAN — Dapur Laut
 //
-// Menjalankan handler Convex ASLI (createInvoice & createInvoiceTetesan)
-// dengan database mock in-memory, untuk invoice berisi 1 s.d. 30 barang,
-// di semua tipe: Supplier / Reseller / DPL / Pasar / Modal / Penjualan.
-// Plus regresi: input desimal (0,7) & parseNum.
+// Menjalankan handler Convex ASLI (createInvoice, createInvoiceTetesan,
+// bayarInvoice, bayarInvoiceTetesan) dengan database mock in-memory, untuk
+// invoice berisi 1 s.d. 30 barang, di semua tipe: Supplier / Reseller / DPL /
+// Pasar / Modal / Penjualan. Plus regresi: input desimal (0,7), parseNum,
+// dan aksi pembayaran (bayar → sisa berkurang → Lunas, riwayat tercatat).
 //
 // Cara jalan:  node scripts/test-invoice.mjs
 // ============================================================================
@@ -23,8 +24,9 @@ const require = createRequire(import.meta.url);
 // ---------------------------------------------------------------------------
 const ENTRY_SRC = `
 import { createInvoice, createInvoiceTetesan } from "@/convex/business.ts";
+import { bayarInvoice, bayarInvoiceTetesan } from "@/convex/payment.ts";
 import { validate, invoiceSchema, invoiceTetesanSchema } from "@/lib/schemas.ts";
-import { computeInvoiceTotals, computeTetesanTotals } from "@/lib/business.ts";
+import { computeInvoiceTotals, computeTetesanTotals, computeInvoicePayment } from "@/lib/business.ts";
 import { parseNum } from "@/lib/format.ts";
 
 function makeDb() {
@@ -95,11 +97,14 @@ async function run(fn, ctx, args) {
 
 export const invokeCreateInvoice = (ctx, doc) => run(createInvoice, ctx, { doc });
 export const invokeCreateTetesan = (ctx, doc) => run(createInvoiceTetesan, ctx, { doc });
+export const invokeBayarInvoice = (ctx, args) => run(bayarInvoice, ctx, args);
+export const invokeBayarTetesan = (ctx, args) => run(bayarInvoiceTetesan, ctx, args);
 export const schemaInvoice = (doc) => validate(invoiceSchema, doc);
 export const schemaTetesan = (doc) => validate(invoiceTetesanSchema, doc);
 export const totalsInvoice = (tipe, items) => computeInvoiceTotals(tipe, items);
 export const totalsTetesan = (tipe, items) => computeTetesanTotals(tipe, items);
 export const parseNumFn = parseNum;
+export const paymentFn = computeInvoicePayment;
 export function snapshot(ctx) {
   return {
     invoice: ctx.db.query("invoice").collect(),
@@ -249,6 +254,9 @@ for (const tipe of TIPES) {
     const snap = mod.snapshot(ctx);
     const inv = snap.invoice.find((x) => x.idInvoice === doc.idInvoice);
     check(`[${tipe}] ${n} barang: invoice tersimpan di DB`, !!inv && inv.items.length === n);
+    // Status pembayaran awal: Pending, dibayar 0, sisa = tagihan, riwayat kosong
+    const tagihan = tipe === "Supplier" ? inv.total : inv.totalPenjualan;
+    check(`[${tipe}] ${n} barang: field pembayaran diinisialisasi`, inv.dibayar === 0 && Math.abs(inv.sisa - tagihan) < 1e-9 && Array.isArray(inv.riwayatBayar) && inv.riwayatBayar.length === 0 && inv.statusPembayaran === "Pending");
     const t = mod.totalsInvoice(tipe, items);
     const kas = snap.kas.find((k) => k.id === `INV-${doc.idInvoice}`);
     if (tipe === "Supplier") {
@@ -318,6 +326,7 @@ for (const tipe of ["Modal", "Penjualan"]) {
     const snap = mod.snapshot(ctx);
     const inv = snap.invoiceTetesan.find((x) => x.idInvoice === doc.idInvoice);
     check(`[Tetesan ${tipe}] ${n} barang: tersimpan di DB`, !!inv && inv.items.length === n);
+    check(`[Tetesan ${tipe}] ${n} barang: field pembayaran diinisialisasi`, inv.dibayar === 0 && Math.abs(inv.sisa - inv.total) < 1e-9 && Array.isArray(inv.riwayatBayar) && inv.riwayatBayar.length === 0 && inv.statusPembayaran === "Pending");
     const t = mod.totalsTetesan(tipe, items);
     const kas = snap.kas.find((k) => k.id === `KAS-TET-${doc.idInvoice}`);
     if (tipe === "Modal") {
@@ -437,6 +446,107 @@ for (const tipe of TIPES) {
     const snap = mod.snapshot(ctx);
     check("[Tetesan Penjualan] total 7000 & stok −0,7", snap.invoiceTetesan.some((x) => x.idInvoice === "TET-DEC" && Math.abs(x.total - 7000) < 1e-9) && snap.tetesanHistory.some((h) => Math.abs(h.perubahan + 0.7) < 1e-9));
   }
+}
+
+// ---------------------------------------------------------------------------
+console.log("\n" + "=".repeat(70));
+console.log("BAGIAN 5 — Aksi PEMBAYARAN invoice (bayar → sisa berkurang → Lunas)");
+console.log("=".repeat(70));
+
+// --- Logika murni computeInvoicePayment ---
+{
+  const f = mod.paymentFn;
+  const cases = [
+    // [total, dibayarSebelum, nominal, dibayar, sisa, status, tercatat]
+    [10000, 0, 4000, 4000, 6000, "Pending", 4000],
+    [10000, 4000, 6000, 10000, 0, "Lunas", 6000],
+    [10000, 0, 20000, 10000, 0, "Lunas", 10000],
+    [10000, 9000, 2000, 10000, 0, "Lunas", 1000],
+    [10000, 10000, 1000, 10000, 0, "Lunas", 0],
+    [250000, 0, 25000, 25000, 225000, "Pending", 25000],
+    [250000, 225000, 50000, 250000, 0, "Lunas", 25000],
+  ];
+  for (const [total, sudah, nominal, expBayar, expSisa, expStatus, expTercatat] of cases) {
+    const r = f(total, sudah, nominal);
+    check(
+      `payment(${total}, sudah ${sudah}, nominal ${nominal}) → bayar ${expBayar}, sisa ${expSisa}, ${expStatus}`,
+      r.dibayar === expBayar && r.sisa === expSisa && r.status === expStatus && r.tercatat === expTercatat,
+      JSON.stringify(r),
+    );
+  }
+}
+
+// --- bayarInvoice handler ASLI: multi-bayar Reseller sampai Lunas ---
+{
+  const ctx = freshCtx();
+  // 2 barang Reseller: (15000+0*500)*2 + (15000+1*500)*3 = 30000 + 46500 = 76500
+  const items = makeItems("Reseller", 2);
+  const doc = { idInvoice: "INV-BAYAR", tanggal: "2026-08-06", tipe: "Reseller", namaPihak: "Toko Bayar", tenggat: "", mataUang: "Rp", items };
+  const cr = await mod.invokeCreateInvoice(ctx, doc);
+  check("invoice dibuat sebelum pembayaran", cr.ok === true, cr.msg);
+
+  const p1 = await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-BAYAR", nominal: 30000, tanggal: "2026-08-07", keterangan: "DP" });
+  check("bayar 30.000 tercatat", p1.ok === true && p1.res.dibayar === 30000 && p1.res.sisa === 46500 && p1.res.status === "Pending", p1.msg);
+  let inv = mod.snapshot(ctx).invoice.find((x) => x.idInvoice === "INV-BAYAR");
+  check("DB: dibayar 30.000, sisa 46.500, riwayat 1", inv.dibayar === 30000 && inv.sisa === 46500 && inv.riwayatBayar.length === 1 && inv.riwayatBayar[0].nominal === 30000 && inv.riwayatBayar[0].keterangan === "DP");
+
+  const p2 = await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-BAYAR", nominal: 46500, tanggal: "2026-08-09", keterangan: "Pelunasan" });
+  check("bayar pelunasan → LUNAS", p2.ok === true && p2.res.dibayar === 76500 && p2.res.sisa === 0 && p2.res.status === "Lunas", p2.msg);
+  inv = mod.snapshot(ctx).invoice.find((x) => x.idInvoice === "INV-BAYAR");
+  check("DB: Lunas, sisa 0, riwayat 2", inv.statusPembayaran === "Lunas" && inv.sisa === 0 && inv.riwayatBayar.length === 2);
+
+  // Bayar melebihi sisa → dibatasi & tetap Lunas, riwayat tercatat hanya sisa
+  const p3 = await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-BAYAR", nominal: 999999 });
+  check("bayar berlebih dibatasi (tercatat 0, tetap Lunas)", p3.ok === true && p3.res.dibayar === 76500 && p3.res.sisa === 0 && p3.res.status === "Lunas", p3.msg);
+}
+
+// --- bayarInvoice: invoice tidak ditemukan / nominal <= 0 ditolak ---
+{
+  const ctx = freshCtx();
+  const bad1 = await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-GAK-ADA", nominal: 1000 });
+  check("invoice tidak ditemukan ditolak", bad1.ok === false && /tidak ditemukan/.test(bad1.msg), bad1.msg);
+  const bad2 = await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-GAK-ADA", nominal: 0 });
+  check("nominal 0 ditolak", bad2.ok === false && /lebih dari 0/.test(bad2.msg), bad2.msg);
+}
+
+// --- bayarInvoice: invoice SUPPLIER memakai total pembelian (totalPenjualan 0) ---
+{
+  const ctx = freshCtx();
+  const items = makeItems("Supplier", 1); // hargaModal 10000 × qty 2 = 20000
+  const doc = { idInvoice: "INV-BAY-SUP", tanggal: "2026-08-06", tipe: "Supplier", namaPihak: "CV Pasok", tenggat: "", mataUang: "Rp", items };
+  await mod.invokeCreateInvoice(ctx, doc);
+  const p = await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-BAY-SUP", nominal: 20000 });
+  check("Supplier: bayar 20.000 → Lunas", p.ok === true && p.res.dibayar === 20000 && p.res.sisa === 0 && p.res.status === "Lunas", p.msg);
+}
+
+// --- bayarInvoiceTetesan handler ASLI: Penjualan & Modal ---
+{
+  const ctx = freshCtx();
+  const items = [{ kodeBarang: "TET001", namaBarang: "Keripik", harga: 10000, qty: 5, subtotal: 0 }]; // total 50000
+  const doc = { idInvoice: "TET-BAYAR", tanggal: "2026-08-06", tipe: "Penjualan", namaPihak: "Kios", mataUang: "Rp", items };
+  await mod.invokeCreateTetesan(ctx, doc);
+  const p1 = await mod.invokeBayarTetesan(ctx, { idInvoice: "TET-BAYAR", nominal: 20000 });
+  check("Tetesan: bayar 20.000 → sisa 30.000 Pending", p1.ok === true && p1.res.dibayar === 20000 && p1.res.sisa === 30000 && p1.res.status === "Pending", p1.msg);
+  const p2 = await mod.invokeBayarTetesan(ctx, { idInvoice: "TET-BAYAR", nominal: 30000 });
+  check("Tetesan: pelunasan → LUNAS", p2.ok === true && p2.res.dibayar === 50000 && p2.res.sisa === 0 && p2.res.status === "Lunas", p2.msg);
+  const inv = mod.snapshot(ctx).invoiceTetesan.find((x) => x.idInvoice === "TET-BAYAR");
+  check("Tetesan: DB Lunas, riwayat 2", inv.statusPembayaran === "Lunas" && inv.sisa === 0 && inv.riwayatBayar.length === 2);
+}
+
+// --- Upsert re-save TIDAK menghapus pembayaran yang sudah tercatat ---
+{
+  const ctx = freshCtx();
+  const doc = { idInvoice: "INV-REBAYAR", tanggal: "2026-08-06", tipe: "Reseller", namaPihak: "A", tenggat: "", mataUang: "Rp", items: makeItems("Reseller", 1) };
+  await mod.invokeCreateInvoice(ctx, doc);
+  await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-REBAYAR", nominal: 10000, tanggal: "2026-08-08" });
+  const inv1 = mod.snapshot(ctx).invoice.find((x) => x.idInvoice === "INV-REBAYAR");
+  const sebelum = { dibayar: inv1.dibayar, sisa: inv1.sisa, riwayat: inv1.riwayatBayar.length, status: inv1.statusPembayaran };
+  // Simpan ulang dengan item berbeda
+  const doc2 = { idInvoice: "INV-REBAYAR", tanggal: "2026-08-10", tipe: "Reseller", namaPihak: "B", tenggat: "", mataUang: "Rp", items: makeItems("Reseller", 1) };
+  const r = await mod.invokeCreateInvoice(ctx, doc2);
+  const inv2 = mod.snapshot(ctx).invoice.find((x) => x.idInvoice === "INV-REBAYAR");
+  check("re-save berhasil & pembayaran tidak hilang", r.ok === true && inv2.dibayar === sebelum.dibayar && inv2.riwayatBayar.length === sebelum.riwayat && inv2.statusPembayaran === sebelum.status, JSON.stringify({ sebelum, sesudah: inv2 }));
+  check("re-save: sisa tetap konsisten (tidak negatif)", inv2.sisa >= 0);
 }
 
 // ---------------------------------------------------------------------------

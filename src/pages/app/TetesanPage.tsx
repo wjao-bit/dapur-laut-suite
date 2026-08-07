@@ -11,6 +11,8 @@ import {
   PackageCheck,
   Boxes,
   Landmark,
+  CheckCircle2,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +47,7 @@ import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
+import { PaymentDialog } from "@/components/app/PaymentDialog";
 import { formatDate, todayStr, parseNum, nextSeqKode } from "@/lib/format";
 import { formatCurrency, type MataUang, type TetesanTipe } from "@/lib/business";
 
@@ -52,6 +55,17 @@ const TIPE_LABEL: Record<string, string> = {
   Modal: "Beli bahan baku (harga modal)",
   Penjualan: "Jual barang jadi (harga jual)",
 };
+
+/** Sudah dibayar invoice tetesan (Lunas dianggap lunas penuh). */
+export function tetesanDibayar(r: any): number {
+  if (typeof r?.dibayar === "number" && r.dibayar > 0) return r.dibayar;
+  return (r?.statusPembayaran ?? "Pending") === "Lunas" ? r?.total || 0 : 0;
+}
+
+/** Sisa tagihan invoice tetesan (total − sudah dibayar). */
+export function tetesanSisa(r: any): number {
+  return Math.max(0, (r?.total || 0) - tetesanDibayar(r));
+}
 
 interface Row {
   kodeBarang: string;
@@ -91,6 +105,7 @@ export default function TetesanPage() {
   const stokRows = useQuery(api.queries.listTetesanStok);
   const createInvoice = useMutation(api.business.createInvoiceTetesan);
   const deleteInvoice = useMutation(api.business.deleteInvoiceTetesan);
+  const bayarInvoice = useMutation(api.payment.bayarInvoiceTetesan);
   const upsertBahanBaku = useMutation(api.business.upsertBahanBaku);
   const upsertBarangJadi = useMutation(api.business.upsertBarangJadi);
 
@@ -107,6 +122,9 @@ export default function TetesanPage() {
   /** Kotak pencarian cepat di atas daftar barang. */
   const [quickSearch, setQuickSearch] = useState("");
   const [quickCreating, setQuickCreating] = useState(false);
+  /** Invoice yang sedang dibayar (dialog pembayaran). */
+  const [payInv, setPayInv] = useState<any>(null);
+  const [paySaving, setPaySaving] = useState(false);
 
   const stokMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -223,6 +241,30 @@ export default function TetesanPage() {
     }
   };
 
+  /** Simpan pembayaran invoice tetesan → otomatis kurangi sisa tagihan. */
+  const handleBayarSave = async (nominal: number, tanggalBayar: string, keterangan: string) => {
+    if (!payInv) return;
+    setPaySaving(true);
+    try {
+      const res = await bayarInvoice({
+        idInvoice: payInv.idInvoice,
+        nominal,
+        tanggal: tanggalBayar,
+        keterangan,
+      });
+      toast.success(
+        res.sisa <= 0
+          ? `Invoice ${res.idInvoice} LUNAS — total dibayar ${formatCurrency(res.dibayar, "Rp")}`
+          : `Pembayaran ${formatCurrency(nominal, "Rp")} tercatat — sisa ${formatCurrency(res.sisa, "Rp")}`,
+      );
+      setPayInv(null);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? "Gagal menyimpan pembayaran");
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setSaving(true);
     try {
@@ -300,11 +342,38 @@ export default function TetesanPage() {
       render: (r) => <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(r.total, r.mataUang ?? "Rp")}</span>,
     },
     {
+      key: "sisa",
+      label: "Sisa",
+      align: "right",
+      sortValue: (r) => tetesanSisa(r),
+      render: (r) => {
+        const sisa = tetesanSisa(r);
+        if (sisa <= 0)
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+              <CheckCircle2 className="size-3" />
+              Lunas
+            </span>
+          );
+        return <span className="font-semibold text-rose-600 tabular-nums">{formatCurrency(sisa, r.mataUang ?? "Rp")}</span>;
+      },
+    },
+    {
       key: "aksi",
       label: "",
       align: "right",
       render: (r) => (
         <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-emerald-600 hover:text-emerald-700"
+            title="Bayar"
+            onClick={() => setPayInv(r)}
+            disabled={tetesanSisa(r) <= 0}
+          >
+            <Wallet className="size-3.5" />
+          </Button>
           <Button variant="ghost" size="icon" className="size-7" title="Lihat & Cetak" onClick={() => setPrintInv(r)}>
             <Eye className="size-3.5" />
           </Button>
@@ -338,7 +407,7 @@ export default function TetesanPage() {
     <div>
       <PageHeader
         title="Invoice Tetesan"
-        description="Invoice Modal (bahan baku, harga modal) & Invoice Penjualan (barang jadi, harga jual). Harga modal hanya tersimpan di database, tidak tampil di invoice penjualan. Bahan baku/barang jadi baru bisa langsung ditambahkan ke database saat diketik."
+        description="Invoice Modal (bahan baku, harga modal) & Invoice Penjualan (barang jadi, harga jual). Harga modal hanya tersimpan di database, tidak tampil di invoice penjualan. Bahan baku/barang jadi baru bisa langsung ditambahkan ke database saat diketik. Aksi Bayar mencatat pembayaran & mengurangi sisa tagihan otomatis."
         icon={Droplets}
         actions={
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -566,6 +635,23 @@ export default function TetesanPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog pembayaran invoice tetesan */}
+      <PaymentDialog
+        open={!!payInv}
+        onOpenChange={(o) => {
+          if (!o) setPayInv(null);
+        }}
+        idInvoice={payInv?.idInvoice ?? ""}
+        pihak={payInv?.namaPihak}
+        total={payInv ? payInv.total ?? 0 : 0}
+        dibayar={payInv ? tetesanDibayar(payInv) : 0}
+        sisa={payInv ? tetesanSisa(payInv) : 0}
+        mataUang="Rp"
+        riwayat={payInv?.riwayatBayar ?? []}
+        saving={paySaving}
+        onSave={handleBayarSave}
+      />
+
       {/* Print */}
       <PrintFrame
         open={!!printInv}
@@ -581,87 +667,145 @@ export default function TetesanPage() {
 function TetesanPrintDoc({ invoice }: { invoice: any }) {
   const mu: MataUang = invoice.mataUang === "$" ? "$" : "Rp";
   const isModal = invoice.tipe === "Modal";
+  const dibayar = tetesanDibayar(invoice);
+  const sisa = tetesanSisa(invoice);
+  const lunas = sisa <= 0;
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-center gap-2">
-        <Boxes className="size-4 text-sky-700" />
-        <p className="text-center text-base font-bold tracking-wide text-sky-800 uppercase">
-          {isModal ? "Invoice Modal Tetesan" : "Invoice Penjualan Tetesan"}
-        </p>
-      </div>
-      <div className="mx-auto mb-4 h-0.5 w-40 bg-gradient-to-r from-sky-800 via-amber-500 to-sky-800" />
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-        <div>
-          <p className="text-xs text-slate-500">Nomor Invoice</p>
-          <p className="text-lg font-bold text-slate-900">{invoice.idInvoice}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-500">Tanggal</p>
-          <p className="font-semibold">{formatDate(invoice.tanggal)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-500">Pihak / Toko</p>
-          <p className="font-semibold">{invoice.namaPihak}</p>
+    <div className="relative">
+      {/* Watermark status pembayaran (BELUM LUNAS / LUNAS) */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+        <div
+          className={`-rotate-12 rounded-xl border-4 px-8 py-4 text-3xl font-black uppercase tracking-[0.25em] opacity-20 ${
+            lunas ? "border-emerald-600 text-emerald-600" : "border-rose-600 text-rose-600"
+          }`}
+        >
+          {lunas ? "LUNAS" : "BELUM LUNAS"}
         </div>
       </div>
 
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-sky-50 text-left text-xs text-sky-900 uppercase">
-            <th className="border border-slate-200 px-2 py-2">No</th>
-            <th className="border border-slate-200 px-2 py-2">Kode</th>
-            <th className="border border-slate-200 px-2 py-2">{isModal ? "Bahan Baku" : "Barang Jadi"}</th>
-            <th className="border border-slate-200 px-2 py-2 text-right">Qty</th>
-            <th className="border border-slate-200 px-2 py-2 text-right">{isModal ? "Harga Modal" : "Harga Jual"}</th>
-            <th className="border border-slate-200 px-2 py-2 text-right">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoice.items.map((it: any, i: number) => (
-            <tr key={i}>
-              <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
-              <td className="border border-slate-200 px-2 py-1.5">{it.kodeBarang}</td>
-              <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
-              <td className="border border-slate-200 px-2 py-1.5 text-right">{it.qty}</td>
-              <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(it.harga, mu)}</td>
-              <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(it.subtotal, mu)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="relative z-10">
+        <div className="mb-2 flex items-center justify-center gap-2">
+          <Boxes className="size-4 text-sky-700" />
+          <p className="text-center text-base font-bold tracking-wide text-sky-800 uppercase">
+            {isModal ? "Invoice Modal Tetesan" : "Invoice Penjualan Tetesan"}
+          </p>
+        </div>
+        <div className="mx-auto mb-4 h-0.5 w-40 bg-gradient-to-r from-sky-800 via-amber-500 to-sky-800" />
 
-      <div className="mt-4 flex justify-end">
-        <div className="w-64 space-y-1 text-sm">
-          <div className="flex justify-between border-t border-slate-300 pt-1 text-base font-bold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatCurrency(invoice.total, mu)}</span>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div>
+            <p className="text-xs text-slate-500">Nomor Invoice</p>
+            <p className="text-lg font-bold text-slate-900">{invoice.idInvoice}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Tanggal</p>
+            <p className="font-semibold">{formatDate(invoice.tanggal)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Pihak / Toko</p>
+            <p className="font-semibold">{invoice.namaPihak}</p>
           </div>
         </div>
-      </div>
 
-      <div className="mt-12 grid grid-cols-2 gap-8 text-sm">
-        <div>
-          <p>Diterima oleh,</p>
-          <div className="mt-14" />
-          <p className="font-semibold">____________________</p>
-          <p className="text-xs text-slate-500">({invoice.namaPihak})</p>
+        {/* Ringkasan pembayaran */}
+        <div className="mb-4 grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-md border border-slate-200 px-3 py-2">
+            <p className="text-xs text-slate-500">Total Tagihan</p>
+            <p className="font-bold tabular-nums">{formatCurrency(invoice.total || 0, mu)}</p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+            <p className="text-xs text-emerald-700">Sudah Dibayar</p>
+            <p className="font-bold text-emerald-700 tabular-nums">{formatCurrency(dibayar, mu)}</p>
+          </div>
+          <div className={`rounded-md border px-3 py-2 ${lunas ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
+            <p className={`text-xs ${lunas ? "text-emerald-700" : "text-rose-600"}`}>Sisa Tagihan</p>
+            <p className={`font-bold tabular-nums ${lunas ? "text-emerald-700" : "text-rose-600"}`}>{formatCurrency(sisa, mu)}</p>
+          </div>
         </div>
-        <div>
-          <p>Hormat kami,</p>
-          <div className="mt-14" />
-          <p className="font-semibold">____________________</p>
-          <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
-        </div>
-      </div>
 
-      {/* Footer kontak & alamat */}
-      <div className="mt-10 flex items-center justify-center gap-4 border-t border-slate-200 pt-3 text-[10px] text-slate-500">
-        <span className="flex items-center gap-1">
-          <Landmark className="size-3" />
-          Dapur Laut — Kepulauan Riau · Batam, Tanjung Uncang, Tunas Regency
-        </span>
-        <span>dapurlaut@example.com</span>
+        {/* Riwayat pembayaran */}
+        {Array.isArray(invoice.riwayatBayar) && invoice.riwayatBayar.length > 0 && (
+          <div className="mb-4 rounded-md border border-slate-200 px-4 py-2 text-sm">
+            <p className="mb-1 text-xs font-semibold text-slate-500">Riwayat Pembayaran</p>
+            {invoice.riwayatBayar.map((r: any, i: number) => (
+              <div key={i} className="flex justify-between border-t border-slate-100 py-1 text-xs first:border-0">
+                <span className="text-slate-600">
+                  {formatDate(r.tanggal)}
+                  {r.keterangan ? ` · ${r.keterangan}` : ""}
+                </span>
+                <span className="font-semibold tabular-nums">{formatCurrency(r.nominal, mu)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-sky-50 text-left text-xs text-sky-900 uppercase">
+              <th className="border border-slate-200 px-2 py-2">No</th>
+              <th className="border border-slate-200 px-2 py-2">Kode</th>
+              <th className="border border-slate-200 px-2 py-2">{isModal ? "Bahan Baku" : "Barang Jadi"}</th>
+              <th className="border border-slate-200 px-2 py-2 text-right">Qty</th>
+              <th className="border border-slate-200 px-2 py-2 text-right">{isModal ? "Harga Modal" : "Harga Jual"}</th>
+              <th className="border border-slate-200 px-2 py-2 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoice.items.map((it: any, i: number) => (
+              <tr key={i}>
+                <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
+                <td className="border border-slate-200 px-2 py-1.5">{it.kodeBarang}</td>
+                <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{it.qty}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(it.harga, mu)}</td>
+                <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(it.subtotal, mu)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="mt-4 flex justify-end">
+          <div className="w-64 space-y-1 text-sm">
+            <div className="flex justify-between text-slate-600">
+              <span>Sudah Dibayar</span>
+              <span className="tabular-nums">{formatCurrency(dibayar, mu)}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>Sisa</span>
+              <span className={`font-semibold tabular-nums ${lunas ? "text-emerald-700" : "text-rose-600"}`}>
+                {formatCurrency(sisa, mu)}
+              </span>
+            </div>
+            <div className="flex justify-between border-t border-slate-300 pt-1 text-base font-bold">
+              <span>Total</span>
+              <span className="tabular-nums">{formatCurrency(invoice.total, mu)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-12 grid grid-cols-2 gap-8 text-sm">
+          <div>
+            <p>Diterima oleh,</p>
+            <div className="mt-14" />
+            <p className="font-semibold">____________________</p>
+            <p className="text-xs text-slate-500">({invoice.namaPihak})</p>
+          </div>
+          <div>
+            <p>Hormat kami,</p>
+            <div className="mt-14" />
+            <p className="font-semibold">____________________</p>
+            <p className="text-xs text-slate-500">(Pimpinan Dapur Laut)</p>
+          </div>
+        </div>
+
+        {/* Footer kontak & alamat */}
+        <div className="mt-10 flex items-center justify-center gap-4 border-t border-slate-200 pt-3 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1">
+            <Landmark className="size-3" />
+            Dapur Laut — Kepulauan Riau · Batam, Tanjung Uncang, Tunas Regency
+          </span>
+          <span>dapurlaut@example.com</span>
+        </div>
       </div>
     </div>
   );

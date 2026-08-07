@@ -101,6 +101,42 @@ export function computeTetesanTotals(tipe: TetesanTipe, items: TetesanItem[]): T
   return { total };
 }
 
+// ============================================================================
+// PEMBAYARAN INVOICE — logika murni (dipakai backend & unit test)
+// ============================================================================
+
+export interface InvoicePaymentResult {
+  /** Total yang sudah dibayar setelah pembayaran ini (tidak pernah > total). */
+  dibayar: number;
+  /** Sisa tagihan = max(0, total - dibayar). */
+  sisa: number;
+  /** "Lunas" bila sisa <= 0, selain itu "Pending". */
+  status: "Lunas" | "Pending";
+  /** Nominal yang benar-benar tercatat di riwayat (dibatasi sisa tagihan). */
+  tercatat: number;
+}
+
+/**
+ * Catat pembayaran invoice:
+ *   dibayar  = min(total, dibayarSebelum + nominal)
+ *   sisa     = max(0, total - dibayar)
+ *   status   = "Lunas" bila sisa <= 0, selain itu "Pending"
+ * Nominal yang melebihi sisa dibatasi (tidak pernah negatif / melebihi tagihan).
+ */
+export function computeInvoicePayment(
+  total: number,
+  dibayarSebelum: number,
+  nominal: number,
+): InvoicePaymentResult {
+  const tagihan = Math.max(0, total || 0);
+  const bayar = Math.max(0, nominal || 0);
+  const sudah = Math.max(0, dibayarSebelum || 0);
+  const dibayar = Math.min(tagihan, sudah + bayar);
+  const sisa = Math.max(0, tagihan - dibayar);
+  const tercatat = Math.min(bayar, Math.max(0, tagihan - sudah));
+  return { dibayar, sisa, status: sisa <= 0 ? "Lunas" : "Pending", tercatat };
+}
+
 /** Format nilai sesuai mata uang: Rp → Rupiah, $ → Dolar AS. */
 export function formatCurrency(n: number, mataUang: MataUang = "Rp"): string {
   if (mataUang === "$") {
