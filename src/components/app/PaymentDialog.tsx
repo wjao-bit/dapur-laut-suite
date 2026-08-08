@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatCurrency, type MataUang } from "@/lib/business";
 import { formatDate, parseNum, todayStr } from "@/lib/format";
+import { NumInput } from "@/components/app/NumInput";
 
 export interface RiwayatBayarItem {
   tanggal: string;
@@ -145,15 +146,11 @@ export function PaymentDialog({
         {/* Form nominal */}
         <div>
           <Label className="text-xs font-medium">Nominal Pembayaran *</Label>
-          <Input
-            className="mt-1.5 text-right text-base font-bold tabular-nums"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="any"
+          <NumInput
+            className="mt-1.5 text-right text-base font-bold sm:text-sm"
             placeholder="0"
-            value={nominal}
-            onChange={(e) => setNominal(e.target.value)}
+            value={parseNum(nominal)}
+            onValue={(n) => setNominal(n === 0 ? "" : String(n))}
             autoFocus
           />
           {quickAmounts.length > 0 && (

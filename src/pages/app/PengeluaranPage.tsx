@@ -24,6 +24,7 @@ import {
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
+import { NumInput } from "@/components/app/NumInput";
 import { PENGELUARAN_JENISES } from "@/lib/business";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -232,14 +233,10 @@ export default function PengeluaranPage() {
             )}
             <div>
               <Label className="text-xs font-medium">Nominal (Rp) *</Label>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                inputMode="decimal"
+              <NumInput
                 className="mt-1.5"
                 value={nominal}
-                onChange={(e) => setNominal(parseNum(e.target.value))}
+                onValue={setNominal}
               />
             </div>
             <div>

@@ -35,6 +35,7 @@ import {
 import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
+import { NumInput } from "@/components/app/NumInput";
 import { formatRupiah, formatDate, formatMonth, thisMonth, parseNum } from "@/lib/format";
 
 export default function SlipGajiPage() {
@@ -260,26 +261,26 @@ export default function SlipGajiPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-xs font-medium">Bonus Kerajinan (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={bonusKerajinan} onChange={(e) => setBonusKerajinan(parseNum(e.target.value))} />
+                <NumInput className="mt-1.5" value={bonusKerajinan} onValue={setBonusKerajinan} />
               </div>
               <div>
                 <Label className="text-xs font-medium">Bonus Bulanan (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={bonusBulanan} onChange={(e) => setBonusBulanan(parseNum(e.target.value))} />
+                <NumInput className="mt-1.5" value={bonusBulanan} onValue={setBonusBulanan} />
               </div>
             </div>
             {/* 1 kolom di layar kecil agar kolom angka tidak sempit di Android */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <Label className="text-xs font-medium">Denda (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={denda} onChange={(e) => setDenda(parseNum(e.target.value))} placeholder="masuk Kas" />
+                <NumInput className="mt-1.5" value={denda} onValue={setDenda} placeholder="masuk Kas" />
               </div>
               <div>
                 <Label className="text-xs font-medium">Potongan Utang (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={potonganUtang} onChange={(e) => setPotonganUtang(parseNum(e.target.value))} placeholder="0 = otomatis" />
+                <NumInput className="mt-1.5" value={potonganUtang} onValue={setPotonganUtang} placeholder="0 = otomatis" />
               </div>
               <div>
                 <Label className="text-xs font-medium">Potongan Casbon (Rp)</Label>
-                <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5" value={potonganCasbon} onChange={(e) => setPotonganCasbon(parseNum(e.target.value))} placeholder="0 = otomatis" />
+                <NumInput className="mt-1.5" value={potonganCasbon} onValue={setPotonganCasbon} placeholder="0 = otomatis" />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">

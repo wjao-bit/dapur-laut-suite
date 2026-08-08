@@ -17,6 +17,7 @@ import {
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
+import { NumInput } from "@/components/app/NumInput";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -310,14 +311,10 @@ export default function KasPage() {
               </div>
               <div>
                 <Label className="text-xs font-medium">Nominal (Rp) *</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="decimal"
+                <NumInput
                   className="mt-1.5"
                   value={nominal}
-                  onChange={(e) => setNominal(parseNum(e.target.value))}
+                  onValue={setNominal}
                 />
               </div>
             </div>
@@ -342,7 +339,7 @@ export default function KasPage() {
           </DialogHeader>
           <div>
             <Label className="text-xs font-medium">Nominal Saldo Awal (Rp) *</Label>
-            <Input type="number" min={0} inputMode="decimal" step="any" className="mt-1.5 text-lg font-semibold" value={saldoAwal} onChange={(e) => setSaldoAwal(parseNum(e.target.value))} />
+            <NumInput className="mt-1.5 text-lg font-semibold" value={saldoAwal} onValue={setSaldoAwal} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaldoDialog(false)}>Batal</Button>

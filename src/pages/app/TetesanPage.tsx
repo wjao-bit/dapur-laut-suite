@@ -49,6 +49,7 @@ import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { PaymentDialog } from "@/components/app/PaymentDialog";
+import { NumInput } from "@/components/app/NumInput";
 import { formatDate, todayStr, parseNum, nextSeqKode } from "@/lib/format";
 import { formatCurrency, type MataUang, type TetesanTipe } from "@/lib/business";
 
@@ -628,25 +629,17 @@ export default function TetesanPage() {
                           )}
                         </td>
                         <td className="px-2 py-2">
-                          <Input
-                            className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step="any"
-                            value={r.harga || ""}
-                            onChange={(e) => updateRow(idx, { harga: parseNum(e.target.value) })}
+                          <NumInput
+                            className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
+                            value={r.harga}
+                            onValue={(n) => updateRow(idx, { harga: n })}
                           />
                         </td>
                         <td className="px-2 py-2">
-                          <Input
-                            className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step="any"
-                            value={r.qty || ""}
-                            onChange={(e) => updateRow(idx, { qty: parseNum(e.target.value) })}
+                          <NumInput
+                            className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
+                            value={r.qty}
+                            onValue={(n) => updateRow(idx, { qty: n })}
                           />
                         </td>
                         <td className="min-w-32 px-2 py-2 text-right font-semibold tabular-nums">{formatCurrency(subtotal)}</td>

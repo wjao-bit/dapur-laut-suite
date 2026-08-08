@@ -38,6 +38,7 @@ import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { PaymentDialog } from "@/components/app/PaymentDialog";
+import { NumInput } from "@/components/app/NumInput";
 import { formatRupiah, formatDate, todayStr, genId, parseNum, nextSeqKode } from "@/lib/format";
 import { daysUntil, formatCurrency, type MataUang } from "@/lib/business";
 import {
@@ -880,38 +881,26 @@ export default function InvoicePage() {
                           </div>
                         </td>
                         <td className="px-2 py-2">
-                          <Input
-                            className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step="any"
-                            value={it.hargaModal || ""}
-                            onChange={(e) => updateItem(idx, { hargaModal: parseNum(e.target.value) })}
+                          <NumInput
+                            className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
+                            value={it.hargaModal}
+                            onValue={(n) => updateItem(idx, { hargaModal: n })}
                           />
                         </td>
                         {tipe === "Pasar" ? (
                           <>
                             <td className="px-2 py-2">
-                              <Input
-                                className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
-                                type="number"
-                                inputMode="decimal"
-                                min={0.01}
-                                step="any"
-                                value={it.stokAwal || ""}
-                                onChange={(e) => updateItem(idx, { stokAwal: parseNum(e.target.value), qty: parseNum(e.target.value) })}
+                              <NumInput
+                                className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
+                                value={it.stokAwal}
+                                onValue={(n) => updateItem(idx, { stokAwal: n, qty: n })}
                               />
                             </td>
                             <td className="px-2 py-2">
-                              <Input
-                                className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
-                                type="number"
-                                inputMode="decimal"
-                                min={0}
-                                step="any"
-                                value={it.stokAkhir || ""}
-                                onChange={(e) => updateItem(idx, { stokAkhir: parseNum(e.target.value) })}
+                              <NumInput
+                                className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
+                                value={it.stokAkhir}
+                                onValue={(n) => updateItem(idx, { stokAkhir: n })}
                               />
                             </td>
                             <td
@@ -922,27 +911,19 @@ export default function InvoicePage() {
                           </>
                         ) : (
                           <td className="px-2 py-2">
-                            <Input
-                              className="h-8 w-full min-w-24 text-base text-right tabular-nums sm:text-sm"
-                              type="number"
-                              inputMode="decimal"
-                              min={0}
-                              step="any"
-                              value={it.qty || ""}
-                              onChange={(e) => updateItem(idx, { qty: parseNum(e.target.value) })}
+                            <NumInput
+                              className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
+                              value={it.qty}
+                              onValue={(n) => updateItem(idx, { qty: n })}
                             />
                           </td>
                         )}
                         {tipe !== "Supplier" && (
                           <td className="px-2 py-2">
-                            <Input
-                              className="h-8 w-full min-w-28 text-base text-right tabular-nums sm:text-sm"
-                              type="number"
-                              inputMode="decimal"
-                              min={0}
-                              step="any"
-                              value={it.hargaJual || ""}
-                              onChange={(e) => updateItem(idx, { hargaJual: parseNum(e.target.value) })}
+                            <NumInput
+                              className="h-8 w-full min-w-28 text-base text-right sm:text-sm"
+                              value={it.hargaJual}
+                              onValue={(n) => updateItem(idx, { hargaJual: n })}
                             />
                           </td>
                         )}

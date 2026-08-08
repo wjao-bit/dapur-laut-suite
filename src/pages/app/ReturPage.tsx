@@ -24,6 +24,7 @@ import {
 import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { BarangSearch } from "@/components/app/BarangSearch";
+import { NumInput } from "@/components/app/NumInput";
 import { formatDate, todayStr, genId, parseNum } from "@/lib/format";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -186,14 +187,10 @@ export default function ReturPage() {
               </div>
               <div>
                 <Label className="text-xs font-medium">Qty *</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  inputMode="decimal"
+                <NumInput
                   className="mt-1.5"
                   value={qty}
-                  onChange={(e) => setQty(parseNum(e.target.value))}
+                  onValue={setQty}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">Boleh desimal, mis. 0,7</p>
               </div>
