@@ -345,7 +345,8 @@ export const bayarUtang = mutation({
 // ============================================================================
 // INVOICE (multi-barang) — efek stok + kas otomatis; mataUang Rp/$ (Supplier);
 // status pembayaran Lunas/Pending; aksi Bayar mencatat pembayaran (dibayar,
-// sisa, riwayatBayar) dan mengurangi sisa tagihan otomatis.
+// sisa, riwayatBayar) dan mengurangi sisa tagihan otomatis. Edit invoice yang
+// sudah jadi: efek lama dibatalkan lalu diterapkan ulang (editInvoice).
 // ============================================================================
 
 export const createInvoice = mutation({
@@ -406,35 +407,7 @@ export const createInvoice = mutation({
     // -----------------------------------------------------------------
     // Efek stok & kas per tipe invoice
     // -----------------------------------------------------------------
-    const tipe = d.tipe as InvoiceTipe;
-    const refKey = `INV-${d.idInvoice}`;
-    if (tipe === "Supplier") {
-      // Stok bertambah di Gudang; Kas keluar (pembelian)
-      for (const it of d.items) {
-        await addStokHistory(ctx, it.namaBarang, d.tanggal, it.qty, "Supplier", `Invoice ${d.idInvoice}`);
-      }
-      await recordKas(ctx, refKey, d.tanggal, 0, totals.total, `Pembelian dari ${d.namaPihak} (${d.idInvoice})`, "Invoice Supplier");
-    } else if (tipe === "Reseller" || tipe === "DPL") {
-      // Stok berkurang di Gudang; Kas masuk (penjualan)
-      for (const it of d.items) {
-        await addStokHistory(ctx, it.namaBarang, d.tanggal, -it.qty, tipe, `Invoice ${d.idInvoice}`);
-      }
-      await recordKas(ctx, refKey, d.tanggal, totals.totalPenjualan, 0, `Penjualan ke ${d.namaPihak} (${d.idInvoice})`, `Invoice ${tipe}`);
-    } else {
-      // Pasar (Victoria/Tunas): stok awal dikirim, stok akhir dikembalikan ke gudang.
-      // Penjualan = stokAwal - stokAkhir.
-      for (const it of d.items) {
-        const stokAwal = it.stokAwal ?? 0;
-        const stokAkhir = it.stokAkhir ?? 0;
-        const terjual = stokAwal - stokAkhir;
-        await addStokHistory(ctx, it.namaBarang, d.tanggal, -stokAwal, "Pasar", `Kirim stok awal ke ${d.namaPihak} (${d.idInvoice})`);
-        if (stokAkhir > 0) {
-          await addStokHistory(ctx, it.namaBarang, d.tanggal, stokAkhir, "Pasar", `Stok akhir kembali dari ${d.namaPihak} (${d.idInvoice})`);
-        }
-        if (terjual < 0) return badRequest("Stok akhir tidak boleh melebihi stok awal", { item: it });
-      }
-      await recordKas(ctx, refKey, d.tanggal, totals.totalPenjualan, 0, `Penjualan di Pasar ${d.namaPihak} (${d.idInvoice})`, "Invoice Pasar");
-    }
+    await applyInvoiceStokKas(ctx, d, totals);
 
     // Sinkronisasi harga & barang baru ke master Barang bila belum ada
     for (const it of d.items) {
@@ -451,6 +424,124 @@ export const createInvoice = mutation({
 
     logResponse("createInvoice", { idInvoice: d.idInvoice, ...totals });
     return { idInvoice: d.idInvoice, ...totals };
+  },
+});
+
+/**
+ * Terapkan efek stok & kas invoice ke Gudang (dipakai createInvoice &
+ * editInvoice). Dijalankan SETELAH efek lama dibatalkan (edit) atau pada
+ * invoice baru (create).
+ */
+async function applyInvoiceStokKas(ctx: any, d: any, totals: any) {
+  const tipe = d.tipe as InvoiceTipe;
+  const refKey = `INV-${d.idInvoice}`;
+  if (tipe === "Supplier") {
+    // Stok bertambah di Gudang; Kas keluar (pembelian)
+    for (const it of d.items) {
+      await addStokHistory(ctx, it.namaBarang, d.tanggal, it.qty, "Supplier", `Invoice ${d.idInvoice}`);
+    }
+    await recordKas(ctx, refKey, d.tanggal, 0, totals.total, `Pembelian dari ${d.namaPihak} (${d.idInvoice})`, "Invoice Supplier");
+  } else if (tipe === "Reseller" || tipe === "DPL") {
+    // Stok berkurang di Gudang; Kas masuk (penjualan)
+    for (const it of d.items) {
+      await addStokHistory(ctx, it.namaBarang, d.tanggal, -it.qty, tipe, `Invoice ${d.idInvoice}`);
+    }
+    await recordKas(ctx, refKey, d.tanggal, totals.totalPenjualan, 0, `Penjualan ke ${d.namaPihak} (${d.idInvoice})`, `Invoice ${tipe}`);
+  } else {
+    // Pasar (Victoria/Tunas): stok awal dikirim, stok akhir dikembalikan ke gudang.
+    // Penjualan = stokAwal - stokAkhir.
+    for (const it of d.items) {
+      const stokAwal = it.stokAwal ?? 0;
+      const stokAkhir = it.stokAkhir ?? 0;
+      const terjual = stokAwal - stokAkhir;
+      await addStokHistory(ctx, it.namaBarang, d.tanggal, -stokAwal, "Pasar", `Kirim stok awal ke ${d.namaPihak} (${d.idInvoice})`);
+      if (stokAkhir > 0) {
+        await addStokHistory(ctx, it.namaBarang, d.tanggal, stokAkhir, "Pasar", `Stok akhir kembali dari ${d.namaPihak} (${d.idInvoice})`);
+      }
+      if (terjual < 0) return badRequest("Stok akhir tidak boleh melebihi stok awal", { item: it });
+    }
+    await recordKas(ctx, refKey, d.tanggal, totals.totalPenjualan, 0, `Penjualan di Pasar ${d.namaPihak} (${d.idInvoice})`, "Invoice Pasar");
+  }
+}
+
+/**
+ * Batalkan seluruh efek invoice lama dari Gudang & kas (dipakai editInvoice):
+ * hapus riwayat stok milik invoice ini lalu hapus entri kas, dan hitung ulang
+ * saldo kas. Efek baru diterapkan setelahnya oleh applyInvoiceStokKas.
+ */
+async function purgeInvoiceEffects(ctx: any, idInvoice: string) {
+  const allHist = await ctx.db.query("stokHistory").collect();
+  const hist = allHist.filter(
+    (h: any) =>
+      h.keterangan === `Invoice ${idInvoice}` ||
+      (h.keterangan ?? "").includes(`(${idInvoice})`),
+  );
+  for (const h of hist) await ctx.db.delete(h._id);
+  const kas = await findOneByKey(ctx, "kas", "id", `INV-${idInvoice}`);
+  if (kas) await ctx.db.delete(kas._id);
+  await recomputeKas(ctx);
+}
+
+/**
+ * Edit invoice yang sudah jadi: ganti isi (tanggal, pihak, barang, harga,
+ * qty, tenggat, mata uang). Efek stok & kas invoice lama otomatis dibatalkan
+ * lalu diterapkan ulang sesuai isi baru (tidak ada double-count). Status
+ * pembayaran, dibayar, dan riwayat pembayaran yang sudah tercatat dipertahankan;
+ * sisa tagihan dihitung ulang dari total baru.
+ */
+export const editInvoice = mutation({
+  args: { doc: v.any() },
+  handler: async (ctx, { doc }) => {
+    logRequest("editInvoice", doc);
+    const parsed = validate(invoiceSchema, doc);
+    if (!parsed.success) return badRequest("Payload invoice tidak sesuai schema", parsed.errors);
+    const d = parsed.data;
+    const existing = await findOneByKey(ctx, "invoice", "idInvoice", d.idInvoice);
+    if (!existing) {
+      return badRequest("Invoice tidak ditemukan — gunakan 'Buat Invoice' untuk invoice baru", { idInvoice: d.idInvoice });
+    }
+    const totals = computeInvoiceTotals(d.tipe as InvoiceTipe, d.items as InvoiceItem[]);
+    const mataUang = (doc as any)?.mataUang === "$" ? "$" : "Rp";
+    const totalTagihan = totals.totalPenjualan || totals.total || 0;
+    const prevDibayar = (existing as any).dibayar ?? 0;
+
+    // 1) Batalkan efek lama (stok & kas invoice lama dikembalikan)
+    await purgeInvoiceEffects(ctx, d.idInvoice);
+
+    // 2) Update data invoice — status/dibayar/riwayat yang sudah tercatat
+    //    dipertahankan; sisa dihitung ulang dari total baru.
+    await ctx.db.patch(existing._id, {
+      tanggal: d.tanggal,
+      tipe: d.tipe as InvoiceTipe,
+      namaPihak: d.namaPihak,
+      tenggat: d.tenggat ?? "",
+      mataUang,
+      items: d.items,
+      total: totals.total,
+      totalModal: totals.totalModal,
+      totalPenjualan: totals.totalPenjualan,
+      margin: totals.margin,
+      sisa: Math.max(0, totalTagihan - prevDibayar),
+    });
+
+    // 3) Terapkan efek stok & kas baru
+    await applyInvoiceStokKas(ctx, d, totals);
+
+    // Sinkronisasi harga & barang baru ke master Barang bila belum ada
+    for (const it of d.items) {
+      const b = await findOneByKey(ctx, "barang", "kode", it.kodeBarang);
+      if (!b) {
+        await ctx.db.insert("barang", {
+          kode: it.kodeBarang,
+          nama: it.namaBarang,
+          harga: it.hargaJual ?? it.hargaModal,
+          kategori: "",
+        });
+      }
+    }
+
+    logResponse("editInvoice", { idInvoice: d.idInvoice, ...totals });
+    return { idInvoice: d.idInvoice, ...totals, edited: true };
   },
 });
 
@@ -946,32 +1037,17 @@ export const upsertTetesanStok = mutation({
  * - Penjualan : jual barang jadi (harga jual) → stok Jadi berkurang, kas masuk.
  *   Harga modal TIDAK tampil di invoice penjualan (hanya tersimpan di DB).
  * Pembayaran: dibayar/sisa/riwayatBayar diinisialisasi saat buat & diperbarui
- * oleh aksi Bayar (payment.bayarInvoiceTetesan).
+ * oleh aksi Bayar (payment.bayarInvoiceTetesan). Edit invoice yang sudah jadi
+ * dibatalkan lalu diterapkan ulang efeknya (editInvoiceTetesan).
  */
 export const createInvoiceTetesan = mutation({
   args: { doc: v.any() },
   handler: async (ctx, { doc }) => {
     logRequest("createInvoiceTetesan", doc);
     const d = tetesanDoc(doc);
-    if (!d.idInvoice || !d.tanggal || !d.namaPihak) {
-      return badRequest("Payload invoice tetesan tidak sesuai schema — butuh idInvoice, tanggal, namaPihak");
-    }
-    const tipe: TetesanTipe = d.tipe === "Penjualan" ? "Penjualan" : "Modal";
-    const items: TetesanItem[] = Array.isArray(d.items)
-      ? d.items.map((it: any) => ({
-          kodeBarang: String(it.kodeBarang ?? ""),
-          namaBarang: String(it.namaBarang ?? ""),
-          harga: Number(it.harga) || 0,
-          qty: Number(it.qty) || 0,
-          subtotal: Number(it.subtotal) || 0,
-        }))
-      : [];
-    if (items.length === 0) return badRequest("Invoice minimal berisi 1 barang");
-    for (const it of items) {
-      if (!it.kodeBarang || !it.namaBarang) return badRequest("Kode & nama barang wajib diisi", { item: it });
-      if (it.qty <= 0) return badRequest("Qty harus lebih dari 0", { item: it });
-    }
-    const mataUang = d.mataUang === "$" ? "$" : "Rp";
+    const norm = normalizeTetesanInvoice(d);
+    if (!norm.ok) return badRequest(norm.error);
+    const { tipe, items, mataUang } = norm;
     const totals = computeTetesanTotals(tipe, items);
 
     const existing = await findOneByKey(ctx, "invoiceTetesan", "idInvoice", d.idInvoice);
@@ -1006,47 +1082,141 @@ export const createInvoiceTetesan = mutation({
     // -----------------------------------------------------------------
     // Efek stok & kas
     // -----------------------------------------------------------------
-    if (tipe === "Modal") {
-      // Stok bahan baku bertambah di Tetesan; stok Gudang berkurang (bahan
-      // baku diambil dari gudang); kas keluar (pembelian)
-      for (const it of items) {
-        await addTetesanStokHistory(ctx, it.namaBarang, "Baku", d.tanggal, it.qty, "Invoice Modal", `Invoice Modal ${d.idInvoice}`);
-        await addStokHistory(ctx, it.namaBarang, d.tanggal, -it.qty, "Tetesan Modal", `Invoice Modal Tetesan ${d.idInvoice}`);
-        const b = await findOneByKey(ctx, "bahanBaku", "kode", it.kodeBarang);
-        if (!b) {
-          await ctx.db.insert("bahanBaku", {
-            kode: it.kodeBarang,
-            nama: it.namaBarang,
-            hargaModal: it.harga,
-            stokAwal: 0,
-            kategori: "",
-          });
-        }
-      }
-      await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, 0, totals.total, `Invoice Modal Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Modal Tetesan");
-    } else {
-      // Stok barang jadi berkurang; kas masuk (penjualan).
-      // Stok BOLEH minus (konsisten dengan Gudang: "barang tetap bisa masuk,
-      // stok bisa minus") sehingga invoice penjualan tidak pernah gagal
-      // disimpan hanya karena stok 0/belum di-set.
-      for (const it of items) {
-        await addTetesanStokHistory(ctx, it.namaBarang, "Jadi", d.tanggal, -it.qty, "Invoice Penjualan", `Invoice Penjualan ${d.idInvoice}`);
-        const b = await findOneByKey(ctx, "barangJadi", "kode", it.kodeBarang);
-        if (!b) {
-          await ctx.db.insert("barangJadi", {
-            kode: it.kodeBarang,
-            nama: it.namaBarang,
-            hargaJual: it.harga,
-            stokAwal: 0,
-            kategori: "",
-          });
-        }
-      }
-      await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, totals.total, 0, `Invoice Penjualan Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Penjualan Tetesan");
-    }
+    await applyTetesanStokKas(ctx, d, tipe, items, totals);
 
     logResponse("createInvoiceTetesan", { idInvoice: d.idInvoice, total: totals.total });
     return { idInvoice: d.idInvoice, total: totals.total };
+  },
+});
+
+/** Validasi & normalisasi payload invoice tetesan (dipakai create & edit). */
+function normalizeTetesanInvoice(d: any):
+  | { ok: true; tipe: TetesanTipe; items: TetesanItem[]; mataUang: "Rp" | "$" }
+  | { ok: false; error: string } {
+  if (!d.idInvoice || !d.tanggal || !d.namaPihak) {
+    return { ok: false, error: "Payload invoice tetesan tidak sesuai schema — butuh idInvoice, tanggal, namaPihak" };
+  }
+  const tipe: TetesanTipe = d.tipe === "Penjualan" ? "Penjualan" : "Modal";
+  const items: TetesanItem[] = Array.isArray(d.items)
+    ? d.items.map((it: any) => ({
+        kodeBarang: String(it.kodeBarang ?? ""),
+        namaBarang: String(it.namaBarang ?? ""),
+        harga: Number(it.harga) || 0,
+        qty: Number(it.qty) || 0,
+        subtotal: Number(it.subtotal) || 0,
+      }))
+    : [];
+  if (items.length === 0) return { ok: false, error: "Invoice minimal berisi 1 barang" };
+  for (const it of items) {
+    if (!it.kodeBarang || !it.namaBarang) return { ok: false, error: "Kode & nama barang wajib diisi" };
+    if (it.qty <= 0) return { ok: false, error: "Qty harus lebih dari 0" };
+  }
+  return { ok: true, tipe, items, mataUang: d.mataUang === "$" ? "$" : "Rp" };
+}
+
+/**
+ * Terapkan efek stok & kas invoice tetesan (dipakai createInvoiceTetesan &
+ * editInvoiceTetesan). Dijalankan SETELAH efek lama dibatalkan (edit) atau
+ * pada invoice baru (create).
+ */
+async function applyTetesanStokKas(ctx: any, d: any, tipe: TetesanTipe, items: TetesanItem[], totals: any) {
+  if (tipe === "Modal") {
+    // Stok bahan baku bertambah di Tetesan; stok Gudang berkurang (bahan
+    // baku diambil dari gudang); kas keluar (pembelian)
+    for (const it of items) {
+      await addTetesanStokHistory(ctx, it.namaBarang, "Baku", d.tanggal, it.qty, "Invoice Modal", `Invoice Modal ${d.idInvoice}`);
+      await addStokHistory(ctx, it.namaBarang, d.tanggal, -it.qty, "Tetesan Modal", `Invoice Modal Tetesan ${d.idInvoice}`);
+      const b = await findOneByKey(ctx, "bahanBaku", "kode", it.kodeBarang);
+      if (!b) {
+        await ctx.db.insert("bahanBaku", {
+          kode: it.kodeBarang,
+          nama: it.namaBarang,
+          hargaModal: it.harga,
+          stokAwal: 0,
+          kategori: "",
+        });
+      }
+    }
+    await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, 0, totals.total, `Invoice Modal Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Modal Tetesan");
+  } else {
+    // Stok barang jadi berkurang; kas masuk (penjualan).
+    // Stok BOLEH minus (konsisten dengan Gudang: "barang tetap bisa masuk,
+    // stok bisa minus") sehingga invoice penjualan tidak pernah gagal
+    // disimpan hanya karena stok 0/belum di-set.
+    for (const it of items) {
+      await addTetesanStokHistory(ctx, it.namaBarang, "Jadi", d.tanggal, -it.qty, "Invoice Penjualan", `Invoice Penjualan ${d.idInvoice}`);
+      const b = await findOneByKey(ctx, "barangJadi", "kode", it.kodeBarang);
+      if (!b) {
+        await ctx.db.insert("barangJadi", {
+          kode: it.kodeBarang,
+          nama: it.namaBarang,
+          hargaJual: it.harga,
+          stokAwal: 0,
+          kategori: "",
+        });
+      }
+    }
+    await recordKas(ctx, `KAS-TET-${d.idInvoice}`, d.tanggal, totals.total, 0, `Invoice Penjualan Tetesan ${d.namaPihak} (${d.idInvoice})`, "Invoice Penjualan Tetesan");
+  }
+}
+
+/**
+ * Batalkan seluruh efek invoice tetesan lama (stok Tetesan, stok Gudang dari
+ * Invoice Modal, dan kas) — dipakai editInvoiceTetesan.
+ */
+async function purgeTetesanEffects(ctx: any, idInvoice: string) {
+  const allHist = await ctx.db.query("tetesanStokHistory").collect();
+  const hist = allHist.filter((h: any) => (h.keterangan ?? "").includes(idInvoice));
+  for (const h of hist) await ctx.db.delete(h._id);
+  const allGudangHist = await ctx.db.query("stokHistory").collect();
+  const gHist = allGudangHist.filter((h: any) => h.tipe === "Tetesan Modal" && (h.keterangan ?? "").includes(idInvoice));
+  for (const h of gHist) await ctx.db.delete(h._id);
+  const kas = await findOneByKey(ctx, "kas", "id", `KAS-TET-${idInvoice}`);
+  if (kas) await ctx.db.delete(kas._id);
+  await recomputeKas(ctx);
+}
+
+/**
+ * Edit invoice tetesan yang sudah jadi: ganti isi (tanggal, pihak, barang,
+ * harga, qty). Efek stok & kas lama otomatis dibatalkan lalu diterapkan ulang
+ * sesuai isi baru. Pembayaran yang sudah tercatat dipertahankan; sisa tagihan
+ * dihitung ulang dari total baru.
+ */
+export const editInvoiceTetesan = mutation({
+  args: { doc: v.any() },
+  handler: async (ctx, { doc }) => {
+    logRequest("editInvoiceTetesan", doc);
+    const d = tetesanDoc(doc);
+    const norm = normalizeTetesanInvoice(d);
+    if (!norm.ok) return badRequest(norm.error);
+    const { tipe, items, mataUang } = norm;
+    const existing = await findOneByKey(ctx, "invoiceTetesan", "idInvoice", d.idInvoice);
+    if (!existing) {
+      return badRequest("Invoice tidak ditemukan — buat invoice baru untuk transaksi baru", { idInvoice: d.idInvoice });
+    }
+    const totals = computeTetesanTotals(tipe, items);
+    const prevDibayar = (existing as any).dibayar ?? 0;
+
+    // 1) Batalkan efek lama (stok Tetesan + stok Gudang + kas)
+    await purgeTetesanEffects(ctx, d.idInvoice);
+
+    // 2) Update data invoice — status/dibayar/riwayat yang sudah tercatat
+    //    dipertahankan; sisa dihitung ulang dari total baru.
+    await ctx.db.patch(existing._id, {
+      tanggal: d.tanggal,
+      tipe,
+      namaPihak: d.namaPihak,
+      mataUang,
+      items,
+      total: totals.total,
+      sisa: Math.max(0, totals.total - prevDibayar),
+    });
+
+    // 3) Terapkan efek stok & kas baru
+    await applyTetesanStokKas(ctx, d, tipe, items, totals);
+
+    logResponse("editInvoiceTetesan", { idInvoice: d.idInvoice, total: totals.total });
+    return { idInvoice: d.idInvoice, total: totals.total, edited: true };
   },
 });
 

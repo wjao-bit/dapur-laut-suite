@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils";
  * PENTING (fix bug print): div dokumen diberi class `print-area` agar aturan
  * `@media print` di index.css (body * { visibility: hidden }) hanya menampilkan
  * dokumen ini — tanpa class tersebut hasil cetak/PDF akan blank.
+ *
+ * Tampilan mobile: toolbar menumpuk (title + tombol tidak terpotong di layar
+ * sempit), padding dokumen diperkecil, dan tombol cetak memakai label pendek.
  */
 export function PrintFrame({
   open,
@@ -44,31 +47,32 @@ export function PrintFrame({
 
   return createPortal(
     <div className="fixed inset-0 z-[100] overflow-auto bg-slate-900/60 backdrop-blur-sm print:static print:bg-white print:backdrop-blur-none">
-      {/* Toolbar (tidak ikut tercetak) */}
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-4 py-2.5 shadow-sm print:hidden">
-        <p className="text-sm font-semibold text-slate-800">{title}</p>
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => window.print()}>
-            <Printer className="mr-2 size-4" />
-            Cetak / Simpan PDF
+      {/* Toolbar (tidak ikut tercetak) — responsif: menumpuk di layar sempit */}
+      <div className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-white px-3 py-2.5 shadow-sm print:hidden sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <p className="min-w-0 truncate text-sm font-semibold text-slate-800 sm:flex-1">{title}</p>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" className="h-9 whitespace-nowrap px-3 sm:h-auto sm:px-4" onClick={() => window.print()}>
+            <Printer className="mr-1.5 size-4" />
+            <span className="sm:hidden">Cetak</span>
+            <span className="hidden sm:inline">Cetak / Simpan PDF</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={onClose}>
-            <X className="mr-2 size-4" />
+          <Button size="sm" variant="outline" className="h-9 whitespace-nowrap px-3 sm:h-auto sm:px-4" onClick={onClose}>
+            <X className="mr-1.5 size-4" />
             Tutup
           </Button>
         </div>
       </div>
 
       {/* Dokumen */}
-      <div className="flex justify-center px-4 py-6 print:block print:p-0">
+      <div className="flex justify-center px-3 py-5 print:block print:p-0 sm:px-4 sm:py-6">
         <div
           className={cn(
-            "print-area w-full max-w-[210mm] rounded-lg bg-white p-8 text-slate-900 shadow-xl print:max-w-none print:rounded-none print:p-0 print:shadow-none",
+            "print-area w-full max-w-[210mm] rounded-lg bg-white p-4 text-slate-900 shadow-xl sm:p-8 print:max-w-none print:rounded-none print:p-0 print:shadow-none",
             className,
           )}
         >
           <PrintBrandHeader />
-          <div className="mt-6">{children}</div>
+          <div className="mt-4 sm:mt-6">{children}</div>
           <div className="mt-10 border-t border-slate-200 pt-3 text-[10px] text-slate-400 print:block">
             Dokumen ini dibuat otomatis oleh Sistem Manajemen Bisnis Dapur Laut.
           </div>

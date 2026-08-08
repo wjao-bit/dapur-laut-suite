@@ -2,10 +2,12 @@
 // TEST PEMBUATAN INVOICE & PEMBAYARAN — Dapur Laut
 //
 // Menjalankan handler Convex ASLI (createInvoice, createInvoiceTetesan,
-// bayarInvoice, bayarInvoiceTetesan) dengan database mock in-memory, untuk
-// invoice berisi 1 s.d. 30 barang, di semua tipe: Supplier / Reseller / DPL /
-// Pasar / Modal / Penjualan. Plus regresi: input desimal (0,7), parseNum,
-// dan aksi pembayaran (bayar → sisa berkurang → Lunas, riwayat tercatat).
+// bayarInvoice, bayarInvoiceTetesan, editInvoice, editInvoiceTetesan) dengan
+// database mock in-memory, untuk invoice berisi 1 s.d. 30 barang, di semua
+// tipe: Supplier / Reseller / DPL / Pasar / Modal / Penjualan. Plus regresi:
+// input desimal (0,7), parseNum, aksi pembayaran (bayar → sisa berkurang →
+// Lunas, riwayat tercatat), dan EDIT invoice (stok & kas lama dibatalkan lalu
+// diterapkan ulang; pembayaran tercatat dipertahankan).
 //
 // Cara jalan:  node scripts/test-invoice.mjs
 // ============================================================================
@@ -23,7 +25,7 @@ const require = createRequire(import.meta.url);
 // (filter yang dipakai hanya q.eq sederhana).
 // ---------------------------------------------------------------------------
 const ENTRY_SRC = `
-import { createInvoice, createInvoiceTetesan } from "@/convex/business.ts";
+import { createInvoice, createInvoiceTetesan, editInvoice, editInvoiceTetesan } from "@/convex/business.ts";
 import { bayarInvoice, bayarInvoiceTetesan } from "@/convex/payment.ts";
 import { validate, invoiceSchema, invoiceTetesanSchema } from "@/lib/schemas.ts";
 import { computeInvoiceTotals, computeTetesanTotals, computeInvoicePayment } from "@/lib/business.ts";
@@ -97,6 +99,8 @@ async function run(fn, ctx, args) {
 
 export const invokeCreateInvoice = (ctx, doc) => run(createInvoice, ctx, { doc });
 export const invokeCreateTetesan = (ctx, doc) => run(createInvoiceTetesan, ctx, { doc });
+export const invokeEditInvoice = (ctx, doc) => run(editInvoice, ctx, { doc });
+export const invokeEditTetesan = (ctx, doc) => run(editInvoiceTetesan, ctx, { doc });
 export const invokeBayarInvoice = (ctx, args) => run(bayarInvoice, ctx, args);
 export const invokeBayarTetesan = (ctx, args) => run(bayarInvoiceTetesan, ctx, args);
 export const schemaInvoice = (doc) => validate(invoiceSchema, doc);
@@ -547,6 +551,142 @@ console.log("=".repeat(70));
   const inv2 = mod.snapshot(ctx).invoice.find((x) => x.idInvoice === "INV-REBAYAR");
   check("re-save berhasil & pembayaran tidak hilang", r.ok === true && inv2.dibayar === sebelum.dibayar && inv2.riwayatBayar.length === sebelum.riwayat && inv2.statusPembayaran === sebelum.status, JSON.stringify({ sebelum, sesudah: inv2 }));
   check("re-save: sisa tetap konsisten (tidak negatif)", inv2.sisa >= 0);
+}
+
+console.log("\n" + "=".repeat(70));
+console.log("BAGIAN 6 — EDIT invoice yang sudah jadi (stok & kas dibatalkan lalu diterapkan)");
+console.log("=".repeat(70));
+
+// --- Edit Reseller: riwayat stok & kas lama dihapus, yang baru diterapkan ---
+{
+  const ctx = freshCtx();
+  const doc1 = {
+    idInvoice: "INV-EDIT1", tanggal: "2026-08-06", tipe: "Reseller", namaPihak: "Reseller A", tenggat: "", mataUang: "Rp",
+    items: [
+      { kodeBarang: "BRG001", namaBarang: "Kopi", hargaModal: 20000, hargaJual: 25000, qty: 2, subtotal: 50000 },
+      { kodeBarang: "BRG002", namaBarang: "Teh", hargaModal: 10000, hargaJual: 15000, qty: 3, subtotal: 45000 },
+    ],
+  };
+  await mod.invokeCreateInvoice(ctx, doc1);
+  let snap = mod.snapshot(ctx);
+  check("edit: create awal 2 riwayat stok keluar", snap.stokHistory.length === 2 && snap.stokHistory.every((h) => h.perubahan < 0));
+  check("edit: create awal kas masuk 95.000", (() => { const k = snap.kas.find((x) => x.id === "INV-INV-EDIT1"); return k && k.kasMasuk === 95000; })());
+
+  // Edit: ganti qty & pihak, tambah 1 barang baru
+  const doc2 = {
+    idInvoice: "INV-EDIT1", tanggal: "2026-08-07", tipe: "Reseller", namaPihak: "Reseller B", tenggat: "", mataUang: "Rp",
+    items: [
+      { kodeBarang: "BRG001", namaBarang: "Kopi", hargaModal: 20000, hargaJual: 25000, qty: 5, subtotal: 125000 },
+      { kodeBarang: "BRG003", namaBarang: "Susu", hargaModal: 5000, hargaJual: 8000, qty: 10, subtotal: 80000 },
+    ],
+  };
+  const r = await mod.invokeEditInvoice(ctx, doc2);
+  snap = mod.snapshot(ctx);
+  const inv = snap.invoice.find((x) => x.idInvoice === "INV-EDIT1");
+  const kas = snap.kas.find((x) => x.id === "INV-INV-EDIT1");
+  check("edit: sukses & total baru 205.000", r.ok === true && inv && inv.totalPenjualan === 205000, r.msg);
+  check("edit: riwayat stok lama dihapus — hanya 2 baris baru", snap.stokHistory.length === 2, JSON.stringify(snap.stokHistory));
+  check("edit: stok Kopi −5 & Susu −10", (() => { const k = snap.stokHistory.find((h) => h.namaBarang === "Kopi"); const s = snap.stokHistory.find((h) => h.namaBarang === "Susu"); return k && k.perubahan === -5 && s && s.perubahan === -10; })(), JSON.stringify(snap.stokHistory));
+  check("edit: kas tetap 1 entri dengan nilai baru 205.000", kas && kas.kasMasuk === 205000, JSON.stringify(snap.kas));
+  check("edit: pihak & tanggal ikut berubah", inv.namaPihak === "Reseller B" && inv.tanggal === "2026-08-07");
+}
+
+// --- Edit invoice Pasar: stok awal/akhir dibatalkan & diterapkan ulang ---
+{
+  const ctx = freshCtx();
+  const doc1 = {
+    idInvoice: "INV-EDIT-PASAR", tanggal: "2026-08-06", tipe: "Pasar", namaPihak: "Victoria", tenggat: "", mataUang: "Rp",
+    items: [{ kodeBarang: "BRG010", namaBarang: "Ikan", hargaModal: 10000, hargaJual: 15000, stokAwal: 20, stokAkhir: 5, qty: 20, subtotal: 225000 }],
+  };
+  await mod.invokeCreateInvoice(ctx, doc1);
+  let snap = mod.snapshot(ctx);
+  check("pasar edit: create awal 2 riwayat (kirim 20, kembali 5)", snap.stokHistory.length === 2, JSON.stringify(snap.stokHistory));
+  const doc2 = {
+    idInvoice: "INV-EDIT-PASAR", tanggal: "2026-08-08", tipe: "Pasar", namaPihak: "Tunas", tenggat: "", mataUang: "Rp",
+    items: [{ kodeBarang: "BRG010", namaBarang: "Ikan", hargaModal: 10000, hargaJual: 15000, stokAwal: 30, stokAkhir: 10, qty: 30, subtotal: 300000 }],
+  };
+  await mod.invokeEditInvoice(ctx, doc2);
+  snap = mod.snapshot(ctx);
+  check("pasar edit: riwayat baru 2 (kirim 30, kembali 10)", snap.stokHistory.length === 2 && snap.stokHistory.some((h) => h.perubahan === -30) && snap.stokHistory.some((h) => h.perubahan === 10), JSON.stringify(snap.stokHistory));
+  const inv = snap.invoice.find((x) => x.idInvoice === "INV-EDIT-PASAR");
+  check("pasar edit: total baru 300.000", inv && inv.totalPenjualan === 300000);
+}
+
+// --- Edit invoice: pembayaran yang sudah tercatat TETAP dipertahankan ---
+{
+  const ctx = freshCtx();
+  const doc1 = {
+    idInvoice: "INV-EDIT-BAYAR", tanggal: "2026-08-06", tipe: "DPL", namaPihak: "DPL A", tenggat: "", mataUang: "Rp",
+    items: [{ kodeBarang: "BRG001", namaBarang: "Kopi", hargaModal: 20000, hargaJual: 25000, qty: 10, subtotal: 250000 }],
+  };
+  await mod.invokeCreateInvoice(ctx, doc1);
+  await mod.invokeBayarInvoice(ctx, { idInvoice: "INV-EDIT-BAYAR", nominal: 100000, tanggal: "2026-08-08" });
+  const doc2 = {
+    idInvoice: "INV-EDIT-BAYAR", tanggal: "2026-08-06", tipe: "DPL", namaPihak: "DPL A", tenggat: "", mataUang: "Rp",
+    items: [{ kodeBarang: "BRG001", namaBarang: "Kopi", hargaModal: 20000, hargaJual: 25000, qty: 16, subtotal: 400000 }],
+  };
+  const r = await mod.invokeEditInvoice(ctx, doc2);
+  const inv = mod.snapshot(ctx).invoice.find((x) => x.idInvoice === "INV-EDIT-BAYAR");
+  check("edit: dibayar tetap 100.000 & riwayat tetap 1", r.ok === true && inv.dibayar === 100000 && inv.riwayatBayar.length === 1, r.msg);
+  check("edit: sisa dihitung ulang = 300.000", inv.sisa === 300000, JSON.stringify(inv));
+}
+
+// --- Edit invoice yang tidak ada → ditolak ---
+{
+  const ctx = freshCtx();
+  const doc = {
+    idInvoice: "INV-TIDAK-ADA", tanggal: "2026-08-06", tipe: "Reseller", namaPihak: "X", tenggat: "", mataUang: "Rp",
+    items: [{ kodeBarang: "BRG001", namaBarang: "Kopi", hargaModal: 1000, hargaJual: 2000, qty: 1, subtotal: 2000 }],
+  };
+  const r = await mod.invokeEditInvoice(ctx, doc);
+  check("edit invoice tak ada → ditolak", r.ok === false && /tidak ditemukan/.test(r.msg), r.msg);
+}
+
+// --- Edit invoice tetesan Penjualan: stok & kas dibatalkan lalu diterapkan ---
+{
+  const ctx = freshCtx();
+  const doc1 = {
+    idInvoice: "TET-EDIT1", tanggal: "2026-08-06", tipe: "Penjualan", namaPihak: "Kios A", mataUang: "Rp",
+    items: [{ kodeBarang: "BJK001", namaBarang: "Keripik", harga: 10000, qty: 5, subtotal: 50000 }],
+  };
+  await mod.invokeCreateTetesan(ctx, doc1);
+  const doc2 = {
+    idInvoice: "TET-EDIT1", tanggal: "2026-08-07", tipe: "Penjualan", namaPihak: "Kios B", mataUang: "Rp",
+    items: [
+      { kodeBarang: "BJK001", namaBarang: "Keripik", harga: 10000, qty: 8, subtotal: 80000 },
+      { kodeBarang: "BJK002", namaBarang: "Abon", harga: 20000, qty: 2, subtotal: 40000 },
+    ],
+  };
+  const r = await mod.invokeEditTetesan(ctx, doc2);
+  const snap = mod.snapshot(ctx);
+  const inv = snap.invoiceTetesan.find((x) => x.idInvoice === "TET-EDIT1");
+  const kas = snap.kas.find((x) => x.id === "KAS-TET-TET-EDIT1");
+  check("tetesan edit: sukses & total 120.000", r.ok === true && inv && inv.total === 120000, r.msg);
+  check("tetesan edit: riwayat baru 2 (keluar 8 & 2)", snap.tetesanHistory.length === 2, JSON.stringify(snap.tetesanHistory));
+  check("tetesan edit: kas tetap 1 entri 120.000", kas && kas.kasMasuk === 120000, JSON.stringify(snap.kas));
+}
+
+// --- Edit invoice tetesan Modal: stok Baku & Gudang ikut dibatalkan/diterapkan ---
+{
+  const ctx = freshCtx();
+  const doc1 = {
+    idInvoice: "TET-EDIT-M", tanggal: "2026-08-06", tipe: "Modal", namaPihak: "Pemasok A", mataUang: "Rp",
+    items: [{ kodeBarang: "BBK001", namaBarang: "Tepung", harga: 5000, qty: 10, subtotal: 50000 }],
+  };
+  await mod.invokeCreateTetesan(ctx, doc1);
+  let snap = mod.snapshot(ctx);
+  check("tetesan modal create: stok baku +10 & gudang −10", snap.tetesanHistory.some((h) => h.perubahan === 10) && snap.stokHistory.some((h) => h.perubahan === -10));
+  const doc2 = {
+    idInvoice: "TET-EDIT-M", tanggal: "2026-08-07", tipe: "Modal", namaPihak: "Pemasok B", mataUang: "Rp",
+    items: [{ kodeBarang: "BBK001", namaBarang: "Tepung", harga: 5000, qty: 15, subtotal: 75000 }],
+  };
+  const r = await mod.invokeEditTetesan(ctx, doc2);
+  snap = mod.snapshot(ctx);
+  const inv = snap.invoiceTetesan.find((x) => x.idInvoice === "TET-EDIT-M");
+  const kas = snap.kas.find((x) => x.id === "KAS-TET-TET-EDIT-M");
+  check("tetesan modal edit: sukses & total 75.000", r.ok === true && inv.total === 75000, r.msg);
+  check("tetesan modal edit: stok baku 1 riwayat +15 & gudang 1 riwayat −15", snap.tetesanHistory.length === 1 && snap.tetesanHistory[0].perubahan === 15 && snap.stokHistory.length === 1 && snap.stokHistory[0].perubahan === -15, JSON.stringify({ tetesan: snap.tetesanHistory, gudang: snap.stokHistory }));
+  check("tetesan modal edit: kas keluar 75.000 (1 entri)", kas && kas.kasKeluar === 75000);
 }
 
 // ---------------------------------------------------------------------------

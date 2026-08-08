@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock, Wallet } from "lucide-react";
+import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock, Wallet, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,6 +140,7 @@ export default function InvoicePage() {
   const dpls = useQuery(api.queries.listDpl);
   const pasars = useQuery(api.queries.listPasar);
   const createInvoice = useMutation(api.business.createInvoice);
+  const editInvoice = useMutation(api.business.editInvoice);
   const deleteInvoice = useMutation(api.business.deleteInvoice);
   const setStatusInvoice = useMutation(api.business.setStatusInvoice);
   const bayarInvoice = useMutation(api.payment.bayarInvoice);
@@ -165,6 +166,8 @@ export default function InvoicePage() {
   /** Kotak pencarian cepat di atas daftar barang. */
   const [quickSearch, setQuickSearch] = useState("");
   const [quickCreating, setQuickCreating] = useState(false);
+  /** Invoice yang sedang diedit (mode edit — isi form otomatis dari invoice). */
+  const [editInv, setEditInv] = useState<any>(null);
   /** Invoice yang sedang dibayar (dialog pembayaran). */
   const [payInv, setPayInv] = useState<any>(null);
   const [paySaving, setPaySaving] = useState(false);
@@ -320,6 +323,7 @@ export default function InvoicePage() {
   };
 
   const openCreate = () => {
+    setEditInv(null);
     setTipe("Reseller");
     setTanggal(todayStr());
     setIdInvoice(nextInvoiceId);
@@ -328,6 +332,36 @@ export default function InvoicePage() {
     setMataUang("Rp");
     setStatusPembayaran("Pending");
     setItems([emptyItem()]);
+    setQuickSearch("");
+    setOpen(true);
+  };
+
+  /**
+   * Buka dialog untuk mengedit invoice yang sudah jadi. Form diisi ulang dari
+   * data invoice; nomor invoice dikunci (tidak bisa diubah). Efek stok & kas
+   * lama otomatis dibatalkan lalu diterapkan ulang saat disimpan (editInvoice).
+   */
+  const openEdit = (r: any) => {
+    setEditInv(r);
+    setTipe(r.tipe);
+    setTanggal(r.tanggal);
+    setIdInvoice(r.idInvoice);
+    setNamaPihak(r.namaPihak ?? "");
+    setTenggat(r.tenggat ?? "");
+    setMataUang(r.mataUang === "$" ? "$" : "Rp");
+    setStatusPembayaran((r.statusPembayaran ?? "Pending") === "Lunas" ? "Lunas" : "Pending");
+    setItems(
+      (r.items ?? []).map((it: any) => ({
+        kodeBarang: it.kodeBarang ?? "",
+        namaBarang: it.namaBarang ?? "",
+        hargaModal: parseNum(it.hargaModal),
+        qty: parseNum(it.qty) || 1,
+        hargaJual: parseNum(it.hargaJual),
+        stokAwal: it.stokAwal != null ? parseNum(it.stokAwal) : undefined,
+        stokAkhir: it.stokAkhir != null ? parseNum(it.stokAkhir) : undefined,
+        subtotal: parseNum(it.subtotal),
+      })),
+    );
     setQuickSearch("");
     setOpen(true);
   };
@@ -342,6 +376,7 @@ export default function InvoicePage() {
   };
 
   const resetForm = () => {
+    setEditInv(null);
     setTipe("Reseller");
     setTanggal(todayStr());
     setIdInvoice(nextInvoiceId);
@@ -387,20 +422,26 @@ export default function InvoicePage() {
         toast.error("Tambahkan minimal 1 barang sebelum menyimpan invoice.");
         return;
       }
-      const res = await createInvoice({
-        doc: {
-          idInvoice,
-          tanggal,
-          tipe,
-          namaPihak,
-          tenggat,
-          mataUang,
-          statusPembayaran,
-          items: cleanItems,
-        },
-      });
-      toast.success(`Invoice ${res.idInvoice} tersimpan — ${formatCurrency(res.totalPenjualan || res.total, mataUang)}`);
+      const docPayload = {
+        idInvoice,
+        tanggal,
+        tipe,
+        namaPihak,
+        tenggat,
+        mataUang,
+        statusPembayaran,
+        items: cleanItems,
+      };
+      const res = editInv
+        ? await editInvoice({ doc: docPayload })
+        : await createInvoice({ doc: docPayload });
+      toast.success(
+        editInv
+          ? `Invoice ${res.idInvoice} diperbarui — ${formatCurrency(res.totalPenjualan || res.total, mataUang)}`
+          : `Invoice ${res.idInvoice} tersimpan — ${formatCurrency(res.totalPenjualan || res.total, mataUang)}`,
+      );
       setOpen(false);
+      setEditInv(null);
       resetForm();
     } catch (e: any) {
       const data = e?.data ?? e;
@@ -546,6 +587,15 @@ export default function InvoicePage() {
           >
             <Wallet className="size-3.5" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-sky-600 hover:text-sky-700"
+            title="Edit Invoice"
+            onClick={() => openEdit(r)}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
           <Button variant="ghost" size="icon" className="size-7" title="Lihat & Cetak" onClick={() => setPrintInv(r)}>
             <Eye className="size-3.5" />
           </Button>
@@ -637,9 +687,11 @@ export default function InvoicePage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Buat Invoice</DialogTitle>
+            <DialogTitle>{editInv ? `Edit Invoice ${editInv.idInvoice}` : "Buat Invoice"}</DialogTitle>
             <DialogDescription>
-              Pilih tipe, isi pihak & barang. Total dihitung otomatis; stok dan kas menyesuaikan. Barang baru bisa langsung ditambahkan ke database saat diketik.
+              {editInv
+                ? "Ubah isi invoice (tanggal, pihak, barang, harga, qty). Efek stok & kas lama otomatis dibatalkan lalu diterapkan ulang; pembayaran yang sudah tercatat tetap dipertahankan."
+                : "Pilih tipe, isi pihak & barang. Total dihitung otomatis; stok dan kas menyesuaikan. Barang baru bisa langsung ditambahkan ke database saat diketik."}
             </DialogDescription>
           </DialogHeader>
 
@@ -661,8 +713,10 @@ export default function InvoicePage() {
             </div>
             <div>
               <Label className="text-xs font-medium">No. Invoice *</Label>
-              <Input className="mt-1.5" value={idInvoice} onChange={(e) => setIdInvoice(e.target.value)} />
-              <p className="mt-1 text-[11px] text-muted-foreground">Otomatis: {nextInvoiceId} (unik, tidak bisa duplikat)</p>
+              <Input className="mt-1.5" value={idInvoice} onChange={(e) => setIdInvoice(e.target.value)} disabled={!!editInv} />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {editInv ? "Nomor invoice tidak bisa diubah saat edit." : `Otomatis: ${nextInvoiceId} (unik, tidak bisa duplikat)`}
+              </p>
             </div>
             <div>
               <Label className="text-xs font-medium">Tanggal *</Label>
@@ -937,7 +991,7 @@ export default function InvoicePage() {
               Batal
             </Button>
             <Button onClick={handleSubmit} disabled={saving || !namaPihak || items.length === 0}>
-              {saving ? "Menyimpan..." : "Simpan Invoice"}
+              {saving ? "Menyimpan..." : editInv ? "Simpan Perubahan" : "Simpan Invoice"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -982,7 +1036,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
       {/* Watermark status pembayaran (BELUM LUNAS / LUNAS) */}
       <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
         <div
-          className={`-rotate-12 rounded-xl border-4 px-8 py-4 text-3xl font-black uppercase tracking-[0.25em] opacity-20 ${
+          className={`-rotate-12 rounded-xl border-4 px-5 py-3 text-2xl font-black uppercase tracking-[0.25em] opacity-20 sm:px-8 sm:py-4 sm:text-3xl ${
             lunas ? "border-emerald-600 text-emerald-600" : "border-rose-600 text-rose-600"
           }`}
         >
@@ -991,7 +1045,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
       </div>
 
       <div className="relative z-10">
-        <div className="mb-4 flex items-center justify-between text-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm">
           <div>
             <p className="text-xs text-slate-500">Nomor Invoice</p>
             <p className="text-lg font-bold text-slate-900">{invoice.idInvoice}</p>
@@ -1030,17 +1084,17 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
         </div>
 
         {/* Ringkasan pembayaran */}
-        <div className="mb-4 grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-md border border-slate-200 px-3 py-2">
-            <p className="text-xs text-slate-500">Total Tagihan</p>
+        <div className="mb-4 grid grid-cols-3 gap-1.5 text-sm sm:gap-2">
+          <div className="rounded-md border border-slate-200 px-2 py-2 sm:px-3">
+            <p className="text-[11px] text-slate-500 sm:text-xs">Total Tagihan</p>
             <p className="font-bold tabular-nums">{formatCurrency(invoiceTotal(invoice), mu)}</p>
           </div>
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
-            <p className="text-xs text-emerald-700">Sudah Dibayar</p>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-2 sm:px-3">
+            <p className="text-[11px] text-emerald-700 sm:text-xs">Sudah Dibayar</p>
             <p className="font-bold text-emerald-700 tabular-nums">{formatCurrency(dibayar, mu)}</p>
           </div>
-          <div className={`rounded-md border px-3 py-2 ${lunas ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
-            <p className={`text-xs ${lunas ? "text-emerald-700" : "text-rose-600"}`}>Sisa Tagihan</p>
+          <div className={`rounded-md border px-2 py-2 sm:px-3 ${lunas ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
+            <p className={`text-[11px] sm:text-xs ${lunas ? "text-emerald-700" : "text-rose-600"}`}>Sisa Tagihan</p>
             <p className={`font-bold tabular-nums ${lunas ? "text-emerald-700" : "text-rose-600"}`}>{formatCurrency(sisa, mu)}</p>
           </div>
         </div>
@@ -1061,47 +1115,49 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           </div>
         )}
 
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
-              <th className="border border-slate-200 px-2 py-2">No</th>
-              <th className="border border-slate-200 px-2 py-2">Kode</th>
-              <th className="border border-slate-200 px-2 py-2">Nama Barang</th>
-              <th className="border border-slate-200 px-2 py-2 text-right">Qty</th>
-              <th className="border border-slate-200 px-2 py-2 text-right">Harga</th>
-              <th className="border border-slate-200 px-2 py-2 text-right">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoice.items.map((it: any, i: number) => {
-              const qty =
-                invoice.tipe === "Pasar"
-                  ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
-                  : it.qty;
-              const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
-              const stored = parseNum(it.subtotal);
-              // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
-              const subtotal = stored > 0 ? stored : Math.max(0, parseNum(qty) * parseNum(harga));
-              return (
-                <tr key={i}>
-                  <td className="border border-slate-200 px-2 py-1.5">{i + 1}</td>
-                  <td className="border border-slate-200 px-2 py-1.5">{it.kodeBarang}</td>
-                  <td className="border border-slate-200 px-2 py-1.5">{it.namaBarang}</td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-right">{qty}</td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(harga, mu)}</td>
-                  <td className="border border-slate-200 px-2 py-1.5 text-right">{formatCurrency(subtotal, mu)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[540px] border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
+                <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">No</th>
+                <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">Kode</th>
+                <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">Nama Barang</th>
+                <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Qty</th>
+                <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Harga</th>
+                <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.items.map((it: any, i: number) => {
+                const qty =
+                  invoice.tipe === "Pasar"
+                    ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
+                    : it.qty;
+                const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
+                const stored = parseNum(it.subtotal);
+                // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
+                const subtotal = stored > 0 ? stored : Math.max(0, parseNum(qty) * parseNum(harga));
+                return (
+                  <tr key={i}>
+                    <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{i + 1}</td>
+                    <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.kodeBarang}</td>
+                    <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.namaBarang}</td>
+                    <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{qty}</td>
+                    <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(harga, mu)}</td>
+                    <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(subtotal, mu)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
         {/*
           Nota penjualan (Reseller/DPL/Pasar) TIDAK menampilkan Total Modal &
           Margin — hanya total akhir. Supplier tetap menampilkan total pembelian.
         */}
         <div className="mt-4 flex justify-end">
-          <div className="w-64 space-y-1 text-sm">
+          <div className="w-full space-y-1 text-sm sm:w-64">
             <div className="flex justify-between text-slate-600">
               <span>Sudah Dibayar</span>
               <span className="tabular-nums">{formatCurrency(dibayar, mu)}</span>
