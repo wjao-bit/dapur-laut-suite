@@ -101,7 +101,9 @@ export const invoiceItemSchema = z.object({
   hargaJual: z.number().min(0).optional(),
   stokAwal: z.number().min(0).optional(),
   stokAkhir: z.number().min(0).optional(),
-  subtotal: z.number().min(0),
+  // Subtotal BOLEH negatif khusus Pasar: stok akhir > stok awal → terjual minus
+  // (barang pulang lebih banyak dari yang dikirim) → subtotal ikut minus.
+  subtotal: z.number(),
 });
 
 export const invoiceSchema = z
@@ -135,13 +137,8 @@ export const invoiceSchema = z
             message: "Stok awal untuk pasar harus lebih dari 0",
           });
         }
-        if ((it.stokAkhir ?? 0) > (it.stokAwal ?? 0)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["items", i, "stokAkhir"],
-            message: "Stok akhir tidak boleh melebihi stok awal",
-          });
-        }
+        // Stok akhir BOLEH lebih besar dari stok awal (barang pulang lebih
+        // banyak dari yang dikirim) — sistem mencatat Terjual MINUS.
       }
     } else {
       for (let i = 0; i < data.items.length; i++) {

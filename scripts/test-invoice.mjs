@@ -6,8 +6,9 @@
 // database mock in-memory, untuk invoice berisi 1 s.d. 30 barang, di semua
 // tipe: Supplier / Reseller / DPL / Pasar / Modal / Penjualan. Plus regresi:
 // input desimal (0,7), parseNum, aksi pembayaran (bayar → sisa berkurang →
-// Lunas, riwayat tercatat), dan EDIT invoice (stok & kas lama dibatalkan lalu
-// diterapkan ulang; pembayaran tercatat dipertahankan).
+// Lunas, riwayat tercatat), EDIT invoice (stok & kas lama dibatalkan lalu
+// diterapkan ulang; pembayaran tercatat dipertahankan), dan Pasar MINUS
+// (stok akhir > stok awal → Terjual & total negatif, tetap bisa disimpan).
 //
 // Cara jalan:  node scripts/test-invoice.mjs
 // ============================================================================
@@ -240,7 +241,14 @@ for (const tipe of TIPES) {
   const items = makeItems("Pasar", 1);
   items[0].stokAkhir = items[0].stokAwal + 5;
   const doc = { idInvoice: "INV-PASAR", tanggal: "2026-08-06", tipe: "Pasar", namaPihak: "X", tenggat: "", mataUang: "Rp", items };
-  check("Pasar stok akhir > stok awal ditolak", mod.schemaInvoice(doc).success === false);
+  // Pasar: stok akhir BOLEH > stok awal — Terjual jadi MINUS (barang pulang
+  // lebih banyak dari yang dikirim). Schema harus menerima & total jadi negatif.
+  const v = mod.schemaInvoice(doc);
+  check("Pasar stok akhir > stok awal DITERIMA (terjual minus)", v.success === true, JSON.stringify(v.errors));
+  if (v.success) {
+    const t = mod.totalsInvoice("Pasar", v.data.items);
+    check("Pasar minus: total penjualan negatif", t.totalPenjualan < 0, JSON.stringify(t));
+  }
 }
 
 console.log("\n" + "=".repeat(70));
@@ -307,6 +315,28 @@ console.log("\n  — Update invoice dengan idInvoice sama (upsert ON CONFLICT) �
   check("simpan ulang idInvoice sama tidak error", r1.ok === true && r2.ok === true, r2.msg);
   check("data invoice diperbarui (5 barang, pihak B)", !!inv && inv.items.length === 5 && inv.namaPihak === "B");
   check("tidak ada invoice duplikat", snap.invoice.filter((x) => x.idInvoice === "INV-UPD").length === 1);
+}
+
+console.log("\n  — Pasar MINUS: stok akhir > stok awal (barang pulang lebih banyak) —");
+{
+  const ctx = freshCtx();
+  const items = [
+    { kodeBarang: "BRG901", namaBarang: "Ikan Kembung", hargaModal: 10000, hargaJual: 15000, stokAwal: 5, stokAkhir: 8, qty: 5, subtotal: -45000 },
+    { kodeBarang: "BRG902", namaBarang: "Cumi", hargaModal: 20000, hargaJual: 30000, stokAwal: 3, stokAkhir: 3, qty: 3, subtotal: 0 },
+  ];
+  const doc = { idInvoice: "INV-PASAR-MINUS", tanggal: "2026-08-06", tipe: "Pasar", namaPihak: "Victoria", tenggat: "", mataUang: "Rp", items };
+  const r = await mod.invokeCreateInvoice(ctx, doc);
+  check("Pasar minus: invoice tersimpan (terjual -3 + 0)", r.ok === true, r.msg);
+  if (r.ok) {
+    const snap = mod.snapshot(ctx);
+    const inv = snap.invoice.find((x) => x.idInvoice === "INV-PASAR-MINUS");
+    const kas = snap.kas.find((k) => k.id === "INV-INV-PASAR-MINUS");
+    check("Pasar minus: totalPenjualan -45.000, totalModal -30.000, margin -15.000", !!inv && inv.totalPenjualan === -45000 && inv.totalModal === -30000 && inv.margin === -15000, JSON.stringify(inv));
+    check("Pasar minus: kas masuk -45.000", !!kas && kas.kasMasuk === -45000 && kas.kasKeluar === 0, JSON.stringify(kas));
+    const kirim = snap.stokHistory.filter((h) => (h.keterangan ?? "").includes("Kirim stok awal"));
+    const kembali = snap.stokHistory.filter((h) => (h.keterangan ?? "").includes("Stok akhir kembali"));
+    check("Pasar minus: riwayat kirim -5/-3 & kembali +8/+3", kirim.length === 2 && kirim.some((h) => h.perubahan === -5) && kirim.some((h) => h.perubahan === -3) && kembali.length === 2 && kembali.some((h) => h.perubahan === 8) && kembali.some((h) => h.perubahan === 3), JSON.stringify({ kirim, kembali }));
+  }
 }
 
 console.log("\n" + "=".repeat(70));
@@ -427,8 +457,7 @@ for (const tipe of TIPES) {
   check(`[${tipe}] invoice qty desimal (0,7) TERSIMPAN`, r.ok === true, r.msg);
   if (!r.ok) continue;
   const snap = mod.snapshot(ctx);
-  const inv = snap.invoice.find((x) => x.idInvoice === doc.idInvoice);
-  const terjual = tipe === "Pasar" ? 0.7 : 0.7;
+  const terjual = 0.7;
   const total = tipe === "Supplier" ? 10000 * terjual : 15000 * terjual;
   const kas = snap.kas.find((k) => k.id === `INV-${doc.idInvoice}`);
   if (tipe === "Supplier") {

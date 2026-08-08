@@ -62,7 +62,9 @@ export function itemSubtotal(tipe: string, it: any): number {
       : parseNum(it.qty);
   const harga =
     tipe === "Supplier" ? parseNum(it.hargaModal) : parseNum(it.hargaJual);
-  return Math.max(0, qty * harga);
+  const st = qty * harga;
+  // Pasar: Terjual BOLEH minus (stok akhir > stok awal) → subtotal ikut minus.
+  return tipe === "Pasar" ? st : Math.max(0, st);
 }
 
 /** Total tagihan invoice (penjualan untuk non-Supplier, pembelian untuk Supplier). */
@@ -912,8 +914,10 @@ export default function InvoicePage() {
                                 onChange={(e) => updateItem(idx, { stokAkhir: parseNum(e.target.value) })}
                               />
                             </td>
-                            <td className="px-2 py-2 text-right font-semibold text-teal-600 tabular-nums">
-                              {Math.max(0, parseNum(it.stokAwal) - parseNum(it.stokAkhir))}
+                            <td
+                              className={`px-2 py-2 text-right font-semibold tabular-nums ${parseNum(it.stokAwal) - parseNum(it.stokAkhir) < 0 ? "text-rose-600" : "text-teal-600"}`}
+                            >
+                              {parseNum(it.stokAwal) - parseNum(it.stokAkhir)}
                             </td>
                           </>
                         ) : (
@@ -942,7 +946,7 @@ export default function InvoicePage() {
                             />
                           </td>
                         )}
-                        <td className="min-w-32 px-2 py-2 text-right font-semibold tabular-nums">
+                        <td className={`min-w-32 px-2 py-2 text-right font-semibold tabular-nums ${subtotal < 0 ? "text-rose-600" : ""}`}>
                           {formatCurrency(subtotal, mataUang)}
                         </td>
                         <td className="px-1 py-2">
@@ -1031,6 +1035,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
   const dibayar = invoiceDibayar(invoice);
   const sisa = invoiceSisa(invoice);
   const lunas = sisa <= 0;
+  const isPasar = invoice.tipe === "Pasar";
   return (
     <div className="relative">
       {/* Watermark status pembayaran (BELUM LUNAS / LUNAS) */}
@@ -1122,28 +1127,52 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">No</th>
                 <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">Kode</th>
                 <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">Nama Barang</th>
-                <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Qty</th>
-                <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Harga</th>
+                {isPasar ? (
+                  <>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Stok Awal</th>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Stok Akhir</th>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Terjual</th>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Harga Modal</th>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Harga Jual</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Qty</th>
+                    <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Harga</th>
+                  </>
+                )}
                 <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Subtotal</th>
               </tr>
             </thead>
             <tbody>
               {invoice.items.map((it: any, i: number) => {
-                const qty =
-                  invoice.tipe === "Pasar"
-                    ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
-                    : it.qty;
+                const terjual = isPasar
+                  ? parseNum(it.stokAwal) - parseNum(it.stokAkhir)
+                  : it.qty;
                 const harga = invoice.tipe === "Supplier" ? it.hargaModal : it.hargaJual;
-                const stored = parseNum(it.subtotal);
-                // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang
-                const subtotal = stored > 0 ? stored : Math.max(0, parseNum(qty) * parseNum(harga));
+                const hasStored = it.subtotal != null && String(it.subtotal).trim() !== "";
+                // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang.
+                // Pasar: subtotal tersimpan bisa NEGATIF (terjual minus) — dipakai apa adanya.
+                const subtotal = hasStored ? parseNum(it.subtotal) : Math.max(0, parseNum(terjual) * parseNum(harga));
                 return (
                   <tr key={i}>
                     <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{i + 1}</td>
                     <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.kodeBarang}</td>
                     <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.namaBarang}</td>
-                    <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{qty}</td>
-                    <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(harga, mu)}</td>
+                    {isPasar ? (
+                      <>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{it.stokAwal ?? 0}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{it.stokAkhir ?? 0}</td>
+                        <td className={`border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5 ${terjual < 0 ? "font-bold text-rose-600" : ""}`}>{terjual}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(it.hargaModal, mu)}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(it.hargaJual, mu)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{terjual}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(harga, mu)}</td>
+                      </>
+                    )}
                     <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(subtotal, mu)}</td>
                   </tr>
                 );
@@ -1152,10 +1181,9 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           </table>
         </div>
 
-        {/*
-          Nota penjualan (Reseller/DPL/Pasar) TIDAK menampilkan Total Modal &
-          Margin — hanya total akhir. Supplier tetap menampilkan total pembelian.
-        */}
+        {/* Nota penjualan (Reseller/DPL) TIDAK menampilkan Total Modal & Margin —
+            hanya total akhir. Pasar menampilkan rincian stok & harga di tabel.
+            Supplier tetap menampilkan total pembelian. */}
         <div className="mt-4 flex justify-end">
           <div className="w-full space-y-1 text-sm sm:w-64">
             <div className="flex justify-between text-slate-600">

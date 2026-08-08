@@ -449,16 +449,16 @@ async function applyInvoiceStokKas(ctx: any, d: any, totals: any) {
     await recordKas(ctx, refKey, d.tanggal, totals.totalPenjualan, 0, `Penjualan ke ${d.namaPihak} (${d.idInvoice})`, `Invoice ${tipe}`);
   } else {
     // Pasar (Victoria/Tunas): stok awal dikirim, stok akhir dikembalikan ke gudang.
-    // Penjualan = stokAwal - stokAkhir.
+    // Penjualan = stokAwal - stokAkhir. Terjual BOLEH minus (stok akhir lebih
+    // banyak dari stok awal → barang pulang lebih banyak dari yang dikirim),
+    // subtotal & total penjualan ikut negatif; stok gudang dihitung apa adanya.
     for (const it of d.items) {
       const stokAwal = it.stokAwal ?? 0;
       const stokAkhir = it.stokAkhir ?? 0;
-      const terjual = stokAwal - stokAkhir;
       await addStokHistory(ctx, it.namaBarang, d.tanggal, -stokAwal, "Pasar", `Kirim stok awal ke ${d.namaPihak} (${d.idInvoice})`);
       if (stokAkhir > 0) {
         await addStokHistory(ctx, it.namaBarang, d.tanggal, stokAkhir, "Pasar", `Stok akhir kembali dari ${d.namaPihak} (${d.idInvoice})`);
       }
-      if (terjual < 0) return badRequest("Stok akhir tidak boleh melebihi stok awal", { item: it });
     }
     await recordKas(ctx, refKey, d.tanggal, totals.totalPenjualan, 0, `Penjualan di Pasar ${d.namaPihak} (${d.idInvoice})`, "Invoice Pasar");
   }
