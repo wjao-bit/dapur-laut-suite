@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Wallet,
   Pencil,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -250,6 +251,45 @@ export default function TetesanPage() {
     toast.success(`${b.nama} masuk daftar invoice`);
   };
 
+  /**
+   * Isi Semua (DB): isi harga semua baris otomatis dari harga modal/jual di
+   * database (cocokkan lewat kode, lalu nama). Harga yang sudah diisi manual
+   * TIDAK ditimpa — hanya kolom yang masih kosong/0.
+   */
+  const fillAllPrices = () => {
+    if (!master) {
+      toast.error("Data database belum termuat — coba lagi sebentar.");
+      return;
+    }
+    let matched = 0;
+    let filled = 0;
+    const next = rows.map((r) => {
+      const b = (master as any[]).find(
+        (x: any) =>
+          String(x.kode ?? "") === String(r.kodeBarang ?? "") ||
+          String(x.nama ?? "").toLowerCase().trim() === String(r.namaBarang ?? "").toLowerCase().trim(),
+      );
+      if (!b) return r;
+      matched++;
+      const hargaDb = parseNum(b[masterKey]);
+      if (parseNum(r.harga) <= 0 && hargaDb > 0) filled++;
+      return {
+        ...r,
+        kodeBarang: r.kodeBarang || b.kode,
+        namaBarang: r.namaBarang || b.nama,
+        harga: parseNum(r.harga) > 0 ? r.harga : hargaDb,
+      };
+    });
+    setRows(next);
+    if (matched === 0) {
+      toast.info("Tidak ada barang yang cocok dengan database — isi harga secara manual.");
+    } else if (filled === 0) {
+      toast.success(`Semua ${matched} baris sudah punya harga dari database.`);
+    } else {
+      toast.success(`Harga ${filled} baris diisi otomatis dari database (${matched} cocok).`);
+    }
+  };
+
   /** Buat master baru dari kotak pencarian cepat (belum ada di database). */
   const quickCreateBarang = async (nama: string) => {
     const name = String(nama ?? "").trim();
@@ -452,7 +492,7 @@ export default function TetesanPage() {
     <div>
       <PageHeader
         title="Invoice Tetesan"
-        description="Invoice Modal (bahan baku, harga modal) & Invoice Penjualan (barang jadi, harga jual). Harga modal hanya tersimpan di database, tidak tampil di invoice penjualan. Bahan baku/barang jadi baru bisa langsung ditambahkan ke database saat diketik. Aksi Bayar mencatat pembayaran & mengurangi sisa tagihan otomatis."
+        description="Invoice Modal (bahan baku, harga modal) & Invoice Penjualan (barang jadi, harga jual). Harga modal hanya tersimpan di database, tidak tampil di invoice penjualan. Bahan baku/barang jadi baru bisa langsung ditambahkan ke database saat diketik. Aksi Bayar mencatat pembayaran & mengurangi sisa tagihan otomatis. Tombol 'Isi Semua' mengisi harga semua baris otomatis dari database."
         icon={Droplets}
         actions={
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -655,10 +695,21 @@ export default function TetesanPage() {
               </table>
             </div>
             <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-              <Button variant="outline" size="sm" onClick={addRow}>
-                <Plus className="mr-1.5 size-3.5" />
-                Tambah Barang
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={addRow}>
+                  <Plus className="mr-1.5 size-3.5" />
+                  Tambah Barang
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fillAllPrices}
+                  title={`Isi harga ${tab === "Modal" ? "modal" : "jual"} semua baris dari database`}
+                >
+                  <Wand2 className="mr-1.5 size-3.5" />
+                  Isi Semua (DB)
+                </Button>
+              </div>
               <div className="text-right text-sm">
                 Total: <span className="font-bold text-foreground tabular-nums">{formatCurrency(total)}</span>
               </div>

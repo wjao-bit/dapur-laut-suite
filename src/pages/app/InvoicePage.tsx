@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock, Wallet, Pencil } from "lucide-react";
+import { FileText, Plus, Trash2, Printer, Eye, CheckCircle2, CalendarClock, Wallet, Pencil, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -282,6 +282,49 @@ export default function InvoicePage() {
     });
     setQuickSearch("");
     toast.success(`${b.nama} masuk daftar invoice`);
+  };
+
+  /**
+   * Isi Semua (DB): isi harga modal & harga jual semua baris otomatis dari
+   * harga barang di database (cocokkan lewat kode, lalu nama). Harga yang
+   * sudah diisi manual TIDAK ditimpa — hanya kolom yang masih kosong/0.
+   */
+  const fillAllPrices = () => {
+    if (!barang) {
+      toast.error("Data barang belum termuat — coba lagi sebentar.");
+      return;
+    }
+    let matched = 0;
+    let filled = 0;
+    const next = items.map((it) => {
+      const b = (barang as any[]).find(
+        (x: any) =>
+          String(x.kode ?? "") === String(it.kodeBarang ?? "") ||
+          String(x.nama ?? "").toLowerCase().trim() === String(it.namaBarang ?? "").toLowerCase().trim(),
+      );
+      if (!b) return it;
+      matched++;
+      const hargaDb = parseNum(b.harga);
+      const baruModal = parseNum(it.hargaModal) > 0 ? it.hargaModal : hargaDb;
+      const baruJual = parseNum(it.hargaJual) > 0 ? it.hargaJual : hargaDb;
+      if (parseNum(it.hargaModal) <= 0 && hargaDb > 0) filled++;
+      if (parseNum(it.hargaJual) <= 0 && hargaDb > 0) filled++;
+      return {
+        ...it,
+        kodeBarang: it.kodeBarang || b.kode,
+        namaBarang: it.namaBarang || b.nama,
+        hargaModal: baruModal,
+        hargaJual: baruJual,
+      };
+    });
+    setItems(next);
+    if (matched === 0) {
+      toast.info("Tidak ada barang yang cocok dengan database — isi harga secara manual.");
+    } else if (filled === 0) {
+      toast.success(`Semua ${matched} barang sudah punya harga dari database.`);
+    } else {
+      toast.success(`Harga ${filled} kolom diisi otomatis dari database (${matched} barang).`);
+    }
   };
 
   /** Buat barang baru dari kotak pencarian cepat (belum ada di database). */
@@ -632,7 +675,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja; aksi Bayar untuk mencatat pembayaran & mengurangi sisa tagihan otomatis. Cari barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Stok & kas diperbarui otomatis; tenggat pembayaran untuk Reseller & Supplier; mata uang Rp/$ khusus Supplier; status pembayaran Lunas/Pending bisa diubah kapan saja; aksi Bayar untuk mencatat pembayaran & mengurangi sisa tagihan otomatis. Cari barang — bila belum ada, langsung tambahkan ke database dengan kode otomatis. Tombol 'Isi Semua' mengisi harga modal & jual semua baris otomatis dari database."
         icon={FileText}
         actions={
           <Button onClick={openCreate}>
@@ -942,10 +985,21 @@ export default function InvoicePage() {
               </table>
             </div>
             <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-              <Button variant="outline" size="sm" onClick={addRow}>
-                <Plus className="mr-1.5 size-3.5" />
-                Tambah Barang
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={addRow}>
+                  <Plus className="mr-1.5 size-3.5" />
+                  Tambah Barang
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fillAllPrices}
+                  title="Isi harga modal & jual semua baris dari harga barang di database"
+                >
+                  <Wand2 className="mr-1.5 size-3.5" />
+                  Isi Semua (DB)
+                </Button>
+              </div>
               <div className="text-right text-xs">
                 <div className="text-muted-foreground">
                   Total Modal: <span className="font-semibold text-foreground tabular-nums">{formatCurrency(totals.totalModal, mataUang)}</span>

@@ -13,6 +13,8 @@ import { parseNum } from "@/lib/format";
  *   (subtotal, total, kas) tetap akurat — parse terjadi sekali, bukan per ketik.
  * - Koma (,) dan titik (.) sama-sama diterima sebagai pemisah desimal,
  *   "1.500" (ribuan) juga tetap dibaca 1500 (lihat parseNum).
+ * - Saat kolom difokus, seluruh isi terpilih → mengetik nilai baru langsung
+ *   menggantikan nilai lama (memasukkan angka jadi lebih cepat di Android).
  */
 export function NumInput({
   value,
@@ -22,6 +24,7 @@ export function NumInput({
   disabled,
   autoFocus,
   allowNegative = false,
+  id,
 }: {
   value: number | undefined | null;
   onValue: (n: number) => void;
@@ -30,6 +33,7 @@ export function NumInput({
   disabled?: boolean;
   autoFocus?: boolean;
   allowNegative?: boolean;
+  id?: string;
 }) {
   const [text, setText] = useState<string>(() =>
     value && value !== 0 ? String(value) : "",
@@ -72,6 +76,7 @@ export function NumInput({
 
   return (
     <Input
+      id={id}
       type="text"
       inputMode="decimal"
       autoComplete="off"
@@ -80,8 +85,10 @@ export function NumInput({
       value={text}
       disabled={disabled}
       autoFocus={autoFocus}
-      onFocus={() => {
+      onFocus={(e) => {
         focused.current = true;
+        // Pilih semua teks → ketikan pertama langsung menggantikan nilai lama.
+        e.target.select();
       }}
       onChange={handleChange}
       onBlur={handleBlur}

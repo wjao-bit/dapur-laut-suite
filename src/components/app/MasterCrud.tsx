@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { NumInput } from "@/components/app/NumInput";
 import { genId, parseNum } from "@/lib/format";
 
 export interface FieldDef {
@@ -251,21 +252,21 @@ export function MasterCrud({
                       </option>
                     ))}
                   </select>
+                ) : f.type === "number" ? (
+                  <NumInput
+                    id={`f-${f.key}`}
+                    className="mt-1.5"
+                    value={typeof values[f.key] === "number" ? values[f.key] : parseNum(String(values[f.key] ?? ""))}
+                    onValue={(n) => setValues((v) => ({ ...v, [f.key]: n }))}
+                    placeholder={f.placeholder}
+                    allowNegative={f.min !== undefined && f.min < 0}
+                  />
                 ) : (
                   <Input
                     id={`f-${f.key}`}
                     className="mt-1.5"
-                    type={f.type === "number" ? "number" : "text"}
-                    min={f.min}
-                    inputMode={f.type === "number" ? "decimal" : undefined}
-                    step={f.type === "number" ? "any" : undefined}
                     value={String(values[f.key] ?? "")}
-                    onChange={(e) =>
-                      setValues((v) => ({
-                        ...v,
-                        [f.key]: f.type === "number" ? parseNum(e.target.value) : e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                   />
                 )}
