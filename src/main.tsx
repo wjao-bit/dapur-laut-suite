@@ -31,6 +31,7 @@ const SlipGajiPage = lazy(() => import("./pages/app/SlipGajiPage.tsx"));
 const PengeluaranPage = lazy(() => import("./pages/app/PengeluaranPage.tsx"));
 const LaporanPage = lazy(() => import("./pages/app/LaporanPage.tsx"));
 const AdminPage = lazy(() => import("./pages/app/AdminPage.tsx"));
+const MonitorPage = lazy(() => import("./pages/app/MonitorPage.tsx"));
 const TetesanPage = lazy(() => import("./pages/app/TetesanPage.tsx"));
 const MasterTetesanPage = lazy(() => import("./pages/app/MasterTetesanPage.tsx"));
 const LaporanTetesanPage = lazy(() => import("./pages/app/LaporanTetesanPage.tsx"));
@@ -209,6 +210,7 @@ function Root() {
               <Route path="pengeluaran" element={<PengeluaranPage />} />
               <Route path="laporan" element={<LaporanPage />} />
               <Route path="admin" element={<AdminPage />} />
+              <Route path="monitor" element={<MonitorPage />} />
               <Route path="tetesan" element={<TetesanPage />} />
               <Route path="master-tetesan" element={<MasterTetesanPage />} />
               <Route path="laporan-tetesan" element={<LaporanTetesanPage />} />

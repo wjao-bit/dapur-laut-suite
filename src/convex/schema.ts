@@ -287,6 +287,20 @@ const schema = defineSchema(
       .index("by_token", ["token"])
       .index("by_phone", ["phone"]),
 
+    // ------------------------------------------------------------------ 16b.
+    // Log aktivitas (monitoring) — login/logout/pendaftaran/pengelolaan akun/
+    // ganti password. Hanya untuk audit; tidak memengaruhi logika bisnis.
+    aktivitas: defineTable({
+      id: v.string(), // IDAktivitas
+      phone: v.string(), // nomor HP pelaku
+      nama: v.string(), // nama pelaku
+      aksi: v.string(), // Login / Logout / Daftar / Setujui / Tolak / Kick / Ganti Password
+      detail: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_createdAt", ["createdAt"])
+      .index("by_phone", ["phone"]),
+
     // ------------------------------------------------------------------ 17.
     // Katalog Harga Reseller & Supplier — satu katalog per nama pihak.
     // Menyimpan daftar barang + harga khusus pihak tsb. Dibuat otomatis saat

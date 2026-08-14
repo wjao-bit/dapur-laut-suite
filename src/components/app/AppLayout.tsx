@@ -34,6 +34,7 @@ import {
   FlaskConical,
   LineChart,
   BookOpenText,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 import { BrandLockup } from "@/components/Brand";
@@ -43,6 +44,8 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  /** Hanya tampil untuk Admin Master (mis. Monitoring). */
+  masterOnly?: boolean;
 }
 
 interface NavGroup {
@@ -104,13 +107,24 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Pengaturan",
-    items: [{ to: "/dashboard/admin", label: "Admin & Akun", icon: ShieldCheck }],
+    items: [
+      // Monitoring hanya untuk Admin Master
+      { to: "/dashboard/monitor", label: "Monitoring", icon: Activity, masterOnly: true },
+      { to: "/dashboard/admin", label: "Admin & Akun", icon: ShieldCheck },
+    ],
   },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
   const navigate = useNavigate();
+  const isMaster = session?.role === "Admin Master";
+
+  // Sembunyikan item khusus Admin Master dari user biasa (mis. Monitoring).
+  const groups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !i.masterOnly || isMaster),
+  })).filter((g) => g.items.length > 0);
 
   const handleSignOut = async () => {
     await signOut();
@@ -124,7 +138,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label}>
             <p className="px-2 pb-1.5 text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
               {group.label}

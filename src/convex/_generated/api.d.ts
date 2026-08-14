@@ -15,6 +15,7 @@ import type * as business from "../business.js";
 import type * as http from "../http.js";
 import type * as katalog from "../katalog.js";
 import type * as lib from "../lib.js";
+import type * as monitor from "../monitor.js";
 import type * as payment from "../payment.js";
 import type * as queries from "../queries.js";
 import type * as seed from "../seed.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   katalog: typeof katalog;
   lib: typeof lib;
+  monitor: typeof monitor;
   payment: typeof payment;
   queries: typeof queries;
   seed: typeof seed;

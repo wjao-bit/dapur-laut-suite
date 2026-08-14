@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,8 +13,12 @@ import {
   UserX,
   Crown,
   Lock,
+  KeyRound,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PageHeader, SectionCard } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { formatDate } from "@/lib/format";
@@ -33,6 +38,105 @@ const STATUS_STYLE: Record<Akun["status"], { label: string; cls: string }> = {
   approved: { label: "Disetujui", cls: "bg-emerald-100 text-emerald-700" },
   rejected: { label: "Ditolak", cls: "bg-rose-100 text-rose-700" },
 };
+
+/** Ganti password — tersedia untuk SEMUA user (Admin & Admin Master). */
+function GantiPasswordCard() {
+  const { token } = useAuth();
+  const changePassword = useMutation(api.admin.changePassword);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setOldPassword("");
+    setNewPassword("");
+    setConfirm("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!oldPassword) {
+      toast.error("Password lama wajib diisi");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Password baru minimal 6 karakter");
+      return;
+    }
+    if (newPassword !== confirm) {
+      toast.error("Konfirmasi password baru tidak sama");
+      return;
+    }
+    setBusy(true);
+    try {
+      await changePassword({ token, oldPassword, newPassword });
+      toast.success("Password berhasil diganti 🎉");
+      reset();
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? err?.data?.error ?? err?.message ?? "Gagal mengganti password");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      className="mb-6"
+      title={
+        <span className="flex items-center gap-2">
+          <KeyRound className="size-4 text-teal-600" />
+          Ganti Password
+        </span>
+      }
+      description="Ganti password login Anda. Setelah diganti, login berikutnya memakai password baru."
+    >
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:items-end">
+        <div className="space-y-1.5">
+          <Label htmlFor="pw-lama">Password lama</Label>
+          <Input
+            id="pw-lama"
+            type="password"
+            autoComplete="current-password"
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
+            placeholder="Password saat ini"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="pw-baru">Password baru</Label>
+          <Input
+            id="pw-baru"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Minimal 6 karakter"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="pw-konfirmasi">Ulangi password baru</Label>
+          <Input
+            id="pw-konfirmasi"
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Ketik ulang password baru"
+            className="h-10"
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="h-10 cursor-pointer">
+          {busy ? <Loader2 className="mr-1 size-4 animate-spin" /> : <KeyRound className="mr-1 size-4" />}
+          {busy ? "Menyimpan…" : "Simpan Password Baru"}
+        </Button>
+      </form>
+    </SectionCard>
+  );
+}
 
 export default function AdminPage() {
   const { token, session } = useAuth();
@@ -176,6 +280,9 @@ export default function AdminPage() {
         }
         icon={ShieldCheck}
       />
+
+      {/* Ganti password — semua user */}
+      <GantiPasswordCard />
 
       {!isMaster ? (
         <div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-5 sm:flex-row sm:items-center">

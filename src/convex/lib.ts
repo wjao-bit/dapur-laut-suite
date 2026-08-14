@@ -191,6 +191,28 @@ export async function purgeStokFor(ctx: MutationCtx, namaBarang: string) {
   for (const h of tHist) await ctx.db.delete(h._id);
 }
 
+/**
+ * Catat aktivitas admin (monitoring/audit) — login, logout, pendaftaran,
+ * setujui/tolak/kick akun, ganti password. Hanya untuk pemantauan; tidak
+ * memengaruhi logika bisnis. Dipanggil dari convex/admin.ts & convex/monitor.ts.
+ */
+export async function logAktivitas(
+  ctx: MutationCtx,
+  phone: string,
+  nama: string,
+  aksi: string,
+  detail?: string,
+) {
+  await ctx.db.insert("aktivitas", {
+    id: `AKT-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+    phone,
+    nama: nama || phone,
+    aksi,
+    detail: detail ?? "",
+    createdAt: Date.now(),
+  });
+}
+
 export function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
