@@ -47,7 +47,8 @@ type BusinessTable =
   | "bahanBaku"
   | "barangJadi"
   | "tetesanStok"
-  | "invoiceTetesan";
+  | "invoiceTetesan"
+  | "katalogHarga";
 
 /**
  * Upsert dengan semantik PRIMARY KEY/UNIQUE: cari dokumen berdasarkan kolom
