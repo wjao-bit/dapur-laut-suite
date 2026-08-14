@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -23,6 +23,8 @@ export interface Column<T> {
   sortValue?: (row: T) => string | number;
 }
 
+const DEFAULT_PAGE_SIZE = 25;
+
 export function DataTable<T extends { id?: string }>({
   columns,
   rows,
@@ -32,6 +34,8 @@ export function DataTable<T extends { id?: string }>({
   emptyAction,
   keyField,
   initialSort,
+  /** Berapa baris per halaman (default 25). Data besar tetap responsif. */
+  pageSize = DEFAULT_PAGE_SIZE,
 }: {
   columns: Column<T>[];
   rows: T[] | undefined;
@@ -41,8 +45,10 @@ export function DataTable<T extends { id?: string }>({
   emptyAction?: ReactNode;
   keyField: (row: T) => string;
   initialSort?: { key: string; dir: "asc" | "desc" };
+  pageSize?: number;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(initialSort ?? null);
+  const [page, setPage] = useState(0);
 
   const sorted = useMemo(() => {
     if (!rows) return rows;
@@ -57,6 +63,19 @@ export function DataTable<T extends { id?: string }>({
       return String(va).localeCompare(String(vb)) * dir;
     });
   }, [rows, sort, columns]);
+
+  // Kembali ke halaman pertama saat data berubah (filter/query baru) atau
+  // saat kolom diurutkan ulang — jangan sampai pengguna "tersesat" di halaman
+  // yang sekarang sudah tidak ada.
+  useEffect(() => {
+    setPage(0);
+  }, [rows?.length, sort]);
+
+  const pageCount = sorted ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1;
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = sorted?.slice(safePage * pageSize, (safePage + 1) * pageSize);
+  const from = sorted && sorted.length > 0 ? safePage * pageSize + 1 : 0;
+  const to = sorted ? Math.min(sorted.length, (safePage + 1) * pageSize) : 0;
 
   const toggleSort = (key: string) => {
     setSort((prev) => {
@@ -128,13 +147,13 @@ export function DataTable<T extends { id?: string }>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted?.map((row, idx) => (
+          {pageRows?.map((row, idx) => (
             // Key React harus SELALU unik. Prioritas: _id (dokumen Convex),
             // lalu keyField bisnis + index — mencegah error
             // "Encountered two children with the same key" saat ada data
             // duplikat (mis. absensi dobel di tanggal yang sama).
             <TableRow
-              key={(row as any)?._id ?? `${keyField(row)}__${idx}`}
+              key={(row as any)?._id ?? `${keyField(row)}__${safePage * pageSize + idx}`}
               className="hover:bg-muted/30"
             >
               {columns.map((col) => (
@@ -154,6 +173,38 @@ export function DataTable<T extends { id?: string }>({
           ))}
         </TableBody>
       </Table>
+
+      {/* Pagination — muncul otomatis bila data melebihi satu halaman */}
+      {sorted && sorted.length > pageSize && (
+        <div className="flex items-center justify-between gap-2 border-t bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            Menampilkan {from}–{to} dari {sorted.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={safePage <= 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="size-3.5" />
+              Sebelumnya
+            </button>
+            <span className="px-1.5 tabular-nums">
+              Halaman {safePage + 1} / {pageCount}
+            </span>
+            <button
+              type="button"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Berikutnya
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
