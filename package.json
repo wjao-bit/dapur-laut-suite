@@ -12,7 +12,8 @@
     "audit:responsive": "node scripts/audit-responsive.mjs",
     "test:invoice": "node scripts/test-invoice.mjs",
     "test:unit": "node scripts/run-unit-tests.mjs",
-    "test:all": "npm run test:unit && npm run test:invoice && node scripts/test-next-kode.mjs"
+    "test:katalog": "node scripts/test-katalog.mjs",
+    "test:all": "npm run test:unit && npm run test:invoice && npm run test:katalog && node scripts/test-next-kode.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",

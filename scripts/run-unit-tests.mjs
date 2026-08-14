@@ -1,18 +1,18 @@
 // ============================================================================
-// Runner unit test untuk src/lib/__tests__/business.test.ts TANPA vitest.
+// Runner unit test untuk src/lib/__tests__/*.test.ts TANPA vitest.
 //
 // Mengapa: sandbox WebContainer ini tidak menyediakan global `Console` (dan
 // modul `node:console` di-mock tanpa properti Console), sehingga worker vitest
 // tidak bisa start ("TypeError: Console is not a constructor") baik dengan
 // pool forks maupun threads — preload --require untuk polyfill diabaikan oleh
-// runtime. Solusi: bundle file test dengan esbuild (pola yang sama dengan
-// scripts/test-invoice.mjs & test-next-kode.mjs), sediakan API
+// runtime. Solusi: bundle semua file test dengan esbuild (pola yang sama
+// dengan scripts/test-invoice.mjs & test-next-kode.mjs), sediakan API
 // describe/it/expect minimal yang kompatibel, lalu jalankan murni di Node.
 //
 // File test TIDAK diubah: tetap memakai `import { describe, it, expect } from
 // "vitest"` dan tetap bisa dijalankan dengan vitest di lingkungan normal.
 // ============================================================================
-import { writeFileSync, rmSync, existsSync } from "node:fs";
+import { writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -145,16 +145,27 @@ globalThis.it = (name, fn) => {
 globalThis.test = globalThis.it;
 
 // ---------------------------------------------------------------------------
-// Bundle file test dengan esbuild (vitest → shim lokal, package eksternal)
+// Bundle SEMUA file test di src/lib/__tests__ (vitest → shim lokal,
+// package eksternal) lalu jalankan.
 // ---------------------------------------------------------------------------
-const TEST_FILE = join(root, "src/lib/__tests__/business.test.ts");
+const TESTS_DIR = join(root, "src/lib/__tests__");
+const testFiles = readdirSync(TESTS_DIR)
+  .filter((f) => f.endsWith(".test.ts"))
+  .sort()
+  .map((f) => join(TESTS_DIR, f));
+
+if (testFiles.length === 0) {
+  console.error("Tidak ada file *.test.ts di", TESTS_DIR);
+  process.exit(1);
+}
+
 const entryOut = join(root, "scripts/.unit-tests-entry.tsx");
 const bundleOut = join(root, "scripts/.unit-tests-bundle.cjs");
 const shimFile = join(root, "scripts/test-vitest-shim.cjs");
 
 writeFileSync(
   entryOut,
-  `import ${JSON.stringify(TEST_FILE)};\n`,
+  testFiles.map((f) => `import ${JSON.stringify(f)};`).join("\n") + "\n",
 );
 
 const { build } = require("esbuild");

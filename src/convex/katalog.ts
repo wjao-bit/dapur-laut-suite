@@ -10,6 +10,11 @@ import { badRequest, findOneByKey, logRequest, logResponse } from "./lib";
 // pertama untuk pihak baru (dari createInvoice/editInvoice di business.ts),
 // dan bisa dikelola manual dari menu Katalog Harga. Form invoice menarik
 // harga dari katalog ini agar harga selalu konsisten.
+//
+// ID katalog bersifat deterministik: KTL-<TIPE>-<slug nama>. Pencarian pihak
+// dicoba lewat ID lebih dulu sehingga variasi huruf besar/kecil pada nama
+// (mis. "Reseller A" vs "reseller a") TETAP mengarah ke katalog yang sama dan
+// tidak membuat duplikat / error index unik.
 // ============================================================================
 
 function katalogId(tipe: string, namaPihak: string): string {
@@ -21,10 +26,16 @@ function katalogId(tipe: string, namaPihak: string): string {
   return `KTL-${tipe.toUpperCase()}-${slug}`;
 }
 
-/** Cari katalog berdasarkan tipe + nama pihak (unik per pasangan). */
+/**
+ * Cari katalog sebuah pihak. Urutan pencarian:
+ *   1. by ID deterministik (menangkap variasi huruf besar/kecil nama);
+ *   2. by pasangan tipe + namaPihak persis (fallback data lama).
+ */
 async function findKatalog(ctx: any, tipe: string, namaPihak: string) {
   const party = String(namaPihak ?? "").trim();
   if (!party) return null;
+  const byId = await findOneByKey(ctx, "katalogHarga", "id", katalogId(tipe, party));
+  if (byId) return byId;
   return (ctx.db.query("katalogHarga") as any)
     .filter((q: any) => q.and(q.eq(q.field("tipe"), tipe), q.eq(q.field("namaPihak"), party)))
     .first();
