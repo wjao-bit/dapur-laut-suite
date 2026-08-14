@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LogoMark } from "@/components/Brand";
+import { InstallAppButton } from "@/components/app/InstallAppButton";
 import { cn } from "@/lib/utils";
 
 const FEATURES = [
@@ -89,6 +90,7 @@ export default function Landing() {
           </nav>
 
           <div className="hidden items-center gap-2 md:flex">
+            <InstallAppButton variant="ghost" size="sm" label="Instal" />
             <Button asChild variant="ghost">
               <Link to="/auth">Masuk</Link>
             </Button>
@@ -122,6 +124,9 @@ export default function Landing() {
                 <Button asChild>
                   <Link to="/auth">Mulai</Link>
                 </Button>
+              </div>
+              <div className="mt-1">
+                <InstallAppButton variant="outline" size="default" className="w-full" label="Instal Aplikasi" />
               </div>
             </nav>
           </div>
@@ -184,6 +189,7 @@ export default function Landing() {
               <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
                 <Link to="/auth">Lihat Dashboard Demo</Link>
               </Button>
+              <InstallAppButton className="w-full sm:w-auto" />
             </motion.div>
 
             <motion.p
@@ -193,7 +199,7 @@ export default function Landing() {
               className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground"
             >
               <ShieldCheck className="size-3.5 text-emerald-600" />
-              Validasi otomatis setiap transaksi · Tanpa duplikasi data
+              Validasi otomatis setiap transaksi · Tanpa duplikasi data · Bisa dipasang di Android, iPhone & PC
             </motion.p>
           </div>
 
@@ -400,6 +406,7 @@ export default function Landing() {
                   <ArrowRight className="ml-2 size-4" />
                 </Link>
               </Button>
+              <InstallAppButton variant="secondary" className="border-white/30 bg-white/10 text-white hover:bg-white/20" />
             </div>
           </div>
         </div>

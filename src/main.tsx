@@ -250,6 +250,16 @@ function RouteSyncer() {
 const fallbackEl = document.getElementById("root-fallback");
 if (fallbackEl) fallbackEl.remove();
 
+// PWA: daftarkan service worker HANYA di build produksi (publish). Di dev
+// preview service worker justru bisa membuat aset tersangkut di cache.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* offline/PWA tidak wajib — aplikasi tetap berjalan normal */
+    });
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>

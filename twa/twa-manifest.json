@@ -1,0 +1,30 @@
+{
+  "appId": "com.dapurlaut.bisnis",
+  "appName": "PT Dapur Laut",
+  "appVersion": "1",
+  "appVersionName": "1.0.0",
+  "shortName": "Dapur Laut",
+  "launcherName": "Dapur Laut",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "startUrl": "/",
+  "host": "dapurlaut.freebuff.app",
+  "themeColor": "#0f766e",
+  "backgroundColor": "#0f766e",
+  "statusBar": "transparent",
+  "navigationColor": "#0f766e",
+  "navigationColorDark": "#0f766e",
+  "navigationDividerColor": "#0f766e",
+  "navigationDividerColorDark": "#0f766e",
+  "webManifestUrl": "https://dapurlaut.freebuff.app/manifest.webmanifest",
+  "iconUrl": "https://dapurlaut.freebuff.app/icon-512.png",
+  "maskableIconUrl": "https://dapurlaut.freebuff.app/icon-maskable-512.png",
+  "monochromeIconUrl": "https://dapurlaut.freebuff.app/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "fallbackType": "customtabs",
+  "enableNotifications": false,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "dapurlaut"
+  }
+}

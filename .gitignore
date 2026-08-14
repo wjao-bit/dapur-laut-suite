@@ -1,0 +1,5 @@
+# Build artifacts — jangan pernah commit APK / keystore ke git
+twa/android.keystore
+twa/app-release-signed.apk
+twa/*.jar
+twa/.gradle/
