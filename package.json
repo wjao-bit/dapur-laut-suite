@@ -10,7 +10,9 @@
     "format": "prettier --write .",
     "preview": "vite preview",
     "audit:responsive": "node scripts/audit-responsive.mjs",
-    "test:invoice": "node scripts/test-invoice.mjs"
+    "test:invoice": "node scripts/test-invoice.mjs",
+    "test:unit": "node scripts/run-unit-tests.mjs",
+    "test:all": "npm run test:unit && npm run test:invoice && node scripts/test-next-kode.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",

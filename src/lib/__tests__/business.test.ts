@@ -62,13 +62,33 @@ describe("Invoice", () => {
     expect(t.margin).toBe(500000);
   });
 
-  it("Pasar: stok akhir > stok awal harus ditolak validator", () => {
+  it("Pasar: stok akhir > stok awal DITERIMA — barang pulang lebih banyak → terjual minus", () => {
+    // Sesuai permintaan user: barang pulang boleh lebih banyak dari stok awal
+    // (stok gudang ikut minus). Validator menerimanya, dan perhitungan
+    // penjualan/modal/margin menjadi negatif.
     const r = validate(invoiceSchema, {
       idInvoice: "INV-X",
       tanggal: "2026-08-04",
       tipe: "Pasar",
       namaPihak: "Victoria",
       items: [{ kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 5, stokAwal: 5, stokAkhir: 7, subtotal: 0 }],
+    });
+    expect(r.success).toBe(true);
+    const t = computeInvoiceTotals("Pasar", [
+      { kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 5, hargaJual: 1500, stokAwal: 5, stokAkhir: 7, subtotal: -3000 },
+    ]);
+    expect(t.totalPenjualan).toBe(-3000); // (5 − 7) × 1500
+    expect(t.totalModal).toBe(-2000); // (5 − 7) × 1000
+    expect(t.margin).toBe(-1000);
+  });
+
+  it("Pasar: stok awal harus lebih dari 0 (tetap divalidasi)", () => {
+    const r = validate(invoiceSchema, {
+      idInvoice: "INV-Y",
+      tanggal: "2026-08-04",
+      tipe: "Pasar",
+      namaPihak: "Victoria",
+      items: [{ kodeBarang: "B1", namaBarang: "X", hargaModal: 1000, qty: 5, stokAwal: 0, stokAkhir: 0, subtotal: 0 }],
     });
     expect(r.success).toBe(false);
   });
