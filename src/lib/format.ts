@@ -23,12 +23,16 @@ export function roundNum(n: number | null | undefined, decimals = 6): number {
 }
 
 /**
- * Tampilan angka pendek tanpa noise float & tanpa nol berlebih di belakang:
- * 15.700000000000001 → "15.7", 2.9000000000000004 → "2.9", 0 → "0",
- * 1.500 → "1.5" (bukan "1.5" saja — titik sebagai desimal), 596600 → "596600".
+ * Tampilan angka pendek GAYA INDONESIA tanpa noise float:
+ * 15.700000000000001 → "15,7" (koma desimal), 2.9000000000000004 → "2,9",
+ * 0 → "0", 1500 → "1.500" (titik ribuan), 596600 → "596.600",
+ * 0,7 → "0,7". Dipakai semua tampilan qty/stok/jumlah agar konsisten.
  */
 export function formatNum(n: number | null | undefined): string {
-  return String(roundNum(n));
+  const r = roundNum(n);
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 6,
+  }).format(r);
 }
 
 export function formatDate(s: string | undefined | null): string {

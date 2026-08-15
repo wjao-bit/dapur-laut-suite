@@ -1,1 +1,89 @@
-import{c}from"./index-Bsge94uJ.js";const e=[["path",{d:"M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17",key:"geh8rc"}],["path",{d:"m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9",key:"1fto5m"}],["path",{d:"m2 16 6 6",key:"1pfhp9"}],["circle",{cx:"16",cy:"9",r:"2.9",key:"1n0dlu"}],["circle",{cx:"6",cy:"5",r:"3",key:"151irh"}]],a=c("hand-coins",e);export{a as H};
+name: Build APK — PT Dapur Laut
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build TWA APK (Bubblewrap)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java (Android SDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK command line tools
+        run: |
+          export ANDROID_HOME="$HOME/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -sSL -o cmdtools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdtools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --licenses > /dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare keystore (pakai KEYSTORE_BASE64 bila ada, kalau tidak generate baru)
+        run: |
+          cd twa
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android.keystore
+            echo "Keystore dipakai dari secret KEYSTORE_BASE64"
+          else
+            keytool -genkeypair -v -keystore android.keystore -alias dapurlaut \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass dapurlaut123 -keypass dapurlaut123 \
+              -dname "CN=PT Dapur Laut, OU=IT, O=PT Dapur Laut, L=Batam, ST=Kepulauan Riau, C=ID"
+            echo "Keystore baru dibuat — SIMPAN artefak android-keystore!"
+          fi
+
+      - name: Cetak fingerprint SHA-256 (untuk assetlinks fullscreen)
+        run: |
+          keytool -list -v -keystore twa/android.keystore \
+            -alias dapurlaut -storepass dapurlaut123 2>/dev/null | \
+            grep -A1 "SHA256:" || echo "Fingerprint gagal dicetak"
+
+      - name: Install Bubblewrap
+        run: |
+          npm install -g @bubblewrap/cli
+          bubblewrap --version
+
+      - name: Build APK
+        run: |
+          cd twa
+          bubblewrap build --skipPwaValidation \
+            --keystorePath android.keystore \
+            --keystorePass dapurlaut123 \
+            --keyPass dapurlaut123 \
+            --keyAlias dapurlaut
+          ls -la app-release-signed.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dapurlaut-apk
+          path: twa/app-release-signed.apk
+
+      - name: Upload keystore (PENTING — dipakai update APK berikutnya)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-keystore
+          path: twa/android.keystore

@@ -1,1 +1,168 @@
-import{l as t,e as a,j as l}from"./index-Bsge94uJ.js";import{M as o}from"./MasterCrud-XSjcIy21.js";import{S as s}from"./store-C8F0T5Wx.js";import"./label-CVsIS-Ls.js";import"./index-DQxZuVgb.js";import"./dialog-De4sTU7U.js";import"./index-BpismUVs.js";import"./x-BC5ydcoz.js";import"./alert-dialog-BeBFNz2q.js";import"./ui-CQ3gIhaz.js";import"./card-CZObq1mx.js";import"./DataTable-DoqToFFC.js";import"./chevron-right-C76sWBnO.js";import"./NumInput-Oz6gZguX.js";import"./format-ZcaFtJO_.js";import"./plus-CbuBNyQS.js";import"./search-Bua5q4vE.js";import"./pencil-Ddx_V_j2.js";import"./trash-2-OGDWI-_6.js";function v(){const r=t(a.queries.listReseller);return l.jsxDEV(o,{title:"Reseller",description:"Pembeli perorangan/toko. IDReseller UNIQUE — penjualan ke reseller mengurangi stok gudang.",icon:s,rows:r,loading:r===void 0,keyField:"id",idPrefix:"RSL",upsertFn:a.business.upsertReseller,table:"reseller",searchKeys:["id","nama","alamat","kontak"],columns:[{key:"id",label:"ID Reseller",sortValue:e=>e.id,render:e=>l.jsxDEV("span",{className:"font-semibold text-foreground",children:e.id},void 0,!1,{fileName:"/project/src/pages/app/ResellerPage.tsx",lineNumber:21,columnNumber:83},this)},{key:"nama",label:"Nama Reseller",sortValue:e=>e.nama,render:e=>e.nama},{key:"alamat",label:"Alamat",render:e=>e.alamat||"—"},{key:"kontak",label:"Kontak",render:e=>e.kontak||"—"}],fields:[{key:"id",label:"ID Reseller",required:!0,placeholder:"RSL-001"},{key:"nama",label:"Nama Reseller",required:!0,placeholder:"Reseller A"},{key:"alamat",label:"Alamat",type:"textarea",span:2},{key:"kontak",label:"Kontak",placeholder:"0812-3456-7890"}]},void 0,!1,{fileName:"/project/src/pages/app/ResellerPage.tsx",lineNumber:9,columnNumber:5},this)}export{v as default};
+import { useEffect, useState } from "react";
+import type { VariantProps } from "class-variance-authority";
+import { Download, MonitorSmartphone, Smartphone } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+/**
+ * Tombol "Instal Aplikasi" (PWA) — dipakai di landing page.
+ *
+ * - Saat browser mendukung `beforeinstallprompt` (Android Chrome / PC),
+ *   klik tombol memunculkan dialog install bawaan browser.
+ * - Di iOS Safari (tanpa dukungan prompt), atau bila prompt tidak tersedia,
+ *   tombol membuka dialog panduan manual: Android (Chrome → ⋮ → "Add to
+ *   Home screen"), iPhone (Share → "Add to Home Screen"), PC (ikon install
+ *   di address bar).
+ * - Setelah aplikasi terpasang (standalone) tombol otomatis disembunyikan.
+ */
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+interface InstallAppButtonProps
+  extends Omit<React.ComponentProps<"button">, "onClick">,
+    VariantProps<typeof buttonVariants> {
+  /** Teks tombol. Default: "Instal Aplikasi". */
+  label?: string;
+}
+
+const isStandalone = () =>
+  typeof window !== "undefined" &&
+  (window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true);
+
+export function InstallAppButton({
+  label = "Instal Aplikasi",
+  variant = "default",
+  size = "default",
+  className,
+  ...rest
+}: InstallAppButtonProps) {
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(() => isStandalone());
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (installed) return;
+
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, [installed]);
+
+  const handleClick = async () => {
+    if (deferredPrompt) {
+      setBusy(true);
+      try {
+        await deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === "accepted") setInstalled(true);
+      } catch {
+        // prompt gagal/dibatalkan — fallback ke panduan manual
+        setHelpOpen(true);
+      } finally {
+        setDeferredPrompt(null);
+        setBusy(false);
+      }
+      return;
+    }
+    // Tidak ada prompt bawaan (iOS Safari, browser lain) → tampilkan panduan
+    setHelpOpen(true);
+  };
+
+  // Sudah terpasang sebagai aplikasi → tidak perlu tombol
+  if (installed) return null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant={variant}
+        size={size}
+        className={className}
+        onClick={handleClick}
+        disabled={busy}
+        {...rest}
+      >
+        <Download className="size-4" />
+        {label}
+      </Button>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MonitorSmartphone className="size-5 text-teal-600" />
+              Pasang Aplikasi Dapur Laut
+            </DialogTitle>
+            <DialogDescription>
+              Aplikasi bisa dipasang di Android, iPhone, dan PC seperti aplikasi
+              biasa. Pilih langkah sesuai perangkat Anda:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex gap-3 rounded-xl border bg-muted/40 p-3.5">
+              <Smartphone className="mt-0.5 size-4 shrink-0 text-teal-600" />
+              <div className="text-sm leading-relaxed">
+                <p className="font-semibold">Android (Chrome)</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Buka ⋮ (titik tiga) di pojok kanan atas → pilih{" "}
+                  <b>“Tambahkan ke layar utama”</b> /{" "}
+                  <b>“Add to Home screen”</b> → ketuk <b>“Install”</b>.
+                  Ikon Dapur Laut langsung muncul di layar utama HP.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 rounded-xl border bg-muted/40 p-3.5">
+              <Smartphone className="mt-0.5 size-4 shrink-0 text-sky-600" />
+              <div className="text-sm leading-relaxed">
+                <p className="font-semibold">iPhone / iPad (Safari)</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Ketuk tombol <b>Bagikan (⬆️)</b> di bawah layar → gulir dan
+                  pilih <b>“Tambahkan ke Layar Utama”</b> /{" "}
+                  <b>“Add to Home Screen”</b> → ketuk <b>“Tambah”</b>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 rounded-xl border bg-muted/40 p-3.5">
+              <MonitorSmartphone className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              <div className="text-sm leading-relaxed">
+                <p className="font-semibold">PC / Laptop</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Klik ikon <b>install (⬇)</b> di ujung kanan address bar Chrome
+                  / Edge, lalu pilih <b>“Install”</b>. Aplikasi terbuka penuh
+                  tanpa address bar.
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export default InstallAppButton;

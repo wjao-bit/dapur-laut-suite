@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { parseNum } from "@/lib/format";
+import { parseNum, formatNum } from "@/lib/format";
 
 /**
  * Input angka yang ramah Android & desktop:
@@ -15,6 +15,8 @@ import { parseNum } from "@/lib/format";
  *   "1.500" (ribuan) juga tetap dibaca 1500 (lihat parseNum).
  * - Saat kolom difokus, seluruh isi terpilih → mengetik nilai baru langsung
  *   menggantikan nilai lama (memasukkan angka jadi lebih cepat di Android).
+ * - Tampilan saat keluar kolom memakai format Indonesia: "0,7" bukan "0.7",
+ *   "1.500" untuk ribuan — konsisten dengan semua tabel aplikasi.
  */
 export function NumInput({
   value,
@@ -36,7 +38,7 @@ export function NumInput({
   id?: string;
 }) {
   const [text, setText] = useState<string>(() =>
-    value && value !== 0 ? String(value) : "",
+    value && value !== 0 ? formatNum(value) : "",
   );
   const focused = useRef(false);
 
@@ -44,7 +46,7 @@ export function NumInput({
   // — tapi jangan timpa teks yang sedang diketik pengguna.
   useEffect(() => {
     if (focused.current) return;
-    setText(value && value !== 0 ? String(value) : "");
+    setText(value && value !== 0 ? formatNum(value) : "");
   }, [value]);
 
   const sanitize = (raw: string): string => {
@@ -70,8 +72,8 @@ export function NumInput({
 
   const handleBlur = () => {
     focused.current = false;
-    // Normalisasi tampilan saat keluar dari kolom: "0,7" → "0.7"
-    if (text.trim() !== "") setText(String(parseNum(text)));
+    // Normalisasi tampilan saat keluar dari kolom: "0.7" / "0,7" → "0,7"
+    if (text.trim() !== "") setText(formatNum(parseNum(text)));
   };
 
   return (
