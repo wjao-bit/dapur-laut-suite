@@ -26,7 +26,7 @@ import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { NumInput } from "@/components/app/NumInput";
-import { formatDate, todayStr, parseNum } from "@/lib/format";
+import { formatDate, todayStr, parseNum, formatNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export default function GudangPage() {
@@ -83,7 +83,7 @@ export default function GudangPage() {
     setSaving(true);
     try {
       await adjustStok({ namaBarang: adjBarang, stokBaru: parseNum(adjStok), keterangan: adjKet || undefined });
-      toast.success(`Stok ${adjBarang} disesuaikan menjadi ${adjStok}`);
+      toast.success(`Stok ${adjBarang} disesuaikan menjadi ${formatNum(adjStok)}`);
       setAdjBarang(null);
     } catch (e: any) {
       toast.error(e?.data?.error ?? e?.message ?? "Gagal menyesuaikan");
@@ -94,9 +94,9 @@ export default function GudangPage() {
 
   const columns: Column<any>[] = [
     { key: "namaBarang", label: "Nama Barang", sortValue: (r) => r.namaBarang, render: (r) => <span className="font-semibold text-foreground">{r.namaBarang}</span> },
-    { key: "stokAwal", label: "Stok Awal", align: "right", sortValue: (r) => r.stokAwal, render: (r) => <span className="tabular-nums">{r.stokAwal}</span> },
-    { key: "stokMasuk", label: "Stok Masuk", align: "right", sortValue: (r) => r.stokMasuk, render: (r) => <span className="tabular-nums text-emerald-600">+{r.stokMasuk}</span> },
-    { key: "stokKeluar", label: "Stok Keluar", align: "right", sortValue: (r) => r.stokKeluar, render: (r) => <span className="tabular-nums text-rose-600">-{r.stokKeluar}</span> },
+    { key: "stokAwal", label: "Stok Awal", align: "right", sortValue: (r) => r.stokAwal, render: (r) => <span className="tabular-nums">{formatNum(r.stokAwal)}</span> },
+    { key: "stokMasuk", label: "Stok Masuk", align: "right", sortValue: (r) => r.stokMasuk, render: (r) => <span className="tabular-nums text-emerald-600">+{formatNum(r.stokMasuk)}</span> },
+    { key: "stokKeluar", label: "Stok Keluar", align: "right", sortValue: (r) => r.stokKeluar, render: (r) => <span className="tabular-nums text-rose-600">-{formatNum(r.stokKeluar)}</span> },
     {
       key: "stokAkhir",
       label: "Stok Akhir",
@@ -104,7 +104,7 @@ export default function GudangPage() {
       sortValue: (r) => r.stokAkhir,
       render: (r) => (
         <span className={cn("font-bold tabular-nums", r.stokAkhir < 0 ? "text-rose-600" : r.stokAkhir === 0 ? "text-muted-foreground" : "text-emerald-600")}>
-          {r.stokAkhir}
+          {formatNum(r.stokAkhir)}
         </span>
       ),
     },
@@ -148,7 +148,7 @@ export default function GudangPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
         <SectionCard title="Total Stok (unit)">
-          <p className="text-2xl font-bold text-emerald-600 tabular-nums">{totalStok.toLocaleString("id-ID")}</p>
+          <p className="text-2xl font-bold text-emerald-600 tabular-nums">{formatNum(totalStok)}</p>
         </SectionCard>
         <SectionCard title="Jenis Barang">
           <p className="text-2xl font-bold tabular-nums">{gudang?.length ?? "—"}</p>
@@ -244,7 +244,7 @@ export default function GudangPage() {
                   <div className="flex items-center gap-2">
                     <BadgeStatus status={h.tipe} />
                     <span className={cn("font-semibold tabular-nums", h.perubahan >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                      {h.perubahan >= 0 ? `+${h.perubahan}` : h.perubahan}
+                      {h.perubahan >= 0 ? `+${formatNum(h.perubahan)}` : formatNum(h.perubahan)}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{h.keterangan || "—"}</p>
@@ -278,7 +278,7 @@ export function GudangPrintDoc({ rows }: { rows: any[] }) {
         </div>
         <div className="text-right text-xs text-slate-500">
           <p>Tgl Cetak: {formatDate(todayStr())}</p>
-          <p className="mt-0.5 font-semibold text-slate-700">Total Stok: {total.toLocaleString("id-ID")} unit</p>
+          <p className="mt-0.5 font-semibold text-slate-700">Total Stok: {formatNum(total)} unit</p>
         </div>
       </div>
       <table className="w-full border-collapse">
@@ -295,10 +295,10 @@ export function GudangPrintDoc({ rows }: { rows: any[] }) {
           {rows.map((r: any) => (
             <tr key={r.namaBarang}>
               <td className={td + " font-medium"}>{r.namaBarang}</td>
-              <td className={tdr}>{r.stokAwal}</td>
-              <td className={tdr + " text-emerald-700"}>{r.stokMasuk}</td>
-              <td className={tdr + " text-rose-700"}>{r.stokKeluar}</td>
-              <td className={tdr + " font-bold"}>{r.stokAkhir}</td>
+              <td className={tdr}>{formatNum(r.stokAwal)}</td>
+              <td className={tdr + " text-emerald-700"}>{formatNum(r.stokMasuk)}</td>
+              <td className={tdr + " text-rose-700"}>{formatNum(r.stokKeluar)}</td>
+              <td className={tdr + " font-bold"}>{formatNum(r.stokAkhir)}</td>
             </tr>
           ))}
           {rows.length === 0 && (

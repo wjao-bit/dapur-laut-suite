@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
-import { formatRupiah, formatDate, formatMonth } from "@/lib/format";
+import { formatRupiah, formatDate, formatMonth, formatNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Tab = "stok" | "keuangan" | "rekapBarang" | "rekapPihak" | "margin";
@@ -96,10 +96,10 @@ export default function LaporanPage() {
                   {(laporanStok ?? []).map((r: any) => (
                     <tr key={r.namaBarang}>
                       <td className={td + " font-medium"}>{r.namaBarang}</td>
-                      <td className={tdr}>{r.stokAwal}</td>
-                      <td className={tdr + " text-emerald-600"}>+{r.stokMasuk}</td>
-                      <td className={tdr + " text-rose-600"}>-{r.stokKeluar}</td>
-                      <td className={cn(tdr, "font-bold", r.stokAkhir < 0 ? "text-rose-600" : "text-emerald-700")}>{r.stokAkhir}</td>
+                      <td className={tdr}>{formatNum(r.stokAwal)}</td>
+                      <td className={tdr + " text-emerald-600"}>+{formatNum(r.stokMasuk)}</td>
+                      <td className={tdr + " text-rose-600"}>-{formatNum(r.stokKeluar)}</td>
+                      <td className={cn(tdr, "font-bold", r.stokAkhir < 0 ? "text-rose-600" : "text-emerald-700")}>{formatNum(r.stokAkhir)}</td>
                     </tr>
                   ))}
                   {(laporanStok ?? []).length === 0 && (
@@ -198,8 +198,8 @@ export default function LaporanPage() {
         <TabsContent value="rekapBarang">
           <SectionCard title="Rekap Barang Keluar/Masuk" description={`Semua pergerakan stok · ${periodLabel}`}>
             <div className="mb-3 flex gap-4 text-sm">
-              <span className="text-emerald-600 font-medium">Total Masuk: {rekapBarang?.totalMasuk ?? 0}</span>
-              <span className="text-rose-600 font-medium">Total Keluar: {rekapBarang?.totalKeluar ?? 0}</span>
+              <span className="text-emerald-600 font-medium">Total Masuk: {formatNum(rekapBarang?.totalMasuk ?? 0)}</span>
+              <span className="text-rose-600 font-medium">Total Keluar: {formatNum(rekapBarang?.totalKeluar ?? 0)}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
@@ -215,9 +215,9 @@ export default function LaporanPage() {
                   {(rekapBarang?.rows ?? []).map((r: any) => (
                     <tr key={r.namaBarang}>
                       <td className={td + " font-medium"}>{r.namaBarang}</td>
-                      <td className={tdr + " text-emerald-600"}>+{r.masuk}</td>
-                      <td className={tdr + " text-rose-600"}>-{r.keluar}</td>
-                      <td className={cn(tdr, "font-semibold", r.net >= 0 ? "text-emerald-700" : "text-rose-600")}>{r.net > 0 ? `+${r.net}` : r.net}</td>
+                      <td className={tdr + " text-emerald-600"}>+{formatNum(r.masuk)}</td>
+                      <td className={tdr + " text-rose-600"}>-{formatNum(r.keluar)}</td>
+                      <td className={cn(tdr, "font-semibold", r.net >= 0 ? "text-emerald-700" : "text-rose-600")}>{r.net > 0 ? `+${formatNum(r.net)}` : formatNum(r.net)}</td>
                     </tr>
                   ))}
                   {(rekapBarang?.rows ?? []).length === 0 && (
@@ -249,7 +249,7 @@ export default function LaporanPage() {
                       <td className={td}><BadgeStatus status={r.tipe} /></td>
                       <td className={td + " font-medium"}>{r.namaPihak}</td>
                       <td className={tdr}>{r.totalTransaksi}</td>
-                      <td className={tdr}>{r.totalBarang}</td>
+                      <td className={tdr}>{formatNum(r.totalBarang)}</td>
                       <td className={tdr + " font-semibold"}>{formatRupiah(r.totalNilai)}</td>
                     </tr>
                   ))}
@@ -366,10 +366,10 @@ export default function LaporanPage() {
                 {(laporanStok ?? []).map((r: any) => (
                   <tr key={r.namaBarang}>
                     <td className={td + " font-medium"}>{r.namaBarang}</td>
-                    <td className={tdr}>{r.stokAwal}</td>
-                    <td className={tdr}>{r.stokMasuk}</td>
-                    <td className={tdr}>{r.stokKeluar}</td>
-                    <td className={tdr + " font-bold"}>{r.stokAkhir}</td>
+                    <td className={tdr}>{formatNum(r.stokAwal)}</td>
+                    <td className={tdr}>{formatNum(r.stokMasuk)}</td>
+                    <td className={tdr}>{formatNum(r.stokKeluar)}</td>
+                    <td className={tdr + " font-bold"}>{formatNum(r.stokAkhir)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -432,9 +432,9 @@ export default function LaporanPage() {
                 {(rekapBarang?.rows ?? []).map((r: any) => (
                   <tr key={r.namaBarang}>
                     <td className={td + " font-medium"}>{r.namaBarang}</td>
-                    <td className={tdr}>{r.masuk}</td>
-                    <td className={tdr}>{r.keluar}</td>
-                    <td className={tdr + " font-bold"}>{r.net}</td>
+                    <td className={tdr}>{formatNum(r.masuk)}</td>
+                    <td className={tdr}>{formatNum(r.keluar)}</td>
+                    <td className={tdr + " font-bold"}>{formatNum(r.net)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -453,7 +453,7 @@ export default function LaporanPage() {
                     <td className={td}>{r.tipe}</td>
                     <td className={td + " font-medium"}>{r.namaPihak}</td>
                     <td className={tdr}>{r.totalTransaksi}</td>
-                    <td className={tdr}>{r.totalBarang}</td>
+                    <td className={tdr}>{formatNum(r.totalBarang)}</td>
                     <td className={tdr + " font-bold"}>{formatRupiah(r.totalNilai)}</td>
                   </tr>
                 ))}

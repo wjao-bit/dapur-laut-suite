@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { NumInput } from "@/components/app/NumInput";
-import { todayStr, genId, parseNum, nextSeqKode } from "@/lib/format";
+import { todayStr, genId, parseNum, nextSeqKode, roundNum, formatNum } from "@/lib/format";
 import { formatCurrency, computeInvoiceTotals, INVOICE_TIPES, type MataUang } from "@/lib/business";
 import type { InvoiceItem, InvoiceTipe } from "@/lib/business";
 
@@ -34,7 +34,7 @@ const TIPE_LABEL: Record<string, string> = {
   Pasar: "Penjualan Pasar (Awal−Akhir)",
 };
 
-/** Hitung subtotal satu baris item sesuai tipe invoice. */
+/** Hitung subtotal satu baris item sesuai tipe invoice (dibulatkan anti-noise-float). */
 export function itemSubtotal(tipe: string, it: any): number {
   const qty =
     tipe === "Pasar"
@@ -42,7 +42,7 @@ export function itemSubtotal(tipe: string, it: any): number {
       : parseNum(it.qty);
   const harga =
     tipe === "Supplier" ? parseNum(it.hargaModal) : parseNum(it.hargaJual);
-  const st = qty * harga;
+  const st = roundNum(qty * harga);
   // Pasar: Terjual BOLEH minus (stok akhir > stok awal) → subtotal ikut minus.
   return tipe === "Pasar" ? st : Math.max(0, st);
 }
@@ -50,8 +50,8 @@ export function itemSubtotal(tipe: string, it: any): number {
 /** Margin satu baris (hanya Pasar — dari selisih harga jual − modal × terjual). */
 export function itemMargin(tipe: string, it: any): number {
   if (tipe !== "Pasar") return 0;
-  const terjual = parseNum(it.stokAwal) - parseNum(it.stokAkhir);
-  return terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal));
+  const terjual = roundNum(parseNum(it.stokAwal) - parseNum(it.stokAkhir));
+  return roundNum(terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal)));
 }
 
 function emptyItem(): InvoiceItem {
@@ -807,7 +807,7 @@ export function InvoiceFormDialog({
                               terjual < 0 ? "text-rose-600" : "text-teal-600"
                             }`}
                           >
-                            {terjual}
+                            {formatNum(terjual)}
                           </p>
                         </div>
                       </>
@@ -949,7 +949,7 @@ export function InvoiceFormDialog({
                           <td
                             className={`px-2 py-2 text-right font-semibold tabular-nums ${parseNum(it.stokAwal) - parseNum(it.stokAkhir) < 0 ? "text-rose-600" : "text-teal-600"}`}
                           >
-                            {parseNum(it.stokAwal) - parseNum(it.stokAkhir)}
+                            {formatNum(parseNum(it.stokAwal) - parseNum(it.stokAkhir))}
                           </td>
                         </>
                       ) : (

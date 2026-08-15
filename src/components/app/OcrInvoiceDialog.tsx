@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { NumInput } from "@/components/app/NumInput";
 import { formatCurrency, INVOICE_TIPES, type InvoiceTipe } from "@/lib/business";
-import { nextSeqKode, parseNum, todayStr } from "@/lib/format";
+import { nextSeqKode, parseNum, todayStr, roundNum } from "@/lib/format";
 import { parseOcrText, type OcrItem } from "@/lib/ocr";
 
 type OcrStatus = "idle" | "reading" | "done" | "error";
@@ -119,6 +119,8 @@ export function OcrInvoiceDialog({
   const [idInvoice, setIdInvoice] = useState(nextInvoiceId);
   const [items, setItems] = useState<DraftItem[]>([{ namaBarang: "", qty: 1, harga: 0 }]);
   const [saving, setSaving] = useState(false);
+  /** Perintah tambahan bebas dari user untuk Scan AI (opsional). */
+  const [instruksi, setInstruksi] = useState("");
 
   const reset = () => {
     setImageUrl(null);
@@ -132,6 +134,7 @@ export function OcrInvoiceDialog({
     setTanggal(todayStr());
     setIdInvoice(nextInvoiceId);
     setItems([{ namaBarang: "", qty: 1, harga: 0 }]);
+    setInstruksi("");
   };
 
   const pihakOptions =
@@ -156,14 +159,18 @@ export function OcrInvoiceDialog({
     }
   };
 
-  /** Scan dengan AI (OpenAI vision) — perintah diarahkan sesuai tipe yang dipilih user. */
+  /** Scan dengan AI (OpenAI vision) — perintah diarahkan sesuai tipe & instruksi user. */
   const handleAiScan = async () => {
     if (!canvasRef) return;
     setAiBusy(true);
     try {
       // Kirim versi kecil (≤1024px, JPEG 0.7) supaya payload ringan.
       const smallUrl = canvasToJpeg(canvasRef, 1024, 0.7);
-      const res = await scanAi({ imageDataUrl: smallUrl, tipe });
+      const res = await scanAi({
+        imageDataUrl: smallUrl,
+        tipe,
+        instruksi: instruksi.trim() || undefined,
+      });
       if (!res.ok || !res.data) {
         toast.error(res?.error ?? "Scan AI gagal — coba lagi atau pakai OCR biasa.");
         return;
@@ -264,7 +271,7 @@ export function OcrInvoiceDialog({
             hargaJual: harga,
             // Pasar: qty = stok awal; subtotal = (awal − akhir) × harga jual
             qty,
-            subtotal: (qty - stokAkhir) * harga,
+            subtotal: roundNum((qty - stokAkhir) * harga),
             stokAwal: qty,
             stokAkhir,
           };
@@ -275,7 +282,7 @@ export function OcrInvoiceDialog({
           hargaModal: tipe === "Supplier" ? harga : 0,
           qty,
           hargaJual: tipe === "Supplier" ? 0 : harga,
-          subtotal: qty * harga,
+          subtotal: roundNum(qty * harga),
         };
       });
     if (cleanItems.length === 0) {
@@ -322,8 +329,6 @@ export function OcrInvoiceDialog({
       setSaving(false);
     }
   };
-
-  const total = items.reduce((s, it) => s + parseNum(it.qty) * parseNum(it.harga), 0);
 
   return (
     <Dialog
@@ -387,7 +392,7 @@ export function OcrInvoiceDialog({
             )}
           </div>
 
-          {/* Langkah 2 — pilih tipe, lalu baca (AI atau OCR biasa) */}
+          {/* Langkah 2 — pilih tipe, instruksi khusus, lalu baca (AI atau OCR biasa) */}
           {imageUrl && status !== "done" && (
             <div className="rounded-lg border bg-muted/20 p-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -422,6 +427,17 @@ export function OcrInvoiceDialog({
                   )}
                   {status === "reading" ? "Membaca teks…" : "OCR Biasa (Tanpa kunci)"}
                 </Button>
+              </div>
+              <div className="mt-2.5">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Instruksi khusus untuk Scan AI <span className="text-muted-foreground/70">(opsional)</span>
+                </Label>
+                <Input
+                  className="mt-1 h-9 text-sm"
+                  value={instruksi}
+                  onChange={(e) => setInstruksi(e.target.value)}
+                  placeholder="Mis. hanya 5 baris pertama · abaikan barang tanpa harga · tulis satuan di nama barang"
+                />
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Scan AI memakai model vision OpenAI (lebih akurat, butuh kunci opsional). OCR Biasa
@@ -566,7 +582,7 @@ export function OcrInvoiceDialog({
                               />
                             </td>
                             <td className="px-2 py-2 text-right font-semibold tabular-nums">
-                              {formatCurrency(terjual * parseNum(it.harga), "Rp")}
+                              {formatCurrency(roundNum(terjual * parseNum(it.harga)), "Rp")}
                             </td>
                             <td className="px-1 py-2">
                               <Button
@@ -598,7 +614,13 @@ export function OcrInvoiceDialog({
                     <span className="font-bold tabular-nums">
                       {formatCurrency(
                         items.reduce(
-                          (s, it) => s + (tipe === "Pasar" ? parseNum(it.qty) - parseNum(it.stokAkhir) : parseNum(it.qty)) * parseNum(it.harga),
+                          (s, it) =>
+                            s +
+                            roundNum(
+                              (tipe === "Pasar"
+                                ? parseNum(it.qty) - parseNum(it.stokAkhir)
+                                : parseNum(it.qty)) * parseNum(it.harga),
+                            ),
                           0,
                         ),
                         "Rp",

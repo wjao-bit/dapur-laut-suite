@@ -1,11 +1,11 @@
-import { formatDate, parseNum } from "@/lib/format";
+import { formatDate, parseNum, formatNum, roundNum } from "@/lib/format";
 import { formatCurrency, type MataUang } from "@/lib/business";
 import { invoiceTotal, invoiceDibayar, invoiceSisa } from "@/lib/invoice";
 
 /** Margin satu baris (khusus Pasar): (harga jual − harga modal) × terjual. */
 function rowMargin(it: any): number {
   const terjual = parseNum(it.stokAwal) - parseNum(it.stokAkhir);
-  return terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal));
+  return roundNum(terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal)));
 }
 
 /** Margin total invoice Pasar: jumlah margin semua baris. */
@@ -141,7 +141,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 const hasStored = it.subtotal != null && String(it.subtotal).trim() !== "";
                 // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang.
                 // Pasar: subtotal tersimpan bisa NEGATIF (terjual minus) — dipakai apa adanya.
-                const subtotal = hasStored ? parseNum(it.subtotal) : Math.max(0, parseNum(terjual) * parseNum(harga));
+                const subtotal = hasStored ? parseNum(it.subtotal) : Math.max(0, roundNum(parseNum(terjual) * parseNum(harga)));
                 const m = isPasar ? rowMargin(it) : 0;
                 return (
                   <tr key={i}>
@@ -150,15 +150,15 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                     <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.namaBarang}</td>
                     {isPasar ? (
                       <>
-                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{it.stokAwal ?? 0}</td>
-                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{it.stokAkhir ?? 0}</td>
-                        <td className={`border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5 ${terjual < 0 ? "font-bold text-rose-600" : ""}`}>{terjual}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatNum(it.stokAwal ?? 0)}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatNum(it.stokAkhir ?? 0)}</td>
+                        <td className={`border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5 ${terjual < 0 ? "font-bold text-rose-600" : ""}`}>{formatNum(terjual)}</td>
                         <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(it.hargaModal, mu)}</td>
                         <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(it.hargaJual, mu)}</td>
                       </>
                     ) : (
                       <>
-                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{terjual}</td>
+                        <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatNum(terjual)}</td>
                         <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(harga, mu)}</td>
                       </>
                     )}

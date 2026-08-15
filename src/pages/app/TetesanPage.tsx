@@ -51,7 +51,7 @@ import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { PaymentDialog } from "@/components/app/PaymentDialog";
 import { NumInput } from "@/components/app/NumInput";
-import { formatDate, todayStr, parseNum, nextSeqKode } from "@/lib/format";
+import { formatDate, todayStr, parseNum, nextSeqKode, roundNum, formatNum } from "@/lib/format";
 import { formatCurrency, type MataUang, type TetesanTipe } from "@/lib/business";
 
 const TIPE_LABEL: Record<string, string> = {
@@ -152,7 +152,7 @@ export default function TetesanPage() {
   );
 
   const total = useMemo(
-    () => rows.reduce((s, r) => s + parseNum(r.harga) * Math.max(0, parseNum(r.qty)), 0),
+    () => roundNum(rows.reduce((s, r) => s + parseNum(r.harga) * Math.max(0, parseNum(r.qty)), 0)),
     [rows],
   );
 
@@ -347,7 +347,7 @@ export default function TetesanPage() {
           namaBarang: r.namaBarang,
           harga: parseNum(r.harga),
           qty: parseNum(r.qty),
-          subtotal: parseNum(r.harga) * parseNum(r.qty),
+          subtotal: roundNum(parseNum(r.harga) * parseNum(r.qty)),
         }));
       if (items.length === 0) {
         toast.error("Tambahkan minimal 1 barang sebelum menyimpan invoice.");
@@ -518,17 +518,21 @@ export default function TetesanPage() {
         </SectionCard>
         <SectionCard title="Total Stok Jadi">
           <p className="text-2xl font-bold text-emerald-600 tabular-nums">
-            {(stokRows ?? [])
-              .filter((s: any) => (barangJadi ?? []).some((b: any) => b.nama === s.namaBarang))
-              .reduce((sum: number, s: any) => sum + Math.max(0, s.stokAkhir), 0)}
+            {formatNum(
+              (stokRows ?? [])
+                .filter((s: any) => (barangJadi ?? []).some((b: any) => b.nama === s.namaBarang))
+                .reduce((sum: number, s: any) => sum + Math.max(0, s.stokAkhir), 0),
+            )}
           </p>
           <p className="text-xs text-muted-foreground">unit siap jual</p>
         </SectionCard>
         <SectionCard title="Stok Bahan Baku">
           <p className="text-2xl font-bold text-sky-600 tabular-nums">
-            {(stokRows ?? [])
-              .filter((s: any) => (bahanBaku ?? []).some((b: any) => b.nama === s.namaBarang))
-              .reduce((sum: number, s: any) => sum + Math.max(0, s.stokAkhir), 0)}
+            {formatNum(
+              (stokRows ?? [])
+                .filter((s: any) => (bahanBaku ?? []).some((b: any) => b.nama === s.namaBarang))
+                .reduce((sum: number, s: any) => sum + Math.max(0, s.stokAkhir), 0),
+            )}
           </p>
           <p className="text-xs text-muted-foreground">unit bahan baku</p>
         </SectionCard>
@@ -647,7 +651,7 @@ export default function TetesanPage() {
                 </thead>
                 <tbody>
                   {rows.map((r, idx) => {
-                    const subtotal = parseNum(r.harga) * Math.max(0, parseNum(r.qty));
+                    const subtotal = roundNum(parseNum(r.harga) * Math.max(0, parseNum(r.qty)));
                     const stokTersedia = tab === "Penjualan" ? stokMap.get(r.namaBarang) ?? 0 : null;
                     return (
                       <tr key={idx} className="border-b last:border-0">
@@ -664,7 +668,7 @@ export default function TetesanPage() {
                           />
                           {tab === "Penjualan" && r.namaBarang && (
                             <p className="mt-0.5 text-[10px] text-muted-foreground">
-                              Stok tersedia: <b className={(stokTersedia ?? 0) <= 0 ? "text-rose-600" : "text-emerald-600"}>{stokTersedia ?? 0}</b>
+                              Stok tersedia: <b className={(stokTersedia ?? 0) <= 0 ? "text-rose-600" : "text-emerald-600"}>{formatNum(stokTersedia ?? 0)}</b>
                             </p>
                           )}
                         </td>
@@ -849,7 +853,7 @@ function TetesanPrintDoc({ invoice }: { invoice: any }) {
                   <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{i + 1}</td>
                   <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.kodeBarang}</td>
                   <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{it.namaBarang}</td>
-                  <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{it.qty}</td>
+                  <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatNum(it.qty)}</td>
                   <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(it.harga, mu)}</td>
                   <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(it.subtotal, mu)}</td>
                 </tr>

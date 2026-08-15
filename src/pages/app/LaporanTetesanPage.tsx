@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatNum } from "@/lib/format";
 import { formatCurrency } from "@/lib/business";
 
 export default function LaporanTetesanPage() {
@@ -44,8 +44,8 @@ export default function LaporanTetesanPage() {
 
   const itemColumns: Column<any>[] = [
     { key: "namaBarang", label: "Item", sortValue: (r) => r.namaBarang, render: (r) => <span className="font-semibold">{r.namaBarang}</span> },
-    { key: "qtyModal", label: "Qty Beli (Modal)", align: "right", render: (r) => <span className="tabular-nums">{r.qtyModal}</span> },
-    { key: "qtyJual", label: "Qty Terjual", align: "right", render: (r) => <span className="tabular-nums">{r.qtyJual}</span> },
+    { key: "qtyModal", label: "Qty Beli (Modal)", align: "right", render: (r) => <span className="tabular-nums">{formatNum(r.qtyModal)}</span> },
+    { key: "qtyJual", label: "Qty Terjual", align: "right", render: (r) => <span className="tabular-nums">{formatNum(r.qtyJual)}</span> },
     { key: "totalModal", label: "Total Modal", align: "right", render: (r) => <span className="tabular-nums text-sky-600">{formatCurrency(r.totalModal)}</span> },
     {
       key: "totalPenjualan",
@@ -73,16 +73,16 @@ export default function LaporanTetesanPage() {
     { key: "namaBarang", label: "Nama Barang", sortValue: (r) => r.namaBarang, render: (r) => <span className="font-semibold">{r.namaBarang}</span> },
     { key: "tipe", label: "Tipe", render: (r) => <BadgeStatus status={r.tipe} /> },
     { key: "kategori", label: "Kategori", render: (r) => r.kategori || "—" },
-    { key: "stokAwal", label: "Stok Awal", align: "right", render: (r) => <span className="tabular-nums">{r.stokAwal}</span> },
-    { key: "stokMasuk", label: "Masuk", align: "right", render: (r) => <span className="tabular-nums text-emerald-600">+{r.stokMasuk}</span> },
-    { key: "stokKeluar", label: "Keluar", align: "right", render: (r) => <span className="tabular-nums text-rose-600">-{r.stokKeluar}</span> },
+    { key: "stokAwal", label: "Stok Awal", align: "right", render: (r) => <span className="tabular-nums">{formatNum(r.stokAwal)}</span> },
+    { key: "stokMasuk", label: "Masuk", align: "right", render: (r) => <span className="tabular-nums text-emerald-600">+{formatNum(r.stokMasuk)}</span> },
+    { key: "stokKeluar", label: "Keluar", align: "right", render: (r) => <span className="tabular-nums text-rose-600">-{formatNum(r.stokKeluar)}</span> },
     {
       key: "stokAkhir",
       label: "Stok Akhir",
       align: "right",
       sortValue: (r) => r.stokAkhir,
       render: (r) => (
-        <span className={`font-bold tabular-nums ${r.stokAkhir <= 0 ? "text-rose-600" : "text-emerald-600"}`}>{r.stokAkhir}</span>
+        <span className={`font-bold tabular-nums ${r.stokAkhir <= 0 ? "text-rose-600" : "text-emerald-600"}`}>{formatNum(r.stokAkhir)}</span>
       ),
     },
   ];
@@ -344,8 +344,8 @@ function TetesanLaporanDoc({ laporan, from, to, kategori, namaItem }: any) {
             return (
               <tr key={r.namaBarang}>
                 <td className="border border-slate-200 px-2 py-1">{r.namaBarang}</td>
-                <td className="border border-slate-200 px-2 py-1 text-right">{r.qtyModal}</td>
-                <td className="border border-slate-200 px-2 py-1 text-right">{r.qtyJual}</td>
+                <td className="border border-slate-200 px-2 py-1 text-right">{formatNum(r.qtyModal)}</td>
+                <td className="border border-slate-200 px-2 py-1 text-right">{formatNum(r.qtyJual)}</td>
                 <td className="border border-slate-200 px-2 py-1 text-right tabular-nums">{formatCurrency(r.totalModal)}</td>
                 <td className="border border-slate-200 px-2 py-1 text-right tabular-nums">{formatCurrency(r.totalPenjualan)}</td>
                 <td className="border border-slate-200 px-2 py-1 text-right tabular-nums">{formatCurrency(m)}</td>
@@ -381,10 +381,10 @@ function TetesanLaporanDoc({ laporan, from, to, kategori, namaItem }: any) {
               <td className="border border-slate-200 px-2 py-1">{s.namaBarang}</td>
               <td className="border border-slate-200 px-2 py-1">{s.tipe}</td>
               <td className="border border-slate-200 px-2 py-1">{s.kategori || "—"}</td>
-              <td className="border border-slate-200 px-2 py-1 text-right">{s.stokAwal}</td>
-              <td className="border border-slate-200 px-2 py-1 text-right text-emerald-700">+{s.stokMasuk}</td>
-              <td className="border border-slate-200 px-2 py-1 text-right text-rose-700">-{s.stokKeluar}</td>
-              <td className="border border-slate-200 px-2 py-1 text-right font-semibold">{s.stokAkhir}</td>
+              <td className="border border-slate-200 px-2 py-1 text-right">{formatNum(s.stokAwal)}</td>
+              <td className="border border-slate-200 px-2 py-1 text-right text-emerald-700">+{formatNum(s.stokMasuk)}</td>
+              <td className="border border-slate-200 px-2 py-1 text-right text-rose-700">-{formatNum(s.stokKeluar)}</td>
+              <td className="border border-slate-200 px-2 py-1 text-right font-semibold">{formatNum(s.stokAkhir)}</td>
             </tr>
           ))}
         </tbody>

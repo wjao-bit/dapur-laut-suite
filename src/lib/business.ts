@@ -3,6 +3,8 @@
 // module is fully unit-testable with vitest.
 // ============================================================================
 
+import { roundNum } from "./format";
+
 export type InvoiceTipe = "Supplier" | "Reseller" | "DPL" | "Pasar";
 export const INVOICE_TIPES: InvoiceTipe[] = ["Supplier", "Reseller", "DPL", "Pasar"];
 
@@ -54,18 +56,24 @@ export interface InvoiceTotals {
  * - Reseller  : penjualan, total = Σ hargaJual*qty
  * - DPL       : penjualan, total = Σ hargaJual*qty
  * - Pasar     : penjualan terhitung dari stokAwal - stokAkhir
+ *
+ * Semua hasil dibulatkan (roundNum) supaya tidak ada noise float
+ * (mis. 18.6 − 2.9 = 15.700000000000001) yang tersimpan/ditampilkan.
  */
 export function computeInvoiceTotals(tipe: InvoiceTipe, items: InvoiceItem[]): InvoiceTotals {
   let totalModal = 0;
   let totalPenjualan = 0;
   for (const it of items) {
-    const terjual =
-      tipe === "Pasar" ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0) : Math.max(0, it.qty || 0);
-    totalModal += (it.hargaModal || 0) * terjual;
-    totalPenjualan += (tipe === "Supplier" ? it.hargaModal || 0 : it.hargaJual || 0) * terjual;
+    const terjual = roundNum(
+      tipe === "Pasar" ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0) : Math.max(0, it.qty || 0),
+    );
+    totalModal += roundNum((it.hargaModal || 0) * terjual);
+    totalPenjualan += roundNum((tipe === "Supplier" ? it.hargaModal || 0 : it.hargaJual || 0) * terjual);
   }
+  totalModal = roundNum(totalModal);
+  totalPenjualan = roundNum(totalPenjualan);
   const total = tipe === "Supplier" ? totalModal : totalPenjualan;
-  return { total, totalModal, totalPenjualan, margin: totalPenjualan - totalModal };
+  return { total, totalModal, totalPenjualan, margin: roundNum(totalPenjualan - totalModal) };
 }
 
 // ============================================================================
@@ -97,7 +105,7 @@ export interface TetesanTotals {
  * - Penjualan : harga = harga jual per item (barang jadi)
  */
 export function computeTetesanTotals(tipe: TetesanTipe, items: TetesanItem[]): TetesanTotals {
-  const total = items.reduce((s, it) => s + (it.harga || 0) * Math.max(0, it.qty || 0), 0);
+  const total = roundNum(items.reduce((s, it) => s + (it.harga || 0) * Math.max(0, it.qty || 0), 0));
   return { total };
 }
 
@@ -215,7 +223,7 @@ export interface SlipGajiComputed {
  */
 export function computeSlipGaji(inp: SlipGajiInput): SlipGajiComputed {
   const hariKerja = inp.hariKerja ?? 26;
-  const potonganPerHari = hariKerja > 0 ? inp.gajiPokok / hariKerja : 0;
+  const potonganPerHari = roundNum(hariKerja > 0 ? inp.gajiPokok / hariKerja : 0);
   const potonganAbsensi = Math.round((inp.absensi.alpa + inp.absensi.izin) * potonganPerHari);
   const totalBonus = Math.max(0, inp.bonusKerajinan || 0) + Math.max(0, inp.bonusBulanan || 0);
   const denda = Math.max(0, inp.denda || 0);
@@ -268,8 +276,8 @@ export function computeKasBalances<T extends KasLike>(
   });
   let bal = 0;
   return sorted.map((e) => {
-    const saldoAwal = bal;
-    bal = saldoAwal + (e.kasMasuk || 0) - (e.kasKeluar || 0);
+    const saldoAwal = roundNum(bal);
+    bal = roundNum(saldoAwal + (e.kasMasuk || 0) - (e.kasKeluar || 0));
     return { ...e, saldoAwal, saldoAkhir: bal };
   });
 }
@@ -287,6 +295,7 @@ export interface StokRow {
 /**
  * Hitung stok gudang dari riwayat perubahan stok.
  * StokAkhir = StokAwal + Σ masuk - Σ keluar (boleh minus).
+ * Hasil dibulatkan supaya tidak ada noise float (mis. 18.6 + 2.9).
  */
 export function computeGudangRows(
   base: { id: string; namaBarang: string; stokAwal: number; keterangan?: string }[],
@@ -294,17 +303,21 @@ export function computeGudangRows(
 ): StokRow[] {
   const map = new Map<string, number>();
   for (const h of history) {
-    map.set(h.namaBarang, (map.get(h.namaBarang) ?? 0) + h.perubahan);
+    map.set(h.namaBarang, roundNum((map.get(h.namaBarang) ?? 0) + h.perubahan));
   }
   return base.map((b) => {
     const net = map.get(b.namaBarang) ?? 0;
-    const masuk = history
-      .filter((h) => h.namaBarang === b.namaBarang && h.perubahan > 0)
-      .reduce((s, h) => s + h.perubahan, 0);
-    const keluar = Math.abs(
+    const masuk = roundNum(
       history
-        .filter((h) => h.namaBarang === b.namaBarang && h.perubahan < 0)
+        .filter((h) => h.namaBarang === b.namaBarang && h.perubahan > 0)
         .reduce((s, h) => s + h.perubahan, 0),
+    );
+    const keluar = roundNum(
+      Math.abs(
+        history
+          .filter((h) => h.namaBarang === b.namaBarang && h.perubahan < 0)
+          .reduce((s, h) => s + h.perubahan, 0),
+      ),
     );
     return {
       id: b.id,
@@ -312,7 +325,7 @@ export function computeGudangRows(
       stokAwal: b.stokAwal,
       stokMasuk: masuk,
       stokKeluar: keluar,
-      stokAkhir: b.stokAwal + net,
+      stokAkhir: roundNum(b.stokAwal + net),
       keterangan: b.keterangan,
     };
   });
@@ -334,8 +347,14 @@ export function aggregateRekapPihak(
     const key = `${inv.tipe}|${inv.namaPihak}`;
     const row = map.get(key) ?? { tipe: inv.tipe, namaPihak: inv.namaPihak, totalTransaksi: 0, totalBarang: 0, totalNilai: 0 };
     row.totalTransaksi++;
-    row.totalBarang += inv.items.reduce((s, it) => s + (inv.tipe === "Pasar" ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0) : it.qty), 0);
-    row.totalNilai += inv.tipe === "Supplier" ? inv.total : inv.totalPenjualan;
+    row.totalBarang = roundNum(
+      row.totalBarang +
+        inv.items.reduce(
+          (s, it) => s + (inv.tipe === "Pasar" ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0) : it.qty),
+          0,
+        ),
+    );
+    row.totalNilai = roundNum(row.totalNilai + (inv.tipe === "Supplier" ? inv.total : inv.totalPenjualan));
     map.set(key, row);
   }
   return [...map.values()].sort((a, b) => a.tipe.localeCompare(b.tipe) || a.namaPihak.localeCompare(b.namaPihak));
@@ -358,9 +377,9 @@ export function aggregateMarginByProduk(
   for (const inv of invoices) {
     if (inv.tipe === "Supplier") continue;
     for (const it of inv.items) {
-      const terjual = inv.tipe === "Pasar" ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0) : it.qty;
-      const modal = (it.hargaModal || 0) * terjual;
-      const penjualan = (it.hargaJual || 0) * terjual;
+      const terjual = roundNum(inv.tipe === "Pasar" ? (it.stokAwal ?? 0) - (it.stokAkhir ?? 0) : it.qty);
+      const modal = roundNum((it.hargaModal || 0) * terjual);
+      const penjualan = roundNum((it.hargaJual || 0) * terjual);
       const row = map.get(it.kodeBarang) ?? {
         kodeBarang: it.kodeBarang,
         namaBarang: it.namaBarang,
@@ -369,14 +388,14 @@ export function aggregateMarginByProduk(
         margin: 0,
         marginPct: 0,
       };
-      row.totalModal += modal;
-      row.totalPenjualan += penjualan;
+      row.totalModal = roundNum(row.totalModal + modal);
+      row.totalPenjualan = roundNum(row.totalPenjualan + penjualan);
       map.set(it.kodeBarang, row);
     }
   }
   const rows = [...map.values()];
   for (const r of rows) {
-    r.margin = r.totalPenjualan - r.totalModal;
+    r.margin = roundNum(r.totalPenjualan - r.totalModal);
     r.marginPct = r.totalPenjualan > 0 ? Math.round((r.margin / r.totalPenjualan) * 1000) / 10 : 0;
   }
   return rows.sort((a, b) => b.margin - a.margin);
@@ -395,9 +414,9 @@ export function aggregateRekapBarang(
   const map = new Map<string, RekapBarangRow>();
   for (const h of history) {
     const row = map.get(h.namaBarang) ?? { namaBarang: h.namaBarang, masuk: 0, keluar: 0, net: 0 };
-    if (h.perubahan > 0) row.masuk += h.perubahan;
-    else row.keluar += Math.abs(h.perubahan);
-    row.net += h.perubahan;
+    if (h.perubahan > 0) row.masuk = roundNum(row.masuk + h.perubahan);
+    else row.keluar = roundNum(row.keluar + Math.abs(h.perubahan));
+    row.net = roundNum(row.net + h.perubahan);
     map.set(h.namaBarang, row);
   }
   return [...map.values()].sort((a, b) => a.namaBarang.localeCompare(b.namaBarang));

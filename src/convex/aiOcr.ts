@@ -14,6 +14,8 @@
 // `tipe` (opsional) dipilih user SEBELUM scan supaya perintah pembacaan
 // diarahkan: Supplier → harga beli/modal, Reseller/DPL → harga jual,
 // Pasar → qty = stok awal & baca stok akhir.
+// `instruksi` (opsional) = perintah tambahan bebas dari user, ditambahkan
+// ke perintah AI (mis. "hanya baca 5 baris pertama", "abaikan yang tanpa harga").
 // ============================================================================
 
 import { action } from "./_generated/server";
@@ -96,8 +98,8 @@ ATURAN WAJIB:
 7. Nama barang ditulis persis seperti di nota (pertahankan singkatan yang ada, mis. "Cumi", "Ikan Kembung", "Teri 1/4").
 8. Bila TIDAK ada satu pun barang terbaca dengan jelas, kembalikan {"items": []} — JANGAN menebak.`;
 
-/** Perintah user — diarahkan sesuai tipe transaksi yang dipilih user. */
-function buildUserPrompt(tipe?: string): string {
+/** Perintah user — diarahkan sesuai tipe transaksi & instruksi khusus dari user. */
+function buildUserPrompt(tipe?: string, instruksi?: string): string {
   let arah = "";
   if (tipe === "Supplier") {
     arah =
@@ -112,18 +114,22 @@ function buildUserPrompt(tipe?: string): string {
     arah =
       'Tipe transaksi: RESELLER (penjualan ke toko/reseller). Artinya "harga" = HARGA JUAL per satuan yang tertulis di nota.';
   }
-  return (
+  let teks =
     arah +
-    "\n\nBaca SEMUA baris barang pada foto ini sekarang, lalu keluarkan JSON sesuai aturan di atas. Prioritaskan kebenaran nama barang, qty, dan HARGA SATUAN."
-  );
+    "\n\nBaca SEMUA baris barang pada foto ini sekarang, lalu keluarkan JSON sesuai aturan di atas. Prioritaskan kebenaran nama barang, qty, dan HARGA SATUAN.";
+  if (instruksi && instruksi.trim()) {
+    teks += `\n\nINSTRUKSI TAMBAHAN DARI PENGGUNA (ikuti ini lebih dulu — jika bertentangan dengan aturan umum, ikuti instruksi ini): ${instruksi.trim()}`;
+  }
+  return teks;
 }
 
 export const scanInvoiceWithAi = action({
   args: {
     imageDataUrl: v.string(),
     tipe: v.optional(v.string()),
+    instruksi: v.optional(v.string()),
   },
-  handler: async (_ctx, { imageDataUrl, tipe }): Promise<AiOcrResult> => {
+  handler: async (_ctx, { imageDataUrl, tipe, instruksi }): Promise<AiOcrResult> => {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return {
@@ -154,7 +160,7 @@ export const scanInvoiceWithAi = action({
             {
               role: "user",
               content: [
-                { type: "text", text: buildUserPrompt(tipeValid) },
+                { type: "text", text: buildUserPrompt(tipeValid, instruksi) },
                 { type: "image_url", image_url: { url: imageDataUrl } },
               ],
             },

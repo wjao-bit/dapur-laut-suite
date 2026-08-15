@@ -25,7 +25,7 @@ import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { NumInput } from "@/components/app/NumInput";
-import { formatDate, todayStr, genId, parseNum } from "@/lib/format";
+import { formatDate, todayStr, genId, parseNum, formatNum } from "@/lib/format";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ReturPage() {
@@ -64,7 +64,7 @@ export default function ReturPage() {
     try {
       const qtyNum = Math.max(0, parseNum(qty));
       await upsertRetur({ doc: { id, tanggal, tipe, namaPihak, namaBarang, qty: qtyNum, keterangan } });
-      toast.success(`Retur ${qtyNum} × ${namaBarang} dicatat — stok gudang bertambah`);
+      toast.success(`Retur ${formatNum(qtyNum)} × ${namaBarang} dicatat — stok gudang bertambah`);
       setOpen(false);
       resetForm();
     } catch (e: any) {
@@ -80,7 +80,7 @@ export default function ReturPage() {
     { key: "tipe", label: "Tipe", render: (r) => <BadgeStatus status={r.tipe} /> },
     { key: "namaPihak", label: "Dari Pihak", render: (r) => r.namaPihak },
     { key: "namaBarang", label: "Barang", render: (r) => r.namaBarang },
-    { key: "qty", label: "Qty", align: "right", sortValue: (r) => r.qty, render: (r) => <span className="font-semibold tabular-nums">{r.qty}</span> },
+    { key: "qty", label: "Qty", align: "right", sortValue: (r) => r.qty, render: (r) => <span className="font-semibold tabular-nums">{formatNum(r.qty)}</span> },
     { key: "keterangan", label: "Keterangan", render: (r) => r.keterangan || "—" },
     {
       key: "aksi",

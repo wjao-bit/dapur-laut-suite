@@ -1,0 +1,383 @@
+[esbuild] build START { entryPoints: [ '/project/scripts/.test-katalog-entry.tsx' ], external: 0, platform: 'node', bundle: true, format: 'cjs' }
+[esbuild] resolve#1 /project/scripts/.test-katalog-entry.tsx imp= kind=entry-point
+[esbuild] load#1 /project/scripts/.test-katalog-entry.tsx ns=file
+[esbuild] load#2 /project/src/convex/katalog.ts ns=file
+[esbuild] resolve#2 convex/values imp=/project/src/convex/katalog.ts kind=import-statement
+[esbuild] resolve#3 ./_generated/server imp=/project/src/convex/katalog.ts kind=import-statement
+[esbuild] resolve#4 ./lib imp=/project/src/convex/katalog.ts kind=import-statement
+[esbuild] load#3 /project/src/convex/lib.ts ns=file
+[esbuild] load#4 /project/node_modules/convex/dist/cjs/values/index.js ns=file
+[esbuild] load#5 /project/src/convex/_generated/server.js ns=file
+[esbuild] resolve#5 convex/values imp=/project/src/convex/lib.ts kind=import-statement
+[esbuild] resolve#6 ./value.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#7 convex/server imp=/project/src/convex/_generated/server.js kind=import-statement
+[esbuild] resolve#8 ../lib/business imp=/project/src/convex/lib.ts kind=import-statement
+[esbuild] resolve#9 ./validator.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] load#6 /project/node_modules/convex/dist/cjs/server/index.js ns=file
+[esbuild] load#7 /project/src/lib/business.ts ns=file
+[esbuild] resolve#10 ./base64.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#11 ./database.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#12 ./format imp=/project/src/lib/business.ts kind=import-statement
+[esbuild] resolve#13 ./errors.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#14 ./impl/registration_impl.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] load#8 /project/src/lib/format.ts ns=file
+[esbuild] resolve#15 ./compare.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#16 ./impl/actions_impl.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#17 ./size.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#18 ./pagination.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] load#9 /project/node_modules/convex/dist/cjs/values/size.js ns=file
+[esbuild] load#10 /project/node_modules/convex/dist/cjs/values/value.js ns=file
+[esbuild] load#11 /project/node_modules/convex/dist/cjs/values/validator.js ns=file
+[esbuild] load#12 /project/node_modules/convex/dist/cjs/values/base64.js ns=file
+[esbuild] load#13 /project/node_modules/convex/dist/cjs/values/errors.js ns=file
+[esbuild] load#14 /project/node_modules/convex/dist/cjs/values/compare.js ns=file
+[esbuild] resolve#19 ./search_filter_builder.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#20 ./value.js imp=/project/node_modules/convex/dist/cjs/values/size.js kind=require-call
+[esbuild] resolve#21 ./base64.js imp=/project/node_modules/convex/dist/cjs/values/value.js kind=require-call
+[esbuild] resolve#22 ./validators.js imp=/project/node_modules/convex/dist/cjs/values/validator.js kind=require-call
+[esbuild] resolve#23 ./value.js imp=/project/node_modules/convex/dist/cjs/values/errors.js kind=require-call
+[esbuild] resolve#24 ./value.js imp=/project/node_modules/convex/dist/cjs/values/compare.js kind=require-call
+[esbuild] resolve#25 ./storage.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#26 ../common/index.js imp=/project/node_modules/convex/dist/cjs/values/size.js kind=require-call
+[esbuild] resolve#27 ../common/index.js imp=/project/node_modules/convex/dist/cjs/values/value.js kind=require-call
+[esbuild] load#15 /project/node_modules/convex/dist/cjs/values/validators.js ns=file
+[esbuild] resolve#28 ./compare_utf8.js imp=/project/node_modules/convex/dist/cjs/values/compare.js kind=require-call
+[esbuild] resolve#29 ./cron.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] load#16 /project/node_modules/convex/dist/cjs/common/index.js ns=file
+[esbuild] resolve#30 ./value.js imp=/project/node_modules/convex/dist/cjs/values/validators.js kind=require-call
+[esbuild] load#17 /project/node_modules/convex/dist/cjs/values/compare_utf8.js ns=file
+[esbuild] resolve#31 ./router.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#32 ./api.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#33 ./components/index.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#34 ./log.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#35 ./schema.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] load#18 /project/node_modules/convex/dist/cjs/server/schema.js ns=file
+[esbuild] load#19 /project/node_modules/convex/dist/cjs/server/database.js ns=file
+[esbuild] load#20 /project/node_modules/convex/dist/cjs/server/impl/registration_impl.js ns=file
+[esbuild] load#21 /project/node_modules/convex/dist/cjs/server/impl/actions_impl.js ns=file
+[esbuild] load#22 /project/node_modules/convex/dist/cjs/server/pagination.js ns=file
+[esbuild] load#23 /project/node_modules/convex/dist/cjs/server/search_filter_builder.js ns=file
+[esbuild] load#24 /project/node_modules/convex/dist/cjs/server/storage.js ns=file
+[esbuild] load#25 /project/node_modules/convex/dist/cjs/server/cron.js ns=file
+[esbuild] load#26 /project/node_modules/convex/dist/cjs/server/router.js ns=file
+[esbuild] load#27 /project/node_modules/convex/dist/cjs/server/api.js ns=file
+[esbuild] load#28 /project/node_modules/convex/dist/cjs/server/components/index.js ns=file
+[esbuild] load#29 /project/node_modules/convex/dist/cjs/server/log.js ns=file
+[esbuild] resolve#36 ../values/validator.js imp=/project/node_modules/convex/dist/cjs/server/schema.js kind=require-call
+[esbuild] resolve#37 ../../values/index.js imp=/project/node_modules/convex/dist/cjs/server/impl/registration_impl.js kind=require-call
+[esbuild] resolve#38 ../../values/index.js imp=/project/node_modules/convex/dist/cjs/server/impl/actions_impl.js kind=require-call
+[esbuild] resolve#39 ../values/validator.js imp=/project/node_modules/convex/dist/cjs/server/pagination.js kind=require-call
+[esbuild] resolve#40 ../server/api.js imp=/project/node_modules/convex/dist/cjs/server/cron.js kind=require-call
+[esbuild] load#30 /project/node_modules/convex/dist/cjs/server/impl/syscall.js ns=file
+[esbuild] load#31 /project/node_modules/convex/dist/cjs/server/components/paths.js ns=file
+[esbuild] load#32 /project/node_modules/convex/dist/cjs/server/functionName.js ns=file
+[esbuild] load#33 /project/node_modules/convex/dist/cjs/server/logVars.js ns=file
+[esbuild] load#34 /project/node_modules/convex/dist/cjs/server/audit_logging.js ns=file
+[esbuild] load#35 /project/node_modules/convex/dist/cjs/index.js ns=file
+[esbuild] load#36 /project/node_modules/convex/dist/cjs/server/impl/validate.js ns=file
+[esbuild] load#37 /project/node_modules/convex/dist/cjs/server/impl/meta_impl.js ns=file
+[esbuild] load#38 /project/node_modules/convex/dist/cjs/server/impl/vector_search_impl.js ns=file
+[esbuild] load#39 /project/node_modules/convex/dist/cjs/server/impl/authentication_impl.js ns=file
+[esbuild] load#40 /project/node_modules/convex/dist/cjs/server/impl/database_impl.js ns=file
+[esbuild] build DONE 0.3s resolves=112 outputs=1 errors=0
+======================================================================
+KATALOG HARGA — upsert / tambah / hapus item / hapus katalog
+======================================================================
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi Bubuk",
+      "harga": 25000
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Teh Hijau",
+      "harga": 15000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "count": 2
+}
+  ✅ upsert pertama sukses
+  ✅ katalog tersimpan 1 baris
+  ✅ id deterministik KTL-RESELLER-reseller-a
+  ✅ items tersimpan 2 barang
+  ✅ listKatalog mengembalikan 1 katalog
+  ✅ getKatalog menemukan pihak
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 25000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "count": 1
+}
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 27000
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Susu",
+      "harga": 12000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "count": 2
+}
+  ✅ upsert ulang sukses
+  ✅ tetap 1 baris (tanpa duplikat)
+  ✅ items diperbarui (2 barang, harga baru 27000)
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 25000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "count": 1
+}
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "reseller a",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 28000
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Teh",
+      "harga": 16000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "reseller a",
+  "count": 2
+}
+  ✅ upsert huruf kecil sukses (tidak error index unik)
+  ✅ masih 1 baris katalog
+  ✅ items milik katalog yang sama diperbarui
+  ✅ nama pihak tetap nama asli pertama
+  ✅ getKatalog case-insensitive menemukan katalog
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Supplier",
+  "namaPihak": "Supplier Sumber",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Ikan Tongkol",
+      "harga": 30000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Supplier",
+  "namaPihak": "Supplier Sumber",
+  "count": 1
+}
+[Dapur Laut] addKatalogItem request: {
+  "tipe": "Supplier",
+  "namaPihak": "Supplier Sumber",
+  "kodeBarang": "BRG002",
+  "namaBarang": "Cumi",
+  "harga": 45000
+}
+[Dapur Laut] addKatalogItem response: {
+  "ok": true,
+  "id": "_katalogHarga_1"
+}
+  ✅ tambah item baru sukses
+  ✅ katalog kini 2 barang
+[Dapur Laut] addKatalogItem request: {
+  "tipe": "Supplier",
+  "namaPihak": "Supplier Sumber",
+  "kodeBarang": "BRG001",
+  "namaBarang": "Ikan Tongkol",
+  "harga": 32000
+}
+[Dapur Laut] addKatalogItem response: {
+  "ok": true,
+  "id": "_katalogHarga_1"
+}
+  ✅ update harga barang lama sukses
+  ✅ tetap 2 barang (bukan duplikat)
+  ✅ harga Ikan Tongkol jadi 32000
+[Dapur Laut] addKatalogItem request: {
+  "tipe": "Reseller",
+  "namaPihak": "Toko Baru",
+  "kodeBarang": "BRG009",
+  "namaBarang": "Abon",
+  "harga": 20000
+}
+[Dapur Laut] addKatalogItem response: {
+  "ok": true,
+  "id": "_katalogHarga_1"
+}
+  ✅ pihak baru: katalog dibuat otomatis
+  ✅ katalog baru berisi 1 barang
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller B",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 25000
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Teh",
+      "harga": 15000
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Susu",
+      "harga": 12000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller B",
+  "count": 3
+}
+[Dapur Laut] removeKatalogItem request: {
+  "id": "KTL-RESELLER-reseller-b",
+  "kodeBarang": "BRG002",
+  "namaBarang": ""
+}
+[Dapur Laut] removeKatalogItem response: {
+  "ok": true,
+  "id": "KTL-RESELLER-reseller-b"
+}
+  ✅ hapus item by kode sukses
+  ✅ tinggal 2 barang (Teh hilang)
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller C",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 25000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller C",
+  "count": 1
+}
+[Dapur Laut] deleteKatalog request: {
+  "id": "KTL-RESELLER-reseller-c"
+}
+[Dapur Laut] deleteKatalog response: {
+  "deleted": true,
+  "id": "KTL-RESELLER-reseller-c"
+}
+  ✅ hapus katalog sukses
+  ✅ katalog tidak ada lagi
+  ✅ listKatalog kosong
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 25000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "count": 1
+}
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Supplier",
+  "namaPihak": "Supplier Z",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "harga": 20000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Supplier",
+  "namaPihak": "Supplier Z",
+  "count": 1
+}
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller B",
+  "items": [
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Teh",
+      "harga": 15000
+    }
+  ]
+}
+[Dapur Laut] upsertKatalog response: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller B",
+  "count": 1
+}
+  ✅ 3 katalog berbeda tersimpan
+  ✅ id katalog unik semua
+  ✅ listKatalog: 3 baris terurut
+[Dapur Laut] upsertKatalog request: {
+  "tipe": "Reseller",
+  "namaPihak": "",
+  "items": []
+}
+  ✅ upsert nama pihak kosong ditolak
+[Dapur Laut] addKatalogItem request: {
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "kodeBarang": "B1",
+  "namaBarang": "",
+  "harga": 1000
+}
+  ✅ addItem nama barang kosong ditolak
+  ✅ getKatalog pihak tak dikenal → null
+
+======================================================================
+HASIL: 32 lulus, 0 gagal — SEMUA LULUS ✅
+======================================================================

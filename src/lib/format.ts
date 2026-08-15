@@ -10,6 +10,27 @@ export function formatNumber(n: number | undefined | null): string {
   return new Intl.NumberFormat("id-ID").format(n || 0);
 }
 
+/**
+ * Bulatkan angka untuk membuang noise float JavaScript
+ * (mis. 18.6 − 2.9 = 15.700000000000001 → 15.7, 0.1 + 0.2 → 0.3).
+ * Nilai negatif-nol (−0) dinormalisasi menjadi 0.
+ */
+export function roundNum(n: number | null | undefined, decimals = 6): number {
+  if (n === null || n === undefined || !Number.isFinite(n)) return 0;
+  const p = 10 ** decimals;
+  const r = Math.round((n + Number.EPSILON) * p) / p;
+  return Object.is(r, -0) ? 0 : r;
+}
+
+/**
+ * Tampilan angka pendek tanpa noise float & tanpa nol berlebih di belakang:
+ * 15.700000000000001 → "15.7", 2.9000000000000004 → "2.9", 0 → "0",
+ * 1.500 → "1.5" (bukan "1.5" saja — titik sebagai desimal), 596600 → "596600".
+ */
+export function formatNum(n: number | null | undefined): string {
+  return String(roundNum(n));
+}
+
 export function formatDate(s: string | undefined | null): string {
   if (!s) return "-";
   const [y, m, d] = s.split("-").map(Number);
