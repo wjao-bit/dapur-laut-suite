@@ -1,0 +1,22 @@
+[esbuild] build START { entryPoints: [ '/project/scripts/.test-kode-entry.tsx' ], external: 0, platform: 'node', bundle: true, format: 'cjs' }
+[esbuild] resolve#1 /project/scripts/.test-kode-entry.tsx imp= kind=entry-point
+[esbuild] load#1 /project/scripts/.test-kode-entry.tsx ns=file
+[esbuild] load#2 /project/src/lib/format.ts ns=file
+[esbuild] build DONE 0.0s resolves=1 outputs=1 errors=0
+======================================================================
+nextSeqKode — kode otomatis barang baru
+======================================================================
+  ✅ database kosong → BRG001
+  ✅ ["BRG012"] → BRG013
+  ✅ ["BRG001","BRG002","BRG005"] → BRG006
+  ✅ ["BRG-XXX123"] (suffix angka 123) → BRG124
+  ✅ kode tanpa angka → BRG001
+  ✅ bahan baku: ["BBK003"] → BBK004
+  ✅ barang jadi: ["BJK009"] → BJK010
+  ✅ campuran BRG012 + 100236 → BRG100237
+  ✅ undefined/null → BRG001
+  ✅ angka 999 → 1000
+
+======================================================================
+HASIL: 10 lulus, 0 gagal — SEMUA LULUS ✅
+======================================================================
