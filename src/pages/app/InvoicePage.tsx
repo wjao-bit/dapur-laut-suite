@@ -119,11 +119,20 @@ export default function InvoicePage() {
     }
   }, [searchParams, invoices, setSearchParams]);
 
-  // Opsi pihak yang sudah punya invoice (untuk pengelompokan per pihak)
+  // Opsi pihak yang sudah punya invoice — DEDUP (nama yang sama di tipe berbeda
+  // muncul sekali) supaya React tidak menampilkan peringatan key duplikat.
   const filterPihakOptions = useMemo(() => {
-    return (pihakList ?? [])
-      .filter((p: any) => !filterTipe || p.tipe === filterTipe)
-      .map((p: any) => p.namaPihak);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of pihakList ?? []) {
+      if (filterTipe && p.tipe !== filterTipe) continue;
+      const name = String(p.namaPihak ?? "").trim();
+      if (name && !seen.has(name)) {
+        seen.add(name);
+        out.push(name);
+      }
+    }
+    return out;
   }, [pihakList, filterTipe]);
 
   const filtered = useMemo(() => {
@@ -342,7 +351,7 @@ export default function InvoicePage() {
     <div>
       <PageHeader
         title="Invoice"
-        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Harga otomatis ditarik dari Katalog Harga per pihak (Reseller/Supplier) saat nama pihak dipilih — katalog baru dibuat otomatis untuk pihak baru. Stok & kas diperbarui otomatis; aksi Bayar mencatat pembayaran; Cetak/PDF + Kirim WhatsApp. Scan foto invoice dengan OCR lalu verifikasi sebelum simpan."
+        description="Invoice multi-barang untuk Supplier, Reseller, DPL, dan Pasar. Harga otomatis ditarik dari Katalog Harga per pihak (Reseller/Supplier) saat nama pihak dipilih — katalog baru dibuat otomatis untuk pihak baru. Stok & kas diperbarui otomatis; aksi Bayar mencatat pembayaran; Cetak/PDF + Kirim WhatsApp. Scan foto invoice dengan OCR (atau AI) lalu verifikasi sebelum simpan."
         icon={FileText}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -383,8 +392,8 @@ export default function InvoicePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all">Semua pihak</SelectItem>
-              {filterPihakOptions.map((p: string) => (
-                <SelectItem key={p} value={p}>
+              {filterPihakOptions.map((p: string, i: number) => (
+                <SelectItem key={`${p}-${i}`} value={p}>
                   {p}
                 </SelectItem>
               ))}

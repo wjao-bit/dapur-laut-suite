@@ -47,6 +47,13 @@ export function itemSubtotal(tipe: string, it: any): number {
   return tipe === "Pasar" ? st : Math.max(0, st);
 }
 
+/** Margin satu baris (hanya Pasar — dari selisih harga jual − modal × terjual). */
+export function itemMargin(tipe: string, it: any): number {
+  if (tipe !== "Pasar") return 0;
+  const terjual = parseNum(it.stokAwal) - parseNum(it.stokAkhir);
+  return terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal));
+}
+
 function emptyItem(): InvoiceItem {
   return { kodeBarang: "", namaBarang: "", hargaModal: 0, qty: 1, hargaJual: 0, subtotal: 0 };
 }
@@ -85,6 +92,9 @@ interface InvoiceFormDialogProps {
  * Form invoice multi-barang (Supplier/Reseller/DPL/Pasar), DIPISAH dari
  * halaman daftar invoice supaya mengetik nama barang / qty / harga TIDAK
  * me-render ulang tabel invoice (yang membesar seiring data bertambah).
+ *
+ * Responsif: di layar sempit (Android) setiap barang tampil sebagai KARTU
+ * berlabel (tanpa perlu geser tabel ke samping); di layar lebar tampil tabel.
  */
 export function InvoiceFormDialog({
   open,
@@ -144,6 +154,40 @@ export function InvoiceFormDialog({
     );
   }, [katalogs, tipe, namaPihak]);
 
+  /** Item katalog yang cocok dengan satu baris invoice (cocok kode ATAU nama). */
+  const katalogItemFor = (it: InvoiceItem): any | null => {
+    const kat = katalogForParty;
+    if (!kat) return null;
+    return (
+      (kat.items ?? []).find(
+        (x: any) =>
+          (it.kodeBarang &&
+            String(x.kodeBarang ?? "") === String(it.kodeBarang ?? "")) ||
+          (it.namaBarang &&
+            String(x.namaBarang ?? "").toLowerCase().trim() ===
+              String(it.namaBarang ?? "").toLowerCase().trim()),
+      ) ?? null
+    );
+  };
+
+  /** Terapkan harga katalog ke satu baris — hanya kolom yang masih kosong. */
+  const applyKatalogToItem = (it: InvoiceItem): InvoiceItem => {
+    const ki = katalogItemFor(it);
+    if (!ki) return it;
+    const harga = parseNum(ki.harga);
+    const hargaModal =
+      parseNum(it.hargaModal) > 0 ? it.hargaModal : tipe === "Supplier" ? harga : it.hargaModal;
+    const hargaJual =
+      parseNum(it.hargaJual) > 0 ? it.hargaJual : tipe === "Reseller" ? harga : it.hargaJual;
+    return {
+      ...it,
+      kodeBarang: it.kodeBarang || ki.kodeBarang,
+      namaBarang: it.namaBarang || ki.namaBarang,
+      hargaModal,
+      hargaJual,
+    };
+  };
+
   // Isi form saat dialog dibuka (mode buat baru ATAU edit).
   useEffect(() => {
     if (!open) return;
@@ -190,11 +234,7 @@ export function InvoiceFormDialog({
     lastAutoParty.current = party;
     let filled = 0;
     const next = items.map((it) => {
-      const ki = (kat.items ?? []).find(
-        (x: any) =>
-          String(x.kodeBarang ?? "") === String(it.kodeBarang ?? "") ||
-          String(x.namaBarang ?? "").toLowerCase().trim() === String(it.namaBarang ?? "").toLowerCase().trim(),
-      );
+      const ki = katalogItemFor(it);
       if (!ki) return it;
       const harga = parseNum(ki.harga);
       const baruModal = parseNum(it.hargaModal) > 0 ? it.hargaModal : tipe === "Supplier" ? harga : it.hargaModal;
@@ -227,17 +267,26 @@ export function InvoiceFormDialog({
   const selectBarang = (idx: number, kode: string) => {
     const b = barang?.find((x: any) => x.kode === kode);
     setItems((prev) =>
-      prev.map((it, i) =>
-        i === idx
-          ? {
-              ...it,
-              kodeBarang: kode,
-              // Hanya timpa nama/harga saat kode benar-benar cocok — mengetik
-              // kode parsial (mis. "BRG0") TIDAK boleh menghapus nama barang.
-              ...(b ? { namaBarang: b.nama, hargaJual: b.harga ?? it.hargaJual } : {}),
-            }
-          : it,
-      ),
+      prev.map((it, i) => {
+        if (i !== idx) return it;
+        const next: InvoiceItem = {
+          ...it,
+          kodeBarang: kode,
+          // Hanya timpa nama saat kode benar-benar cocok — mengetik kode
+          // parsial (mis. "BRG0") TIDAK boleh menghapus nama barang.
+          ...(b ? { namaBarang: b.nama } : {}),
+        };
+        // Harga dari katalog pihak didahulukan (jika ada), lalu harga database.
+        const ki = katalogItemFor(next);
+        if (ki) {
+          const harga = parseNum(ki.harga);
+          if (tipe === "Supplier") next.hargaModal = parseNum(next.hargaModal) > 0 ? next.hargaModal : harga;
+          else if (tipe === "Reseller") next.hargaJual = parseNum(next.hargaJual) > 0 ? next.hargaJual : harga;
+        } else if (b && tipe !== "Supplier") {
+          next.hargaJual = b.harga ?? next.hargaJual;
+        }
+        return next;
+      }),
     );
   };
 
@@ -273,7 +322,7 @@ export function InvoiceFormDialog({
 
   /** Tambah barang dari kotak pencarian cepat → langsung masuk daftar item. */
   const addQuickItem = (b: any) => {
-    const newItem: InvoiceItem = {
+    const base: InvoiceItem = {
       kodeBarang: b.kode,
       namaBarang: b.nama,
       hargaModal: parseNum(b.harga) || 0,
@@ -281,6 +330,8 @@ export function InvoiceFormDialog({
       hargaJual: parseNum(b.harga) || 0,
       subtotal: 0,
     };
+    // Harga katalog pihak didahulukan (Reseller → harga jual, Supplier → harga modal).
+    const newItem = applyKatalogToItem(base);
     setItems((prev) => {
       const emptyIdx = prev.findIndex(isRowEmpty);
       if (emptyIdx >= 0) return prev.map((it, i) => (i === emptyIdx ? newItem : it));
@@ -351,11 +402,7 @@ export function InvoiceFormDialog({
     let matched = 0;
     let filled = 0;
     const next = items.map((it) => {
-      const ki = (kat.items ?? []).find(
-        (x: any) =>
-          String(x.kodeBarang ?? "") === String(it.kodeBarang ?? "") ||
-          String(x.namaBarang ?? "").toLowerCase().trim() === String(it.namaBarang ?? "").toLowerCase().trim(),
-      );
+      const ki = katalogItemFor(it);
       if (!ki) return it;
       matched++;
       const harga = parseNum(ki.harga);
@@ -577,8 +624,8 @@ export function InvoiceFormDialog({
                 onChange={(e) => setNamaPihak(e.target.value)}
               />
               <datalist id="pihak-options">
-                {pihakOptions.map((p: string) => (
-                  <option key={p} value={p} />
+                {pihakOptions.map((p: string, i: number) => (
+                  <option key={`${p}-${i}`} value={p} />
                 ))}
               </datalist>
             </div>
@@ -640,7 +687,7 @@ export function InvoiceFormDialog({
           </div>
         </div>
 
-        {/* Multi-item table — responsif (scroll horizontal di layar kecil) */}
+        {/* Multi-item — responsif: kartu di layar sempit (Android), tabel di layar lebar */}
         <div className="rounded-lg border">
           {/* Kotak pencarian cepat — seperti referensi POS: pilih barang → masuk daftar */}
           <div className="border-b bg-muted/20 px-3 py-2.5">
@@ -662,8 +709,159 @@ export function InvoiceFormDialog({
               </p>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
+
+          {/* Mobile: kartu per barang — tanpa geser tabel, semua kolom terlihat */}
+          <div className="divide-y sm:hidden">
+            {items.map((it, idx) => {
+              const subtotal = itemSubtotal(tipe, it);
+              const margin = itemMargin(tipe, it);
+              const terjual = tipe === "Pasar" ? parseNum(it.stokAwal) - parseNum(it.stokAkhir) : parseNum(it.qty);
+              return (
+                <div key={`card-${idx}`} className="space-y-2.5 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">
+                      Barang {idx + 1}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 cursor-pointer text-rose-500"
+                      onClick={() => removeRow(idx)}
+                      title="Hapus baris"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[11px] font-medium text-muted-foreground">Kode</Label>
+                      <Input
+                        className="mt-1 h-9 text-base"
+                        list="invoice-barang-all"
+                        placeholder="Kode"
+                        value={it.kodeBarang}
+                        onChange={(e) => selectBarang(idx, e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-[11px] font-medium text-muted-foreground">Nama Barang</Label>
+                      <div className="mt-1">
+                        <BarangSearch
+                          className="w-full"
+                          barang={(barang ?? []) as any}
+                          value={it.namaBarang}
+                          onChange={(v) => updateItem(idx, { namaBarang: v })}
+                          onPick={(b) => {
+                            const patch: Partial<InvoiceItem> = {
+                              kodeBarang: b.kode,
+                              namaBarang: b.nama,
+                              hargaModal: it.hargaModal || (b.harga ?? 0),
+                              hargaJual: b.harga ?? it.hargaJual,
+                            };
+                            // Harga katalog pihak didahulukan (jika ada).
+                            const ki = katalogItemFor({ ...it, kodeBarang: b.kode, namaBarang: b.nama } as InvoiceItem);
+                            if (ki) {
+                              const h = parseNum(ki.harga);
+                              if (tipe === "Supplier") patch.hargaModal = h;
+                              else if (tipe === "Reseller") patch.hargaJual = h;
+                            }
+                            updateItem(idx, patch);
+                          }}
+                          onCreateNew={(nama) => handleCreateBarang(idx, nama)}
+                          creatingNew={creatingBarangIdx === idx}
+                          nextKode={nextBarangKode}
+                          placeholder="Ketik nama barang…"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-medium text-muted-foreground">Harga Modal</Label>
+                      <NumInput
+                        className="mt-1 h-9 text-base text-right"
+                        value={it.hargaModal}
+                        onValue={(n) => updateItem(idx, { hargaModal: n })}
+                      />
+                    </div>
+                    {tipe === "Pasar" ? (
+                      <>
+                        <div>
+                          <Label className="text-[11px] font-medium text-muted-foreground">Stok Awal</Label>
+                          <NumInput
+                            className="mt-1 h-9 text-base text-right"
+                            value={it.stokAwal}
+                            onValue={(n) => updateItem(idx, { stokAwal: n, qty: n })}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] font-medium text-muted-foreground">Stok Akhir</Label>
+                          <NumInput
+                            className="mt-1 h-9 text-base text-right"
+                            value={it.stokAkhir}
+                            onValue={(n) => updateItem(idx, { stokAkhir: n })}
+                          />
+                        </div>
+                        <div className="flex flex-col justify-end">
+                          <Label className="text-[11px] font-medium text-muted-foreground">Terjual</Label>
+                          <p
+                            className={`mt-1 text-base font-semibold tabular-nums ${
+                              terjual < 0 ? "text-rose-600" : "text-teal-600"
+                            }`}
+                          >
+                            {terjual}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <Label className="text-[11px] font-medium text-muted-foreground">Qty</Label>
+                        <NumInput
+                          className="mt-1 h-9 text-base text-right"
+                          value={it.qty}
+                          onValue={(n) => updateItem(idx, { qty: n })}
+                        />
+                      </div>
+                    )}
+                    {tipe !== "Supplier" && (
+                      <div>
+                        <Label className="text-[11px] font-medium text-muted-foreground">Harga Jual</Label>
+                        <NumInput
+                          className="mt-1 h-9 text-base text-right"
+                          value={it.hargaJual}
+                          onValue={(n) => updateItem(idx, { hargaJual: n })}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-[11px] font-medium text-muted-foreground">Subtotal</Label>
+                      <p
+                        className={`mt-1 text-base font-semibold tabular-nums ${
+                          subtotal < 0 ? "text-rose-600" : "text-foreground"
+                        }`}
+                      >
+                        {formatCurrency(subtotal, mataUang)}
+                      </p>
+                    </div>
+                    {tipe === "Pasar" && (
+                      <div>
+                        <Label className="text-[11px] font-medium text-muted-foreground">Margin</Label>
+                        <p
+                          className={`mt-1 text-base font-semibold tabular-nums ${
+                            margin >= 0 ? "text-sky-600" : "text-rose-600"
+                          }`}
+                        >
+                          {formatCurrency(margin, mataUang)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: tabel (dengan margin khusus Pasar) */}
+          <div className="hidden overflow-x-auto touch-pan-x overscroll-x-contain sm:block [-webkit-overflow-scrolling:touch]">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b bg-muted/40 text-left text-[11px] tracking-wide text-muted-foreground uppercase">
                   <th className="min-w-44 px-2 py-2 font-semibold sm:min-w-56">Barang</th>
@@ -679,12 +877,14 @@ export function InvoiceFormDialog({
                   )}
                   {tipe !== "Supplier" && <th className="min-w-28 px-2 py-2 text-right font-semibold">Harga Jual</th>}
                   <th className="min-w-32 px-2 py-2 text-right font-semibold">Subtotal</th>
+                  {tipe === "Pasar" && <th className="min-w-28 px-2 py-2 text-right font-semibold">Margin</th>}
                   <th className="w-10 px-1 py-2" />
                 </tr>
               </thead>
               <tbody>
                 {items.map((it, idx) => {
                   const subtotal = itemSubtotal(tipe, it);
+                  const margin = itemMargin(tipe, it);
                   return (
                     <tr key={idx} className="border-b last:border-0">
                       <td className="px-2 py-2">
@@ -701,14 +901,21 @@ export function InvoiceFormDialog({
                             barang={(barang ?? []) as any}
                             value={it.namaBarang}
                             onChange={(v) => updateItem(idx, { namaBarang: v })}
-                            onPick={(b) =>
-                              updateItem(idx, {
+                            onPick={(b) => {
+                              const patch: Partial<InvoiceItem> = {
                                 kodeBarang: b.kode,
                                 namaBarang: b.nama,
-                                hargaJual: b.harga ?? it.hargaJual,
                                 hargaModal: it.hargaModal || (b.harga ?? 0),
-                              })
-                            }
+                                hargaJual: b.harga ?? it.hargaJual,
+                              };
+                              const ki = katalogItemFor({ ...it, kodeBarang: b.kode, namaBarang: b.nama } as InvoiceItem);
+                              if (ki) {
+                                const h = parseNum(ki.harga);
+                                if (tipe === "Supplier") patch.hargaModal = h;
+                                else if (tipe === "Reseller") patch.hargaJual = h;
+                              }
+                              updateItem(idx, patch);
+                            }}
                             onCreateNew={(nama) => handleCreateBarang(idx, nama)}
                             creatingNew={creatingBarangIdx === idx}
                             nextKode={nextBarangKode}
@@ -766,6 +973,11 @@ export function InvoiceFormDialog({
                       <td className={`min-w-32 px-2 py-2 text-right font-semibold tabular-nums ${subtotal < 0 ? "text-rose-600" : ""}`}>
                         {formatCurrency(subtotal, mataUang)}
                       </td>
+                      {tipe === "Pasar" && (
+                        <td className={`min-w-28 px-2 py-2 text-right font-semibold tabular-nums ${margin >= 0 ? "text-sky-600" : "text-rose-600"}`}>
+                          {formatCurrency(margin, mataUang)}
+                        </td>
+                      )}
                       <td className="px-1 py-2">
                         <Button variant="ghost" size="icon" className="size-7 text-rose-500" onClick={() => removeRow(idx)}>
                           <Trash2 className="size-3.5" />
@@ -777,6 +989,7 @@ export function InvoiceFormDialog({
               </tbody>
             </table>
           </div>
+
           <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={addRow}>

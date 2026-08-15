@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { Camera, FileText, Loader2, Plus, ScanText, Sparkles, Trash2 } from "lucide-react";
@@ -69,6 +69,18 @@ function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
   });
 }
 
+/** Canvas → data URL JPEG dengan skala & kualitas terkontrol (untuk AI, payload kecil). */
+function canvasToJpeg(canvas: HTMLCanvasElement, maxW: number, quality: number): string {
+  const scale = Math.min(1, maxW / canvas.width);
+  const out = document.createElement("canvas");
+  out.width = Math.round(canvas.width * scale);
+  out.height = Math.round(canvas.height * scale);
+  const ctx = out.getContext("2d");
+  if (!ctx) return canvas.toDataURL("image/jpeg", quality);
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+  return out.toDataURL("image/jpeg", quality);
+}
+
 export function OcrInvoiceDialog({
   open,
   onOpenChange,
@@ -87,6 +99,7 @@ export function OcrInvoiceDialog({
   const pasars = useQuery(api.queries.listPasar);
   const createInvoice = useMutation(api.business.createInvoice);
   const upsertKatalog = useMutation(api.katalog.upsertKatalog);
+  const scanAi = useAction(api.aiOcr.scanInvoiceWithAi);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +108,7 @@ export function OcrInvoiceDialog({
   const [status, setStatus] = useState<OcrStatus>("idle");
   const [progress, setProgress] = useState<{ status: string; pct: number } | null>(null);
   const [rawText, setRawText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
 
   const [tipe, setTipe] = useState<InvoiceTipe>("Reseller");
   const [namaPihak, setNamaPihak] = useState("");
@@ -109,6 +123,7 @@ export function OcrInvoiceDialog({
     setStatus("idle");
     setProgress(null);
     setRawText("");
+    setAiBusy(false);
     setTipe("Reseller");
     setNamaPihak("");
     setTanggal(todayStr());
@@ -135,6 +150,45 @@ export function OcrInvoiceDialog({
       setRawText("");
     } catch (e: any) {
       toast.error(e?.message ?? "Gagal memproses gambar");
+    }
+  };
+
+  /** Scan dengan AI (OpenAI vision) — jauh lebih akurat untuk invoice tulisan tangan/print. */
+  const handleAiScan = async () => {
+    if (!canvasRef) return;
+    setAiBusy(true);
+    try {
+      // Kirim versi kecil (≤1024px, JPEG 0.7) supaya payload ringan.
+      const smallUrl = canvasToJpeg(canvasRef, 1024, 0.7);
+      const res = await scanAi({ imageDataUrl: smallUrl });
+      if (!res.ok || !res.data) {
+        toast.error(res?.error ?? "Scan AI gagal — coba lagi atau pakai OCR biasa.");
+        return;
+      }
+      const d = res.data;
+      if (d.tipe && (INVOICE_TIPES as string[]).includes(d.tipe)) setTipe(d.tipe as InvoiceTipe);
+      if (d.namaPihak) setNamaPihak(d.namaPihak);
+      if (d.tanggal) setTanggal(d.tanggal);
+      if (d.items.length > 0) {
+        setItems(
+          d.items.map((it) => ({
+            namaBarang: it.namaBarang,
+            qty: parseNum(it.qty) > 0 ? parseNum(it.qty) : 1,
+            harga: Math.max(0, parseNum(it.harga)),
+          })),
+        );
+        setStatus("done");
+        toast.success(`AI membaca ${d.items.length} baris barang — periksa & koreksi sebelum simpan.`);
+      } else {
+        toast.warning("AI tidak menemukan baris barang — periksa foto atau gunakan OCR biasa.");
+        setStatus("error");
+      }
+    } catch (e: any) {
+      console.error("[OCR-AI] Gagal:", e);
+      setStatus("error");
+      toast.error(e?.message ?? "Scan AI gagal — coba lagi atau gunakan OCR biasa (Tesseract).");
+    } finally {
+      setAiBusy(false);
     }
   };
 
@@ -239,7 +293,7 @@ export function OcrInvoiceDialog({
           /* katalog bersifat pelengkap — gagal sinkron tidak menggagalkan invoice */
         }
       }
-      toast.success(`Invoice ${res.idInvoice} tersimpan dari hasil OCR — periksa stok & kas.`);
+      toast.success(`Invoice ${res.idInvoice} tersimpan dari hasil scan — periksa stok & kas.`);
       onSaved?.(res);
       onOpenChange(false);
       reset();
@@ -264,7 +318,7 @@ export function OcrInvoiceDialog({
     >
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Scan Invoice dari Foto (OCR)</DialogTitle>
+          <DialogTitle>Scan Invoice dari Foto</DialogTitle>
           <DialogDescription>
             Foto/upload kertas invoice → sistem membaca otomatis → <b>kamu periksa & koreksi</b> draft
             sebelum disimpan ke database.
@@ -313,20 +367,28 @@ export function OcrInvoiceDialog({
             )}
           </div>
 
-          {/* Langkah 2 — baca teks */}
+          {/* Langkah 2 — baca teks (AI atau OCR biasa) */}
           {imageUrl && status !== "done" && (
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={handleOcr} disabled={status === "reading"}>
+              <Button onClick={handleAiScan} disabled={aiBusy} className="cursor-pointer">
+                {aiBusy ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 size-4" />
+                )}
+                {aiBusy ? "AI membaca…" : "2. Scan AI (Pintar)"}
+              </Button>
+              <Button variant="outline" onClick={handleOcr} disabled={status === "reading"} className="cursor-pointer">
                 {status === "reading" ? (
                   <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
                   <ScanText className="mr-2 size-4" />
                 )}
-                {status === "reading" ? "Membaca teks…" : "2. Baca Teks (OCR)"}
+                {status === "reading" ? "Membaca teks…" : "OCR Biasa (Tesseract)"}
               </Button>
               {status === "error" && (
                 <p className="text-xs text-rose-600">
-                  Gagal membaca. Coba foto yang lebih terang, atau isi manual di bawah.
+                  Gagal membaca. Coba foto yang lebih terang, tombol Scan AI, atau isi manual di bawah.
                 </p>
               )}
             </div>
@@ -389,8 +451,8 @@ export function OcrInvoiceDialog({
                       placeholder="Nama pihak"
                     />
                     <datalist id="ocr-pihak">
-                      {pihakOptions.map((p: string) => (
-                        <option key={p} value={p} />
+                      {pihakOptions.map((p: string, i: number) => (
+                        <option key={`${p}-${i}`} value={p} />
                       ))}
                     </datalist>
                   </div>
@@ -406,12 +468,12 @@ export function OcrInvoiceDialog({
                 </div>
               </div>
 
-              {/* Daftar barang hasil OCR — bisa diedit/hapus */}
+              {/* Daftar barang hasil scan — bisa diedit/hapus */}
               <div className="rounded-lg border">
                 <div className="border-b bg-muted/20 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase">
                   Barang (No. Invoice: {idInvoice})
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch]">
                   <table className="w-full min-w-[480px] text-sm">
                     <thead>
                       <tr className="border-b text-left text-[11px] tracking-wide text-muted-foreground uppercase">
@@ -482,7 +544,9 @@ export function OcrInvoiceDialog({
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Barang yang cocok dengan database otomatis memakai kodenya; yang baru dibuatkan kode
-                otomatis (BRG…). Stok & kas menyesuaikan sesuai tipe invoice.
+                otomatis (BRG…). Stok & kas menyesuaikan sesuai tipe invoice. Tombol{" "}
+                <b>Scan AI (Pintar)</b> memakai model vision OpenAI (gpt-4o-mini) — hasilnya selalu
+                diperiksa manual dulu sebelum disimpan.
               </p>
             </div>
           )}

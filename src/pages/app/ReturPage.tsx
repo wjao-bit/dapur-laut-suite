@@ -170,7 +170,7 @@ export default function ReturPage() {
               <Label className="text-xs font-medium">Nama Pihak *</Label>
               <Input className="mt-1.5" list="retur-pihak" value={namaPihak} onChange={(e) => setNamaPihak(e.target.value)} placeholder="Nama reseller / pasar" />
               <datalist id="retur-pihak">
-                {pihakOptions.map((p: string) => <option key={p} value={p} />)}
+                {pihakOptions.map((p: string, i: number) => <option key={`${p}-${i}`} value={p} />)}
               </datalist>
             </div>
             <div className="grid grid-cols-2 gap-2">

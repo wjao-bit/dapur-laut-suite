@@ -2,12 +2,24 @@ import { formatDate, parseNum } from "@/lib/format";
 import { formatCurrency, type MataUang } from "@/lib/business";
 import { invoiceTotal, invoiceDibayar, invoiceSisa } from "@/lib/invoice";
 
+/** Margin satu baris (khusus Pasar): (harga jual − harga modal) × terjual. */
+function rowMargin(it: any): number {
+  const terjual = parseNum(it.stokAwal) - parseNum(it.stokAkhir);
+  return terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal));
+}
+
+/** Margin total invoice Pasar: jumlah margin semua baris. */
+function totalMargin(invoice: any): number {
+  return (invoice.items ?? []).reduce((s: number, it: any) => s + rowMargin(it), 0);
+}
+
 export function InvoicePrintDoc({ invoice }: { invoice: any }) {
   const mu: MataUang = invoice.mataUang === "$" ? "$" : "Rp";
   const dibayar = invoiceDibayar(invoice);
   const sisa = invoiceSisa(invoice);
   const lunas = sisa <= 0;
   const isPasar = invoice.tipe === "Pasar";
+  const margin = isPasar ? totalMargin(invoice) : 0;
   return (
     <div className="relative">
       {/* Watermark status pembayaran (BELUM LUNAS / LUNAS) */}
@@ -92,8 +104,9 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[540px] border-collapse text-xs sm:text-sm">
+        {/* Tabel barang — geser horizontal tetap lancar di Android (touch-pan-x) */}
+        <div className="overflow-x-auto touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+          <table className="w-full min-w-[580px] border-collapse text-xs sm:text-sm">
             <thead>
               <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
                 <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2">No</th>
@@ -114,6 +127,9 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                   </>
                 )}
                 <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Subtotal</th>
+                {isPasar && (
+                  <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2">Margin</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -126,6 +142,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 // Fallback kalau subtotal tidak tersimpan (data lama): hitung ulang.
                 // Pasar: subtotal tersimpan bisa NEGATIF (terjual minus) — dipakai apa adanya.
                 const subtotal = hasStored ? parseNum(it.subtotal) : Math.max(0, parseNum(terjual) * parseNum(harga));
+                const m = isPasar ? rowMargin(it) : 0;
                 return (
                   <tr key={i}>
                     <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5">{i + 1}</td>
@@ -146,6 +163,11 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                       </>
                     )}
                     <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5">{formatCurrency(subtotal, mu)}</td>
+                    {isPasar && (
+                      <td className={`border border-slate-200 px-1.5 py-1 text-right font-semibold sm:px-2 sm:py-1.5 ${m >= 0 ? "text-sky-700" : "text-rose-600"}`}>
+                        {formatCurrency(m, mu)}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -153,11 +175,18 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           </table>
         </div>
 
-        {/* Nota penjualan (Reseller/DPL) TIDAK menampilkan Total Modal & Margin —
-            hanya total akhir. Pasar menampilkan rincian stok & harga di tabel.
-            Supplier tetap menampilkan total pembelian. */}
+        {/* Ringkasan nilai: Pasar menampilkan margin (per barang ada di kolom Margin);
+            nota lain hanya total akhir. */}
         <div className="mt-4 flex justify-end">
           <div className="w-full space-y-1 text-sm sm:w-64">
+            {isPasar && (
+              <div className="flex justify-between text-slate-600">
+                <span>Margin</span>
+                <span className={`font-semibold tabular-nums ${margin >= 0 ? "text-sky-700" : "text-rose-600"}`}>
+                  {formatCurrency(margin, mu)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-slate-600">
               <span>Sudah Dibayar</span>
               <span className="tabular-nums">{formatCurrency(dibayar, mu)}</span>

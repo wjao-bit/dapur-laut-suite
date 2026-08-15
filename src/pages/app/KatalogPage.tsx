@@ -380,8 +380,8 @@ export default function KatalogPage() {
                   onChange={(e) => setNewPihak(e.target.value)}
                 />
                 <datalist id="katalog-pihak-options">
-                  {pihakOptions.map((p: string) => (
-                    <option key={p} value={p} />
+                  {pihakOptions.map((p: string, i: number) => (
+                    <option key={`${p}-${i}`} value={p} />
                   ))}
                 </datalist>
               </div>
