@@ -28,6 +28,9 @@ import { parseOcrText, type OcrItem } from "@/lib/ocr";
 
 type OcrStatus = "idle" | "reading" | "done" | "error";
 
+/** Baris draft — selain qty & harga, khusus Pasar bisa berisi stok akhir. */
+type DraftItem = OcrItem & { stokAkhir?: number };
+
 /** Muat file gambar → canvas (grayscale + kontras) siap OCR. */
 function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
@@ -114,7 +117,7 @@ export function OcrInvoiceDialog({
   const [namaPihak, setNamaPihak] = useState("");
   const [tanggal, setTanggal] = useState(todayStr());
   const [idInvoice, setIdInvoice] = useState(nextInvoiceId);
-  const [items, setItems] = useState<OcrItem[]>([{ namaBarang: "", qty: 1, harga: 0 }]);
+  const [items, setItems] = useState<DraftItem[]>([{ namaBarang: "", qty: 1, harga: 0 }]);
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -153,20 +156,20 @@ export function OcrInvoiceDialog({
     }
   };
 
-  /** Scan dengan AI (OpenAI vision) — jauh lebih akurat untuk invoice tulisan tangan/print. */
+  /** Scan dengan AI (OpenAI vision) — perintah diarahkan sesuai tipe yang dipilih user. */
   const handleAiScan = async () => {
     if (!canvasRef) return;
     setAiBusy(true);
     try {
       // Kirim versi kecil (≤1024px, JPEG 0.7) supaya payload ringan.
       const smallUrl = canvasToJpeg(canvasRef, 1024, 0.7);
-      const res = await scanAi({ imageDataUrl: smallUrl });
+      const res = await scanAi({ imageDataUrl: smallUrl, tipe });
       if (!res.ok || !res.data) {
         toast.error(res?.error ?? "Scan AI gagal — coba lagi atau pakai OCR biasa.");
         return;
       }
       const d = res.data;
-      if (d.tipe && (INVOICE_TIPES as string[]).includes(d.tipe)) setTipe(d.tipe as InvoiceTipe);
+      // Tipe tetap milik user (dipilih sebelum scan) — AI tidak menimpa.
       if (d.namaPihak) setNamaPihak(d.namaPihak);
       if (d.tanggal) setTanggal(d.tanggal);
       if (d.items.length > 0) {
@@ -175,6 +178,7 @@ export function OcrInvoiceDialog({
             namaBarang: it.namaBarang,
             qty: parseNum(it.qty) > 0 ? parseNum(it.qty) : 1,
             harga: Math.max(0, parseNum(it.harga)),
+            ...(it.stokAkhir ? { stokAkhir: parseNum(it.stokAkhir) } : {}),
           })),
         );
         setStatus("done");
@@ -230,7 +234,7 @@ export function OcrInvoiceDialog({
     }
   };
 
-  const updateItem = (idx: number, patch: Partial<OcrItem>) => {
+  const updateItem = (idx: number, patch: Partial<DraftItem>) => {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
 
@@ -249,14 +253,29 @@ export function OcrInvoiceDialog({
           (b: any) => b.nama.toLowerCase().trim() === it.namaBarang.toLowerCase().trim(),
         );
         const harga = parseNum(it.harga);
+        const qty = parseNum(it.qty);
         const kode = match ? match.kode : `${nextKode.slice(0, -3)}${String(parseInt(nextKode.slice(-3), 10) + autoIdx++).padStart(3, "0")}`;
+        if (tipe === "Pasar") {
+          const stokAkhir = Math.max(0, parseNum(it.stokAkhir));
+          return {
+            kodeBarang: kode,
+            namaBarang: it.namaBarang.trim(),
+            hargaModal: 0,
+            hargaJual: harga,
+            // Pasar: qty = stok awal; subtotal = (awal − akhir) × harga jual
+            qty,
+            subtotal: (qty - stokAkhir) * harga,
+            stokAwal: qty,
+            stokAkhir,
+          };
+        }
         return {
           kodeBarang: kode,
           namaBarang: it.namaBarang.trim(),
           hargaModal: tipe === "Supplier" ? harga : 0,
-          qty: parseNum(it.qty),
+          qty,
           hargaJual: tipe === "Supplier" ? 0 : harga,
-          subtotal: parseNum(it.qty) * harga,
+          subtotal: qty * harga,
         };
       });
     if (cleanItems.length === 0) {
@@ -321,7 +340,8 @@ export function OcrInvoiceDialog({
           <DialogTitle>Scan Invoice dari Foto</DialogTitle>
           <DialogDescription>
             Foto/upload kertas invoice → sistem membaca otomatis → <b>kamu periksa & koreksi</b> draft
-            sebelum disimpan ke database.
+            sebelum disimpan ke database. <b>Pilih tipe invoice dulu</b> supaya pembacaan diarahkan
+            (harga beli/jual, stok awal-akhir untuk Pasar).
           </DialogDescription>
         </DialogHeader>
 
@@ -367,27 +387,48 @@ export function OcrInvoiceDialog({
             )}
           </div>
 
-          {/* Langkah 2 — baca teks (AI atau OCR biasa) */}
+          {/* Langkah 2 — pilih tipe, lalu baca (AI atau OCR biasa) */}
           {imageUrl && status !== "done" && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={handleAiScan} disabled={aiBusy} className="cursor-pointer">
-                {aiBusy ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-2 size-4" />
-                )}
-                {aiBusy ? "AI membaca…" : "2. Scan AI (Pintar)"}
-              </Button>
-              <Button variant="outline" onClick={handleOcr} disabled={status === "reading"} className="cursor-pointer">
-                {status === "reading" ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <ScanText className="mr-2 size-4" />
-                )}
-                {status === "reading" ? "Membaca teks…" : "OCR Biasa (Tesseract)"}
-              </Button>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-medium">Tipe:</Label>
+                  <Select value={tipe} onValueChange={(v) => setTipe(v as InvoiceTipe)}>
+                    <SelectTrigger className="h-9 w-32 cursor-pointer text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INVOICE_TIPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAiScan} disabled={aiBusy} className="cursor-pointer">
+                  {aiBusy ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 size-4" />
+                  )}
+                  {aiBusy ? "AI membaca…" : "2. Scan AI (Pintar)"}
+                </Button>
+                <Button variant="outline" onClick={handleOcr} disabled={status === "reading"} className="cursor-pointer">
+                  {status === "reading" ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <ScanText className="mr-2 size-4" />
+                  )}
+                  {status === "reading" ? "Membaca teks…" : "OCR Biasa (Tanpa kunci)"}
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Scan AI memakai model vision OpenAI (lebih akurat, butuh kunci opsional). OCR Biasa
+                berjalan tanpa kunci apa pun — hasilnya sama-sama draft yang kamu periksa dulu.
+              </p>
               {status === "error" && (
-                <p className="text-xs text-rose-600">
+                <p className="mt-1 text-xs text-rose-600">
                   Gagal membaca. Coba foto yang lebih terang, tombol Scan AI, atau isi manual di bawah.
                 </p>
               )}
@@ -472,58 +513,74 @@ export function OcrInvoiceDialog({
               <div className="rounded-lg border">
                 <div className="border-b bg-muted/20 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase">
                   Barang (No. Invoice: {idInvoice})
+                  {tipe === "Pasar" && <span className="ml-2 normal-case">· qty = stok awal, isi stok akhir yang kembali</span>}
                 </div>
                 <div className="overflow-x-auto touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-                  <table className="w-full min-w-[480px] text-sm">
+                  <table className="w-full min-w-[500px] text-sm">
                     <thead>
                       <tr className="border-b text-left text-[11px] tracking-wide text-muted-foreground uppercase">
                         <th className="min-w-44 px-2 py-2 font-semibold">Nama Barang</th>
-                        <th className="min-w-20 px-2 py-2 text-right font-semibold">Qty</th>
+                        <th className="min-w-20 px-2 py-2 text-right font-semibold">{tipe === "Pasar" ? "Stok Awal" : "Qty"}</th>
+                        {tipe === "Pasar" && (
+                          <th className="min-w-20 px-2 py-2 text-right font-semibold">Stok Akhir</th>
+                        )}
                         <th className="min-w-28 px-2 py-2 text-right font-semibold">Harga</th>
                         <th className="min-w-28 px-2 py-2 text-right font-semibold">Subtotal</th>
                         <th className="w-10 px-1 py-2" />
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((it, idx) => (
-                        <tr key={idx} className="border-b last:border-0">
-                          <td className="px-2 py-2">
-                            <Input
-                              className="h-8 w-full text-base sm:text-sm"
-                              value={it.namaBarang}
-                              placeholder="Nama barang"
-                              onChange={(e) => updateItem(idx, { namaBarang: e.target.value })}
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <NumInput
-                              className="h-8 w-full text-base text-right sm:text-sm"
-                              value={it.qty}
-                              onValue={(n) => updateItem(idx, { qty: n })}
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <NumInput
-                              className="h-8 w-full text-base text-right sm:text-sm"
-                              value={it.harga}
-                              onValue={(n) => updateItem(idx, { harga: n })}
-                            />
-                          </td>
-                          <td className="px-2 py-2 text-right font-semibold tabular-nums">
-                            {formatCurrency(parseNum(it.qty) * parseNum(it.harga), "Rp")}
-                          </td>
-                          <td className="px-1 py-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7 cursor-pointer text-rose-500"
-                              onClick={() => setItems((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)))}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {items.map((it, idx) => {
+                        const terjual = tipe === "Pasar" ? parseNum(it.qty) - parseNum(it.stokAkhir) : parseNum(it.qty);
+                        return (
+                          <tr key={idx} className="border-b last:border-0">
+                            <td className="px-2 py-2">
+                              <Input
+                                className="h-8 w-full text-base sm:text-sm"
+                                value={it.namaBarang}
+                                placeholder="Nama barang"
+                                onChange={(e) => updateItem(idx, { namaBarang: e.target.value })}
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <NumInput
+                                className="h-8 w-full text-base text-right sm:text-sm"
+                                value={it.qty}
+                                onValue={(n) => updateItem(idx, { qty: n })}
+                              />
+                            </td>
+                            {tipe === "Pasar" && (
+                              <td className="px-2 py-2">
+                                <NumInput
+                                  className="h-8 w-full text-base text-right sm:text-sm"
+                                  value={it.stokAkhir}
+                                  onValue={(n) => updateItem(idx, { stokAkhir: n })}
+                                />
+                              </td>
+                            )}
+                            <td className="px-2 py-2">
+                              <NumInput
+                                className="h-8 w-full text-base text-right sm:text-sm"
+                                value={it.harga}
+                                onValue={(n) => updateItem(idx, { harga: n })}
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-right font-semibold tabular-nums">
+                              {formatCurrency(terjual * parseNum(it.harga), "Rp")}
+                            </td>
+                            <td className="px-1 py-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 cursor-pointer text-rose-500"
+                                onClick={() => setItems((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)))}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -538,7 +595,15 @@ export function OcrInvoiceDialog({
                   </Button>
                   <div className="text-right text-sm">
                     Total:{" "}
-                    <span className="font-bold tabular-nums">{formatCurrency(total, "Rp")}</span>
+                    <span className="font-bold tabular-nums">
+                      {formatCurrency(
+                        items.reduce(
+                          (s, it) => s + (tipe === "Pasar" ? parseNum(it.qty) - parseNum(it.stokAkhir) : parseNum(it.qty)) * parseNum(it.harga),
+                          0,
+                        ),
+                        "Rp",
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>

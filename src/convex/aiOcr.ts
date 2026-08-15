@@ -1,16 +1,19 @@
 "use node";
 
 // ============================================================================
-// AI OCR — baca invoice dari foto dengan model vision OpenAI (gpt-4o-mini).
+// AI OCR — baca invoice/nota dari foto dengan model vision OpenAI (gpt-4o-mini).
 //
-// Dipanggil dari dialog "Scan Invoice" sebagai alternatif yang jauh lebih
-// akurat daripada Tesseract. Hasilnya SELALU berupa draft yang diverifikasi
-// user sebelum disimpan (tidak pernah langsung masuk database).
+// Dipanggil dari dialog "Scan Invoice". Hasilnya SELALU berupa draft yang
+// diverifikasi user sebelum disimpan (tidak pernah langsung masuk database).
 //
-// Kunci API dibaca dari environment variable OPENAI_API_KEY (atur lewat
-// menu Keys / API keys proyek, atau dashboard Convex → Environment Variables).
-// Kalau kunci belum ada, action mengembalikan { ok: false, error: ... } dan
-// dialog tetap memakai Tesseract sebagai cadangan.
+// Kunci API dibaca dari environment variable OPENAI_API_KEY (atur lewat menu
+// Keys / API keys proyek). Kalau kunci belum ada, action mengembalikan
+// { ok: false, error: ... } dan dialog tetap memakai Tesseract sebagai
+// cadangan (tanpa biaya & tanpa kunci).
+//
+// `tipe` (opsional) dipilih user SEBELUM scan supaya perintah pembacaan
+// diarahkan: Supplier → harga beli/modal, Reseller/DPL → harga jual,
+// Pasar → qty = stok awal & baca stok akhir.
 // ============================================================================
 
 import { action } from "./_generated/server";
@@ -20,6 +23,8 @@ export interface AiOcrItem {
   namaBarang: string;
   qty: number;
   harga: number;
+  /** Khusus Pasar: stok yang kembali (bila terbaca). */
+  stokAkhir?: number;
 }
 
 export interface AiOcrResult {
@@ -73,34 +78,64 @@ function extractJson(raw: string): unknown {
   return null;
 }
 
+const TIPE_VALID = ["Reseller", "Supplier", "DPL", "Pasar"] as const;
+
+/** Perintah sistem — disusun agar AI membaca SEMUA baris dengan benar. */
+const SYSTEM_PROMPT = `Kamu adalah pembaca nota/invoice untuk PT Dapur Laut (perusahaan ikan & bahan laut di Indonesia). Tugasmu: melihat FOTO nota dan menyalin SEMUA baris barang ke JSON.
+
+Keluarkan HANYA satu objek JSON valid, tanpa teks lain, tanpa markdown, dengan bentuk TEPAT:
+{"namaPihak": "nama toko/pemasok bila terbaca, atau ''", "tanggal": "YYYY-MM-DD bila terbaca, atau ''", "items": [{"namaBarang": "...", "qty": 2, "harga": 25000}]}
+
+ATURAN WAJIB:
+1. Satu baris barang = satu item. Baca SEMUA baris — jangan ada yang terlewat, meskipun barisnya banyak.
+2. "harga" adalah HARGA SATUAN (harga per unit/ekor/kg), BUKAN subtotal. Kalau yang terlihat hanya subtotal dan qty, hitung harga satuan = subtotal ÷ qty (bulatkan wajar, jangan sampai 0).
+3. qty boleh desimal (mis. "2,5 kg" → qty 2.5). Cara baca angka Indonesia: "1.500" = seribu lima ratus, "1,5" = satu koma lima, "Rp 25.000" = 25000.
+4. ABaIKAN: judul dokumen, header tabel (No / Kode / Nama / Qty / Harga / Subtotal / Jumlah), baris TOTAL / SUBTOTAL / TERBILANG / BAYAR / KEMBALI, potongan diskon, ongkir, tanda tangan, stempel, alamat, nomor telepon, catatan kaki.
+5. JANGAN mengarang barang yang tidak jelas terbaca. Kalau nama barang kabur, lewati baris itu.
+6. Tulis angka sebagai angka murni (tanpa "Rp", tanpa titik ribuan, tanpa satuan).
+7. Nama barang ditulis persis seperti di nota (pertahankan singkatan yang ada, mis. "Cumi", "Ikan Kembung", "Teri 1/4").
+8. Bila TIDAK ada satu pun barang terbaca dengan jelas, kembalikan {"items": []} — JANGAN menebak.`;
+
+/** Perintah user — diarahkan sesuai tipe transaksi yang dipilih user. */
+function buildUserPrompt(tipe?: string): string {
+  let arah = "";
+  if (tipe === "Supplier") {
+    arah =
+      'Tipe transaksi: SUPPLIER (pembelian dari pemasok). Artinya "harga" = HARGA BELI / HARGA MODAL per satuan yang tertulis di nota.';
+  } else if (tipe === "Pasar") {
+    arah =
+      'Tipe transaksi: PASAR (Victoria/Tunas — stok dibawa ke pasar lalu sebagian kembali). "qty" = STOK AWAL (jumlah barang yang dibawa). "harga" = HARGA JUAL per satuan. Kalau ada kolom stok akhir / sisa / kembali, tulis angkanya pada properti "stokAkhir" (opsional).';
+  } else if (tipe === "DPL") {
+    arah =
+      'Tipe transaksi: DPL (penjualan grosir ke pasar). Artinya "harga" = HARGA JUAL per satuan yang tertulis di nota.';
+  } else {
+    arah =
+      'Tipe transaksi: RESELLER (penjualan ke toko/reseller). Artinya "harga" = HARGA JUAL per satuan yang tertulis di nota.';
+  }
+  return (
+    arah +
+    "\n\nBaca SEMUA baris barang pada foto ini sekarang, lalu keluarkan JSON sesuai aturan di atas. Prioritaskan kebenaran nama barang, qty, dan HARGA SATUAN."
+  );
+}
+
 export const scanInvoiceWithAi = action({
   args: {
     imageDataUrl: v.string(),
+    tipe: v.optional(v.string()),
   },
-  handler: async (_ctx, { imageDataUrl }): Promise<AiOcrResult> => {
+  handler: async (_ctx, { imageDataUrl, tipe }): Promise<AiOcrResult> => {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return {
         ok: false,
         error:
-          "OPENAI_API_KEY belum diatur. Tambahkan kunci OpenAI (tombol Scan AI memakai model vision gpt-4o-mini) di menu Keys/API keys proyek — atau gunakan tombol OCR biasa (Tesseract).",
+          "OPENAI_API_KEY belum diatur. Scan AI memakai model vision OpenAI (gpt-4o-mini) — tambahkan kunci di menu Keys / API keys proyek. Tanpa kunci, tombol 'OCR Biasa' tetap bisa dipakai.",
       };
     }
     if (!imageDataUrl || !imageDataUrl.startsWith("data:image")) {
       return { ok: false, error: "Gambar tidak valid — coba pilih foto lagi." };
     }
-
-    const system =
-      "Kamu adalah pembaca invoice (OCR) untuk perusahaan PT Dapur Laut (perdagangan ikan & bahan laut). " +
-      "Baca foto invoice dan keluarkan HANYA JSON valid, tanpa teks lain, dengan bentuk: " +
-      '{"tipe": "Reseller|Supplier|DPL|Pasar", "namaPihak": "nama pelanggan/pemasok", "tanggal": "YYYY-MM-DD", "items": [{"namaBarang": "...", "qty": jumlah, "harga": harga satuan}]}. ' +
-      "Aturan: baca SEMUA baris barang (nama, jumlah/qty, harga satuan). Bila kolom tidak jelas, tulis nilai 0 atau string kosong. " +
-      "Jangan menebak total; cukup daftar items. Untuk pasar (awal-akhir), qty = stok awal bila terbaca, dan tulis stokAkhir pada properti 'stokAkhir' bila ada (opsional). " +
-      "Tanggal pakai format YYYY-MM-DD; bila tidak terbaca, kosongkan.";
-
-    const user =
-      "Baca invoice pada foto ini dan keluarkan JSON sesuai instruksi. " +
-      "Utamakan nama barang, qty, dan harga satuan yang benar-benar terbaca.";
+    const tipeValid = TIPE_VALID.includes(tipe as any) ? tipe : undefined;
 
     try {
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -115,11 +150,11 @@ export const scanInvoiceWithAi = action({
           temperature: 0,
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: system },
+            { role: "system", content: SYSTEM_PROMPT },
             {
               role: "user",
               content: [
-                { type: "text", text: user },
+                { type: "text", text: buildUserPrompt(tipeValid) },
                 { type: "image_url", image_url: { url: imageDataUrl } },
               ],
             },
@@ -152,17 +187,19 @@ export const scanInvoiceWithAi = action({
       const items: AiOcrItem[] = rawItems
         .map((raw) => {
           const it = (raw ?? {}) as Record<string, unknown>;
+          const stokAkhir = toNum(it.stokAkhir);
           return {
             namaBarang: String(it.namaBarang ?? it.nama ?? "").trim(),
             qty: Math.max(0, toNum(it.qty)),
             harga: Math.max(0, toNum(it.harga ?? it.hargaSatuan ?? it.price)),
+            ...(stokAkhir > 0 ? { stokAkhir } : {}),
           };
         })
         .filter((it) => it.namaBarang.length > 0)
         .slice(0, 60);
 
       const tipeRaw = String(p.tipe ?? "").trim();
-      const tipe = ["Reseller", "Supplier", "DPL", "Pasar"].includes(tipeRaw) ? tipeRaw : undefined;
+      const tipeAi = TIPE_VALID.includes(tipeRaw as any) ? tipeRaw : undefined;
 
       let tanggal = String(p.tanggal ?? "").trim();
       if (tanggal && !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
@@ -176,7 +213,8 @@ export const scanInvoiceWithAi = action({
       return {
         ok: true,
         data: {
-          tipe,
+          // Tipe dari user (dipilih sebelum scan) menang; AI hanya memberi saran.
+          tipe: tipeValid ?? tipeAi,
           namaPihak: String(p.namaPihak ?? "").trim() || undefined,
           tanggal: tanggal || undefined,
           items,
