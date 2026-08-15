@@ -1,0 +1,98 @@
+[96msrc/components/app/InvoiceFormDialog.tsx[0m:[93m1[0m:[93m1[0m - [91merror[0m[90m TS1109: [0mExpression expected.
+
+[7m1[0m <?xml version="1.0" encoding="UTF-8"?>
+[7m [0m [91m~[0m
+
+[96msrc/components/app/InvoiceFormDialog.tsx[0m:[93m1[0m:[93m2[0m - [91merror[0m[90m TS1109: [0mExpression expected.
+
+[7m1[0m <?xml version="1.0" encoding="UTF-8"?>
+[7m [0m [91m ~[0m
+
+[96msrc/components/app/InvoiceFormDialog.tsx[0m:[93m1[0m:[93m7[0m - [91merror[0m[90m TS1005: [0m':' expected.
+
+[7m1[0m <?xml version="1.0" encoding="UTF-8"?>
+[7m [0m [91m      ~~~~~~~[0m
+
+[96msrc/components/app/InvoiceFormDialog.tsx[0m:[93m1[0m:[93m21[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m1[0m <?xml version="1.0" encoding="UTF-8"?>
+[7m [0m [91m                    ~~~~~~~~[0m
+
+[96msrc/components/app/InvoiceFormDialog.tsx[0m:[93m1[0m:[93m38[0m - [91merror[0m[90m TS1109: [0mExpression expected.
+
+[7m1[0m <?xml version="1.0" encoding="UTF-8"?>
+[7m [0m [91m                                     ~[0m
+
+[96msrc/components/app/InvoiceFormDialog.tsx[0m:[93m12[0m:[93m1[0m - [91merror[0m[90m TS1005: [0m':' expected.
+
+[7m12[0m 
+[7m  [0m [91m[0m
+
+[96msrc/components/app/InvoicePrintDoc.tsx[0m:[93m1[0m:[93m1[0m - [91merror[0m[90m TS1490: [0mFile appears to be binary.
+
+[96msrc/lib/invoice.ts[0m:[93m2[0m:[93m9[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m2[0m   "name": "PT Dapur Laut — Sistem Manajemen Bisnis",
+[7m [0m [91m        ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m3[0m:[93m15[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m3[0m   "short_name": "Dapur Laut",
+[7m [0m [91m              ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m4[0m:[93m16[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m4[0m   "description": "Aplikasi manajemen bisnis PT Dapur Laut — invoice multi-barang, gudang & stok, kas harian, absensi, utang karyawan, slip gaji, dan laporan keuangan.",
+[7m [0m [91m               ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m5[0m:[93m7[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m5[0m   "id": "/",
+[7m [0m [91m      ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m6[0m:[93m14[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m6[0m   "start_url": "/",
+[7m [0m [91m             ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m7[0m:[93m10[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m7[0m   "scope": "/",
+[7m [0m [91m         ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m8[0m:[93m12[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m8[0m   "display": "standalone",
+[7m [0m [91m           ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m9[0m:[93m16[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m9[0m   "orientation": "portrait",
+[7m [0m [91m               ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m10[0m:[93m21[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m10[0m   "background_color": "#0f766e",
+[7m  [0m [91m                    ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m11[0m:[93m16[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m11[0m   "theme_color": "#0f766e",
+[7m  [0m [91m               ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m12[0m:[93m15[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m12[0m   "categories": ["business", "productivity", "finance"],
+[7m  [0m [91m              ~[0m
+
+[96msrc/lib/invoice.ts[0m:[93m13[0m:[93m10[0m - [91merror[0m[90m TS1005: [0m';' expected.
+
+[7m13[0m   "icons": [
+[7m  [0m [91m         ~[0m
+
+[96msrc/pages/app/InvoicePage.tsx[0m:[93m1[0m:[93m1[0m - [91merror[0m[90m TS1490: [0mFile appears to be binary.
+
+
+Found 20 errors.
+
+EXIT=0

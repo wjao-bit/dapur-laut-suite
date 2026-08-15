@@ -130,7 +130,11 @@ export const invoiceSchema = z
     if (data.tipe === "Pasar") {
       for (let i = 0; i < data.items.length; i++) {
         const it = data.items[i];
-        if ((it.stokAwal ?? 0) <= 0) {
+        // stokAwal wajib > 0. Invoice Pasar LAMA (sebelum fitur stokAwal) dan
+        // hasil OCR hanya membawa qty — dipakai sebagai fallback supaya seluruh
+        // barang tetap tampil & invoice lama tetap bisa diedit ulang.
+        const stokAwal = it.stokAwal ?? it.qty ?? 0;
+        if (stokAwal <= 0) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["items", i, "stokAwal"],

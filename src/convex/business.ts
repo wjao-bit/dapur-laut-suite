@@ -349,6 +349,21 @@ export const bayarUtang = mutation({
 // sudah jadi: efek lama dibatalkan lalu diterapkan ulang (editInvoice).
 // ============================================================================
 
+/**
+ * Normalisasi item invoice Pasar saat disimpan: invoice LAMA (sebelum fitur
+ * stokAwal/stokAkhir) atau hasil OCR hanya membawa qty & subtotal — isi
+ * stokAwal = qty & stokAkhir = 0 supaya data selalu konsisten dan seluruh
+ * barang tetap tampil / bisa diedit ulang.
+ */
+function normalizeInvoiceItems(tipe: string, items: any[]): any[] {
+  if (tipe !== "Pasar") return items;
+  return items.map((it) => ({
+    ...it,
+    stokAwal: it.stokAwal != null ? it.stokAwal : it.qty ?? 0,
+    stokAkhir: it.stokAkhir ?? 0,
+  }));
+}
+
 export const createInvoice = mutation({
   args: { doc: v.any() },
   handler: async (ctx, { doc }) => {
@@ -356,6 +371,7 @@ export const createInvoice = mutation({
     const parsed = validate(invoiceSchema, doc);
     if (!parsed.success) return badRequest("Payload invoice tidak sesuai schema", parsed.errors);
     const d = parsed.data;
+    d.items = normalizeInvoiceItems(d.tipe, d.items);
     const totals = computeInvoiceTotals(d.tipe as InvoiceTipe, d.items as InvoiceItem[]);
     const mataUang = (doc as any)?.mataUang === "$" ? "$" : "Rp"; // default Rupiah; Supplier bisa pilih "$"
     const statusPembayaran = d.statusPembayaran === "Lunas" ? "Lunas" : "Pending";
@@ -496,6 +512,7 @@ export const editInvoice = mutation({
     const parsed = validate(invoiceSchema, doc);
     if (!parsed.success) return badRequest("Payload invoice tidak sesuai schema", parsed.errors);
     const d = parsed.data;
+    d.items = normalizeInvoiceItems(d.tipe, d.items);
     const existing = await findOneByKey(ctx, "invoice", "idInvoice", d.idInvoice);
     if (!existing) {
       return badRequest("Invoice tidak ditemukan — gunakan 'Buat Invoice' untuk invoice baru", { idInvoice: d.idInvoice });

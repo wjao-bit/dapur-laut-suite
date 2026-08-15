@@ -202,16 +202,33 @@ export function InvoiceFormDialog({
     setStatusPembayaran(editInv ? ((editInv.statusPembayaran ?? "Pending") === "Lunas" ? "Lunas" : "Pending") : "Pending");
     setItems(
       editInv
-        ? (editInv.items ?? []).map((it: any) => ({
-            kodeBarang: it.kodeBarang ?? "",
-            namaBarang: it.namaBarang ?? "",
-            hargaModal: parseNum(it.hargaModal),
-            qty: parseNum(it.qty) || 1,
-            hargaJual: parseNum(it.hargaJual),
-            stokAwal: it.stokAwal != null ? parseNum(it.stokAwal) : undefined,
-            stokAkhir: it.stokAkhir != null ? parseNum(it.stokAkhir) : undefined,
-            subtotal: parseNum(it.subtotal),
-          }))
+        ? (editInv.items ?? []).map((it: any) => {
+            // Pasar: invoice LAMA (dibuat sebelum fitur stokAwal/stokAkhir) hanya
+            // menyimpan qty & subtotal. Pulihkan stokAwal = qty & stokAkhir = 0
+            // supaya SEMUA barang tetap tampil dan invoice tetap bisa diedit &
+            // disimpan ulang (schema membutuhkan stokAwal untuk tipe Pasar).
+            const isPasar = editInv.tipe === "Pasar";
+            const stokAwal = isPasar
+              ? it.stokAwal != null
+                ? parseNum(it.stokAwal)
+                : parseNum(it.qty) || 0
+              : undefined;
+            const stokAkhir = isPasar
+              ? it.stokAkhir != null
+                ? parseNum(it.stokAkhir)
+                : 0
+              : undefined;
+            return {
+              kodeBarang: it.kodeBarang ?? "",
+              namaBarang: it.namaBarang ?? "",
+              hargaModal: parseNum(it.hargaModal),
+              qty: stokAwal || parseNum(it.qty) || 1,
+              hargaJual: parseNum(it.hargaJual),
+              stokAwal,
+              stokAkhir,
+              subtotal: parseNum(it.subtotal),
+            };
+          })
         : [emptyItem()],
     );
     setQuickSearch("");
