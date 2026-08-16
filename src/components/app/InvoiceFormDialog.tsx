@@ -73,33 +73,25 @@ function isRowEmpty(it: InvoiceItem): boolean {
 interface InvoiceFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Invoice yang sedang diedit (null = buat baru). */
   editInv: any;
-  /** Invoice yang sedang diduplikat (null = bukan duplikat). Isi form disalin
-   *  dari invoice ini, tapi disimpan sebagai invoice BARU (nomor otomatis). */
   duplicateInv?: any;
-  /** Nomor invoice otomatis berikutnya (INV001, INV002, …). */
   nextInvoiceId: string;
-  /** Data master — diteruskan dari halaman agar tidak ada subskripsi ganda. */
   barang: any[] | undefined;
   katalogs: any[] | undefined;
   suppliers: any[] | undefined;
   resellers: any[] | undefined;
   dpls: any[] | undefined;
   pasars: any[] | undefined;
-  /** Dipanggil setelah invoice berhasil disimpan. */
   onSaved: (res: any) => void;
 }
 
 /**
- * Form invoice multi-barang (Supplier/Reseller/DPL/Pasar), DIPISAH dari
- * halaman daftar invoice supaya mengetik nama barang / qty / harga TIDAK
- * me-render ulang tabel invoice (yang membesar seiring data bertambah).
+ * Form invoice multi-barang (Supplier/Reseller/DPL/Pasar).
  *
- * Responsif: di layar sempit ATAU HP landscape (lebar < 1024px) setiap barang
- * tampil sebagai KARTU berlabel (tanpa perlu geser tabel ke samping, semua
- * kolom terlihat); tabel desktop hanya muncul di layar yang benar-benar lebar
- * (≥1024px) supaya HP landscape tidak berubah ke tabel yang susah dipakai.
+ * Menggunakan tampilan KARTU (card-based) di SEMUA ukuran layar — baik di HP
+ * maupun desktop penuh. Setiap barang ditampilkan sebagai satu blok terpisah
+ * dengan label kolom (Kode, Nama, Harga Modal, Qty, Harga Jual, Subtotal)
+ * sehingga mudah diisi di ukuran layar mana pun.
  */
 export function InvoiceFormDialog({
   open,
@@ -129,24 +121,18 @@ export function InvoiceFormDialog({
   const [statusPembayaran, setStatusPembayaran] = useState<"Lunas" | "Pending">("Pending");
   const [items, setItems] = useState<InvoiceItem[]>([emptyItem()]);
   const [saving, setSaving] = useState(false);
-  /** Baris yang sedang membuat barang baru ke database (index item). */
   const [creatingBarangIdx, setCreatingBarangIdx] = useState<number | null>(null);
-  /** Kotak pencarian cepat di atas daftar barang. */
   const [quickSearch, setQuickSearch] = useState("");
   const [quickCreating, setQuickCreating] = useState(false);
 
-  /** Cegah toast "harga diisi otomatis dari katalog" berulang utk pihak yg sama. */
   const lastAutoParty = useRef<string | null>(null);
-  /** Pengguna sudah mengubah nomor invoice manual → jangan ditimpa otomatis. */
   const idTouched = useRef(false);
 
-  /** Kode barang otomatis berikutnya (BRG001, BRG002, …) saat menambah barang baru. */
   const nextBarangKode = useMemo(
     () => nextSeqKode((barang ?? []).map((b: any) => b.kode), "BRG"),
     [barang],
   );
 
-  /** Katalog harga pihak yang sedang dipilih (cocok tipe + nama). */
   const katalogForParty = useMemo(() => {
     if (!katalogs) return null;
     const party = String(namaPihak ?? "").trim().toLowerCase();
@@ -160,7 +146,6 @@ export function InvoiceFormDialog({
     );
   }, [katalogs, tipe, namaPihak]);
 
-  /** Item katalog yang cocok dengan satu baris invoice (cocok kode ATAU nama). */
   const katalogItemFor = (it: InvoiceItem): any | null => {
     const kat = katalogForParty;
     if (!kat) return null;
@@ -176,7 +161,6 @@ export function InvoiceFormDialog({
     );
   };
 
-  /** Terapkan harga katalog ke satu baris — hanya kolom yang masih kosong. */
   const applyKatalogToItem = (it: InvoiceItem): InvoiceItem => {
     const ki = katalogItemFor(it);
     if (!ki) return it;
@@ -194,12 +178,10 @@ export function InvoiceFormDialog({
     };
   };
 
-  // Isi form saat dialog dibuka (mode buat baru ATAU edit ATAU duplikat).
   useEffect(() => {
     if (!open) return;
     lastAutoParty.current = null;
     idTouched.current = false;
-    // Duplikat menyimpan sebagai invoice BARU: nomor otomatis + tanggal hari ini.
     const src = editInv ?? duplicateInv;
     setTipe(src?.tipe ?? "Reseller");
     setTanggal(editInv ? src.tanggal : todayStr());
@@ -211,10 +193,6 @@ export function InvoiceFormDialog({
     setItems(
       src
         ? (src.items ?? []).map((it: any) => {
-            // Pasar: invoice LAMA (dibuat sebelum fitur stokAwal/stokAkhir) hanya
-            // menyimpan qty & subtotal. Pulihkan stokAwal = qty & stokAkhir = 0
-            // supaya SEMUA barang tetap tampil dan invoice tetap bisa diedit &
-            // disimpan ulang (schema membutuhkan stokAwal untuk tipe Pasar).
             const isPasar = src.tipe === "Pasar";
             const stokAwal = isPasar
               ? it.stokAwal != null
@@ -243,20 +221,10 @@ export function InvoiceFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editInv, duplicateInv]);
 
-  // Kalau dialog keburu terbuka sebelum daftar invoice termuat, perbaiki
-  // nomor invoice otomatis begitu data tiba — selama belum diubah manual.
   useEffect(() => {
     if (open && !editInv && !duplicateInv && !idTouched.current) setIdInvoice(nextInvoiceId);
   }, [open, editInv, duplicateInv, nextInvoiceId]);
 
-  // Isi harga otomatis dari katalog saat pihak dipilih (hanya kolom kosong,
-  // agar harga yang sudah diisi manual tidak tertimpa).
-  //
-  // PENTING: efek ini TIDAK berjalan saat mode EDIT / DUPLIKAT. Kalau ikut
-  // jalan, ia memetakan daftar `items` lama (dari dialog sebelumnya) dan
-  // menimpa barang invoice yang baru saja dimuat dari database — itulah bug
-  // "edit tidak menampilkan barang". Saat edit/duplikat, harga sudah tersimpan
-  // di invoice; katalog cukup dipakai manual lewat tombol "Isi Katalog".
   useEffect(() => {
     if (!open || editInv || duplicateInv) return;
     const party = String(namaPihak ?? "").trim().toLowerCase();
@@ -303,11 +271,8 @@ export function InvoiceFormDialog({
         const next: InvoiceItem = {
           ...it,
           kodeBarang: kode,
-          // Hanya timpa nama saat kode benar-benar cocok — mengetik kode
-          // parsial (mis. "BRG0") TIDAK boleh menghapus nama barang.
           ...(b ? { namaBarang: b.nama } : {}),
         };
-        // Harga dari katalog pihak didahulukan (jika ada), lalu harga database.
         const ki = katalogItemFor(next);
         if (ki) {
           const harga = parseNum(ki.harga);
@@ -329,11 +294,6 @@ export function InvoiceFormDialog({
   const removeRow = (idx: number) =>
     setItems((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
 
-  /**
-   * Barang yang diketik belum ada di database → buat sekarang dengan kode
-   * otomatis (BRG001, BRG002, …) lalu isi baris invoice. Harga jual yang sudah
-   * diketik dipakai sebagai harga default di master barang.
-   */
   const handleCreateBarang = async (idx: number, nama: string) => {
     const name = String(nama ?? "").trim();
     if (!name) return;
@@ -351,7 +311,6 @@ export function InvoiceFormDialog({
     }
   };
 
-  /** Tambah barang dari kotak pencarian cepat → langsung masuk daftar item. */
   const addQuickItem = (b: any) => {
     const base: InvoiceItem = {
       kodeBarang: b.kode,
@@ -361,7 +320,6 @@ export function InvoiceFormDialog({
       hargaJual: parseNum(b.harga) || 0,
       subtotal: 0,
     };
-    // Harga katalog pihak didahulukan (Reseller → harga jual, Supplier → harga modal).
     const newItem = applyKatalogToItem(base);
     setItems((prev) => {
       const emptyIdx = prev.findIndex(isRowEmpty);
@@ -372,11 +330,6 @@ export function InvoiceFormDialog({
     toast.success(`${b.nama} masuk daftar invoice`);
   };
 
-  /**
-   * Isi Semua (DB): isi harga modal & harga jual semua baris otomatis dari
-   * harga barang di database (cocokkan lewat kode, lalu nama). Harga yang
-   * sudah diisi manual TIDAK ditimpa — hanya kolom yang masih kosong/0.
-   */
   const fillAllPrices = () => {
     if (!barang) {
       toast.error("Data barang belum termuat — coba lagi sebentar.");
@@ -415,11 +368,6 @@ export function InvoiceFormDialog({
     }
   };
 
-  /**
-   * Isi Katalog: isi harga semua baris dari KATALOG Harga pihak (Reseller/
-   * Supplier). Katalog menyimpan harga khusus per pihak dan selalu terhubung
-   * ke invoice. Hanya kolom kosong yang diisi (harga manual tidak ditimpa).
-   */
   const applyKatalogPrices = () => {
     const kat = katalogForParty;
     if (!kat) {
@@ -458,7 +406,6 @@ export function InvoiceFormDialog({
     }
   };
 
-  /** Buat barang baru dari kotak pencarian cepat (belum ada di database). */
   const quickCreateBarang = async (nama: string) => {
     const name = String(nama ?? "").trim();
     if (!name) return;
@@ -480,7 +427,6 @@ export function InvoiceFormDialog({
     setTipe(t);
     setNamaPihak("");
     setTenggat("");
-    // Mata uang khusus Supplier (Rp/$); tipe lain selalu Rp
     if (t !== "Supplier") setMataUang("Rp");
     setItems([emptyItem()]);
   };
@@ -496,12 +442,6 @@ export function InvoiceFormDialog({
     setItems([emptyItem()]);
   };
 
-  /**
-   * Saat dialog DITUTUP (Batal / klik di luar / Escape), kosongkan form agar
-   * isian & daftar barang dari dialog sebelumnya TIDAK bocor ke dialog berikutnya.
-   * Form yang sedang dibuka ulang (buat/edit) selalu diisi ulang oleh efek
-   * populate di atas, jadi reset di sini aman.
-   */
   const handleOpenChange = (o: boolean) => {
     onOpenChange(o);
     if (!o) resetForm();
@@ -510,8 +450,6 @@ export function InvoiceFormDialog({
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      // Buang baris yang benar-benar kosong (barang belum dipilih & semua
-      // nilai 0) agar tidak memblokir penyimpanan invoice.
       const cleanItems = items
         .filter((it) => {
           const hasName = !!it.kodeBarang || !!it.namaBarang;
@@ -531,7 +469,6 @@ export function InvoiceFormDialog({
             namaBarang: it.namaBarang,
             hargaModal: parseNum(it.hargaModal),
             hargaJual: parseNum(it.hargaJual),
-            // Pasar: qty = stok awal (konsisten); subtotal = (awal - akhir) x harga jual
             qty: stokAwal || parseNum(it.qty),
             subtotal: itemSubtotal(tipe, it),
             stokAwal: tipe === "Pasar" ? stokAwal : undefined,
@@ -555,8 +492,6 @@ export function InvoiceFormDialog({
       const res = editInv
         ? await editInvoice({ doc: docPayload })
         : await createInvoice({ doc: docPayload });
-      // Sinkronkan katalog harga pihak (Reseller/Supplier) agar katalog selalu
-      // terhubung ke invoice — otomatis membuat katalog baru untuk pihak baru.
       if (tipe === "Supplier" || tipe === "Reseller") {
         try {
           await upsertKatalog({
@@ -609,16 +544,13 @@ export function InvoiceFormDialog({
           </DialogTitle>
           <DialogDescription>
             {editInv
-              ? "Ubah isi invoice (tanggal, pihak, barang, harga, qty). Efek stok & kas lama otomatis dibatalkan lalu diterapkan ulang; pembayaran yang sudah tercatat tetap dipertahankan."
+              ? "Ubah isi invoice (tanggal, pihak, barang, harga, qty). Efek stok & kas lama otomatis dibatalkan lalu diterapkan ulang."
               : duplicateInv
-                ? "Isi form disalin dari invoice lama — tinggal ubah yang perlu (tanggal, qty, harga), lalu simpan sebagai invoice BARU dengan nomor otomatis."
-                : "Pilih tipe, isi pihak & barang. Harga ditarik otomatis dari katalog saat pihak dipilih; total dihitung otomatis; stok dan kas menyesuaikan."}
+                ? "Isi form disalin dari invoice lama — tinggal ubah yang perlu, lalu simpan sebagai invoice BARU."
+                : "Pilih tipe, isi pihak & barang. Harga ditarik otomatis dari katalog saat pihak dipilih."}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Satu datalist untuk SEMUA kolom kode barang — menghindari duplikasi
-            N×M elemen <option> (N baris × M barang) yang dirender ulang tiap
-            ketikan dan membuat form lambat di Android. */}
         <datalist id="invoice-barang-all">
           {(barang ?? []).map((b: any) => (
             <option key={b.kode} value={b.kode}>
@@ -655,7 +587,7 @@ export function InvoiceFormDialog({
               disabled={!!editInv}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {editInv ? "Nomor invoice tidak bisa diubah saat edit." : `Otomatis: ${nextInvoiceId} (unik, tidak bisa duplikat)`}
+              {editInv ? "Nomor invoice tidak bisa diubah saat edit." : `Otomatis: ${nextInvoiceId} (unik)`}
             </p>
           </div>
           <div>
@@ -683,7 +615,7 @@ export function InvoiceFormDialog({
             </div>
             {katalogForParty && (
               <p className="mt-1 text-[11px] text-teal-600">
-                Katalog {katalogForParty.tipe} ditemukan ({katalogForParty.items.length} barang) — harga diisi otomatis untuk kolom kosong.
+                Katalog {katalogForParty.tipe} ditemukan ({katalogForParty.items.length} barang) — harga diisi otomatis.
               </p>
             )}
           </div>
@@ -699,9 +631,6 @@ export function InvoiceFormDialog({
                   <SelectItem value="$">Dolar ($)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Khusus Supplier boleh pilih Dolar. Transaksi lain selalu Rupiah.
-              </p>
             </div>
           ) : (
             (tipe === "Reseller" || tipe === "DPL") && (
@@ -716,11 +645,6 @@ export function InvoiceFormDialog({
                   value={tenggat}
                   onChange={(e) => setTenggat(e.target.value)}
                 />
-                {tenggat && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Notifikasi otomatis H-3 sebelum jatuh tempo.
-                  </p>
-                )}
               </div>
             )
           )}
@@ -735,13 +659,11 @@ export function InvoiceFormDialog({
                 <SelectItem value="Lunas">Lunas — sudah dibayar</SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-[11px] text-muted-foreground">Status bisa diubah kapan saja dari tabel invoice.</p>
           </div>
         </div>
 
-        {/* Multi-item — responsif: kartu di layar sempit & HP landscape, tabel di layar ≥1024px */}
+        {/* Multi-item: KARTU per barang — tampil di SEMUA ukuran layar (HP & desktop) */}
         <div className="rounded-lg border">
-          {/* Kotak pencarian cepat — seperti referensi POS: pilih barang → masuk daftar */}
           <div className="border-b bg-muted/20 px-3 py-2.5">
             <Label className="text-xs font-medium">Cari / Pilih Barang</Label>
             <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
@@ -757,21 +679,19 @@ export function InvoiceFormDialog({
                 placeholder="Cari / Pilih Barang…"
               />
               <p className="text-[11px] text-muted-foreground">
-                Ketuk hasil untuk menambah ke daftar. Barang yang belum ada langsung dibuat ke database.
+                Ketuk hasil untuk menambah ke daftar. Barang baru langsung dibuat ke database.
               </p>
             </div>
           </div>
 
-          {/* Mobile & HP landscape (<1024px): kartu per barang — tanpa geser tabel,
-              semua kolom terlihat. HP landscape bisa selebar 900px+, jadi tabel
-              desktop TIDAK dipakai di bawah 1024px supaya edit tetap nyaman. */}
-          <div className="divide-y lg:hidden">
+          {/* Kartu per barang — tampil di SEMUA layar (HP, tablet, desktop) */}
+          <div className="divide-y">
             {items.map((it, idx) => {
               const subtotal = itemSubtotal(tipe, it);
               const margin = itemMargin(tipe, it);
               const terjual = tipe === "Pasar" ? parseNum(it.stokAwal) - parseNum(it.stokAkhir) : parseNum(it.qty);
               return (
-                <div key={`card-${idx}`} className="space-y-2.5 p-3">
+                <div key={`item-${idx}`} className="space-y-2.5 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-muted-foreground uppercase">
                       Barang {idx + 1}
@@ -812,7 +732,6 @@ export function InvoiceFormDialog({
                               hargaModal: it.hargaModal || (b.harga ?? 0),
                               hargaJual: b.harga ?? it.hargaJual,
                             };
-                            // Harga katalog pihak didahulukan (jika ada).
                             const ki = katalogItemFor({ ...it, kodeBarang: b.kode, namaBarang: b.nama } as InvoiceItem);
                             if (ki) {
                               const h = parseNum(ki.harga);
@@ -913,137 +832,6 @@ export function InvoiceFormDialog({
             })}
           </div>
 
-          {/* Desktop (≥1024px): tabel (dengan margin khusus Pasar) */}
-          <div className="hidden overflow-x-auto touch-pan-x overscroll-x-contain lg:block [-webkit-overflow-scrolling:touch]">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40 text-left text-[11px] tracking-wide text-muted-foreground uppercase">
-                  <th className="min-w-44 px-2 py-2 font-semibold sm:min-w-56">Barang</th>
-                  <th className="min-w-28 px-2 py-2 text-right font-semibold">Harga Modal</th>
-                  {tipe === "Pasar" ? (
-                    <>
-                      <th className="min-w-24 px-2 py-2 text-right font-semibold">Stok Awal</th>
-                      <th className="min-w-24 px-2 py-2 text-right font-semibold">Stok Akhir</th>
-                      <th className="min-w-20 px-2 py-2 text-right font-semibold">Terjual</th>
-                    </>
-                  ) : (
-                    <th className="min-w-24 px-2 py-2 text-right font-semibold">Qty</th>
-                  )}
-                  {tipe !== "Supplier" && <th className="min-w-28 px-2 py-2 text-right font-semibold">Harga Jual</th>}
-                  <th className="min-w-32 px-2 py-2 text-right font-semibold">Subtotal</th>
-                  {tipe === "Pasar" && <th className="min-w-28 px-2 py-2 text-right font-semibold">Margin</th>}
-                  <th className="w-10 px-1 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it, idx) => {
-                  const subtotal = itemSubtotal(tipe, it);
-                  const margin = itemMargin(tipe, it);
-                  return (
-                    <tr key={idx} className="border-b last:border-0">
-                      <td className="px-2 py-2">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-                          <Input
-                            className="h-8 w-full text-base sm:w-24 sm:text-sm"
-                            list="invoice-barang-all"
-                            placeholder="Kode"
-                            value={it.kodeBarang}
-                            onChange={(e) => selectBarang(idx, e.target.value)}
-                          />
-                          <BarangSearch
-                            className="flex-1"
-                            barang={(barang ?? []) as any}
-                            value={it.namaBarang}
-                            onChange={(v) => updateItem(idx, { namaBarang: v })}
-                            onPick={(b) => {
-                              const patch: Partial<InvoiceItem> = {
-                                kodeBarang: b.kode,
-                                namaBarang: b.nama,
-                                hargaModal: it.hargaModal || (b.harga ?? 0),
-                                hargaJual: b.harga ?? it.hargaJual,
-                              };
-                              const ki = katalogItemFor({ ...it, kodeBarang: b.kode, namaBarang: b.nama } as InvoiceItem);
-                              if (ki) {
-                                const h = parseNum(ki.harga);
-                                if (tipe === "Supplier") patch.hargaModal = h;
-                                else if (tipe === "Reseller") patch.hargaJual = h;
-                              }
-                              updateItem(idx, patch);
-                            }}
-                            onCreateNew={(nama) => handleCreateBarang(idx, nama)}
-                            creatingNew={creatingBarangIdx === idx}
-                            nextKode={nextBarangKode}
-                            placeholder="Ketik nama barang…"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <NumInput
-                          className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
-                          value={it.hargaModal}
-                          onValue={(n) => updateItem(idx, { hargaModal: n })}
-                        />
-                      </td>
-                      {tipe === "Pasar" ? (
-                        <>
-                          <td className="px-2 py-2">
-                            <NumInput
-                              className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
-                              value={it.stokAwal}
-                              onValue={(n) => updateItem(idx, { stokAwal: n, qty: n })}
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <NumInput
-                              className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
-                              value={it.stokAkhir}
-                              onValue={(n) => updateItem(idx, { stokAkhir: n })}
-                            />
-                          </td>
-                          <td
-                            className={`px-2 py-2 text-right font-semibold tabular-nums ${parseNum(it.stokAwal) - parseNum(it.stokAkhir) < 0 ? "text-rose-600" : "text-teal-600"}`}
-                          >
-                            {formatNum(parseNum(it.stokAwal) - parseNum(it.stokAkhir))}
-                          </td>
-                        </>
-                      ) : (
-                        <td className="px-2 py-2">
-                          <NumInput
-                            className="h-8 w-full min-w-24 text-base text-right sm:text-sm"
-                            value={it.qty}
-                            onValue={(n) => updateItem(idx, { qty: n })}
-                          />
-                        </td>
-                      )}
-                      {tipe !== "Supplier" && (
-                        <td className="px-2 py-2">
-                          <NumInput
-                            className="h-8 w-full min-w-28 text-base text-right sm:text-sm"
-                            value={it.hargaJual}
-                            onValue={(n) => updateItem(idx, { hargaJual: n })}
-                          />
-                        </td>
-                      )}
-                      <td className={`min-w-32 px-2 py-2 text-right font-semibold tabular-nums ${subtotal < 0 ? "text-rose-600" : ""}`}>
-                        {formatCurrency(subtotal, mataUang)}
-                      </td>
-                      {tipe === "Pasar" && (
-                        <td className={`min-w-28 px-2 py-2 text-right font-semibold tabular-nums ${margin >= 0 ? "text-sky-600" : "text-rose-600"}`}>
-                          {formatCurrency(margin, mataUang)}
-                        </td>
-                      )}
-                      <td className="px-1 py-2">
-                        <Button variant="ghost" size="icon" className="size-7 text-rose-500" onClick={() => removeRow(idx)}>
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
           <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={addRow}>
@@ -1054,7 +842,7 @@ export function InvoiceFormDialog({
                 variant="outline"
                 size="sm"
                 onClick={fillAllPrices}
-                title="Isi harga modal & jual semua baris dari harga barang di database"
+                title="Isi harga modal & jual semua baris dari database"
               >
                 <Wand2 className="mr-1.5 size-3.5" />
                 Isi Semua (DB)
@@ -1064,7 +852,7 @@ export function InvoiceFormDialog({
                 size="sm"
                 onClick={applyKatalogPrices}
                 disabled={!katalogForParty}
-                title="Isi harga dari katalog khusus pihak ini (Reseller/Supplier)"
+                title="Isi harga dari katalog pihak ini"
               >
                 <Tags className="mr-1.5 size-3.5" />
                 Isi Katalog
