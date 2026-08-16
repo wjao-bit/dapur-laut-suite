@@ -64,13 +64,11 @@ export default function KatalogPage() {
   const [newPihak, setNewPihak] = useState("");
   const [savingNew, setSavingNew] = useState(false);
 
-  /** Katalog yang sedang ditambah barang (dialog). */
   const [addFor, setAddFor] = useState<KatalogRow | null>(null);
   const [addName, setAddName] = useState("");
   const [addHarga, setAddHarga] = useState<number>(0);
   const [addSaving, setAddSaving] = useState(false);
 
-  /** Harga draft per item saat diedit inline (key: katalogId|itemKey). */
   const [drafts, setDrafts] = useState<Record<string, number>>({});
   const [savingIdx, setSavingIdx] = useState<string | null>(null);
 
@@ -93,7 +91,7 @@ export default function KatalogPage() {
     setSavingNew(true);
     try {
       await upsertKatalog({ tipe: newTipe, namaPihak: party, items: [] });
-      toast.success(`Katalog ${newTipe} "${party}" dibuat — tambahkan barang & harga`);
+      toast.success(`Katalog ${newTipe} "${party}" dibuat`);
       setOpenNew(false);
       setNewPihak("");
     } catch (e: any) {
@@ -106,14 +104,8 @@ export default function KatalogPage() {
   const handleAddItem = async () => {
     if (!addFor) return;
     const name = addName.trim();
-    if (!name) {
-      toast.error("Isi nama barang");
-      return;
-    }
-    if (parseNum(addHarga) <= 0) {
-      toast.error("Isi harga barang");
-      return;
-    }
+    if (!name) { toast.error("Isi nama barang"); return; }
+    if (parseNum(addHarga) <= 0) { toast.error("Isi harga barang"); return; }
     setAddSaving(true);
     try {
       await addKatalogItem({
@@ -134,19 +126,12 @@ export default function KatalogPage() {
     }
   };
 
-  const handleSavePrice = async (k: KatalogRow, it: KatalogItem) => {
-    const key = `${k.id}|${itemKey(it)}`;
+  const handleSavePrice = async (k: KatalogRow, it: KatalogItem, idx: number) => {
+    const key = k.id + "|" + idx + "-" + itemKey(it);
     const harga = parseNum(drafts[key]);
-    if (harga <= 0) {
-      toast.error("Harga harus lebih dari 0");
-      return;
-    }
+    if (harga <= 0) { toast.error("Harga harus lebih dari 0"); return; }
     if (harga === it.harga) {
-      setDrafts((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
+      setDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
       return;
     }
     setSavingIdx(key);
@@ -159,11 +144,7 @@ export default function KatalogPage() {
         harga,
       });
       toast.success(`Harga "${it.namaBarang}" diperbarui`);
-      setDrafts((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
+      setDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
     } catch (e: any) {
       toast.error(e?.data?.message ?? e?.message ?? "Gagal menyimpan harga");
     } finally {
@@ -193,7 +174,7 @@ export default function KatalogPage() {
     <div>
       <PageHeader
         title="Katalog Harga"
-        description="Daftar harga khusus per Reseller & Supplier. Katalog dibuat otomatis saat invoice pertama untuk pihak baru; harga di katalog otomatis dipakai form invoice (tombol 'Isi Katalog'). Tambah barang + harga baru langsung di sini tanpa perlu coding."
+        description="Daftar harga khusus per Reseller & Supplier. Harga katalog otomatis dipakai form invoice."
         icon={BookOpenText}
         actions={
           <Button onClick={() => setOpenNew(true)}>
@@ -203,7 +184,6 @@ export default function KatalogPage() {
         }
       />
 
-      {/* Filter tipe */}
       <div className="mb-4 flex flex-wrap gap-2">
         {["", "Reseller", "Supplier"].map((t) => (
           <Button
@@ -229,8 +209,7 @@ export default function KatalogPage() {
           <Tags className="mx-auto size-8 text-muted-foreground/60" />
           <p className="mt-3 text-sm font-medium">Belum ada katalog harga</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Katalog dibuat otomatis saat kamu membuat invoice pertama untuk Reseller/Supplier baru,
-            atau klik <b>Tambah Katalog</b> untuk memulai manual.
+            Katalog dibuat otomatis saat invoice pertama untuk Reseller/Supplier baru.
           </p>
         </div>
       )}
@@ -257,11 +236,7 @@ export default function KatalogPage() {
                   variant="outline"
                   size="sm"
                   className="h-8 cursor-pointer text-xs"
-                  onClick={() => {
-                    setAddFor(k);
-                    setAddName("");
-                    setAddHarga(0);
-                  }}
+                  onClick={() => { setAddFor(k); setAddName(""); setAddHarga(0); }}
                 >
                   <Plus className="mr-1 size-3.5" />
                   Tambah Barang
@@ -293,8 +268,8 @@ export default function KatalogPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {k.items.map((it) => {
-                      const key = `${k.id}|${itemKey(it)}`;
+                    {k.items.map((it, idx) => {
+                      const key = k.id + "|" + idx + "-" + itemKey(it);
                       const draftVal = drafts[key] !== undefined ? drafts[key] : it.harga;
                       return (
                         <tr key={key} className="border-b last:border-0">
@@ -319,7 +294,7 @@ export default function KatalogPage() {
                                   size="icon"
                                   className="size-8 cursor-pointer text-emerald-600"
                                   title="Simpan harga"
-                                  onClick={() => handleSavePrice(k, it)}
+                                  onClick={() => handleSavePrice(k, it, idx)}
                                 >
                                   <Save className="size-4" />
                                 </Button>
@@ -381,19 +356,14 @@ export default function KatalogPage() {
                 />
                 <datalist id="katalog-pihak-options">
                   {pihakOptions.map((p: string, i: number) => (
-                    <option key={`${p}-${i}`} value={p} />
+                    <option key={p + "-" + i} value={p} />
                   ))}
                 </datalist>
               </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {newTipe} baru juga otomatis dibuat saat invoice pertama untuk nama pihak ini.
-              </p>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setOpenNew(false)}>
-              Batal
-            </Button>
+            <Button variant="outline" onClick={() => setOpenNew(false)}>Batal</Button>
             <Button onClick={handleCreateKatalog} disabled={savingNew}>
               {savingNew ? "Membuat..." : "Buat Katalog"}
             </Button>
@@ -405,9 +375,7 @@ export default function KatalogPage() {
       <Dialog open={!!addFor} onOpenChange={(o) => !o && setAddFor(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              Tambah Barang ke Katalog {addFor?.namaPihak}
-            </DialogTitle>
+            <DialogTitle>Tambah Barang ke Katalog {addFor?.namaPihak}</DialogTitle>
             <DialogDescription>
               Ketik nama barang — cocokkan dengan database bila ada, atau isi manual + harga baru.
             </DialogDescription>
@@ -426,7 +394,7 @@ export default function KatalogPage() {
                     if (parseNum(addHarga) <= 0 && b.harga) setAddHarga(b.harga);
                   }}
                   placeholder="Ketik nama barang…"
-                  notFoundText="Barang tidak ditemukan — tetap bisa ditambahkan dengan harga manual."
+                  notFoundText="Barang tidak ditemukan — tetap bisa ditambahkan."
                 />
               </div>
             </div>
@@ -441,9 +409,7 @@ export default function KatalogPage() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAddFor(null)}>
-              Batal
-            </Button>
+            <Button variant="outline" onClick={() => setAddFor(null)}>Batal</Button>
             <Button onClick={handleAddItem} disabled={addSaving}>
               {addSaving ? "Menyimpan..." : "Tambah ke Katalog"}
             </Button>
