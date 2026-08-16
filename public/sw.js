@@ -53,6 +53,15 @@ self.addEventListener("activate", function (event) {
   );
 });
 
+/** Buat Response offline minimal supaya respondWith tidak pernah dapat undefined. */
+function offlineResponse(msg) {
+  return new Response(msg || "Offline", {
+    status: 503,
+    statusText: "Service Unavailable",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
 self.addEventListener("fetch", function (event) {
   var req = event.request;
   if (req.method !== "GET") return;
@@ -81,9 +90,14 @@ self.addEventListener("fetch", function (event) {
           return res;
         })
         .catch(function () {
-          return caches.match("/").then(function (r) {
-            return r || caches.match(req.url);
-          });
+          return caches
+            .match("/")
+            .then(function (r) {
+              return r || caches.match(req.url);
+            })
+            .then(function (r) {
+              return r || offlineResponse("Anda sedang offline. Muat ulang saat online.");
+            });
         }),
     );
     return;
@@ -106,7 +120,7 @@ self.addEventListener("fetch", function (event) {
           return res;
         })
         .catch(function () {
-          return cached;
+          return cached || offlineResponse();
         });
       return cached || fetchPromise;
     }),
