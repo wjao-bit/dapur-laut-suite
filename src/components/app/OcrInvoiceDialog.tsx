@@ -365,7 +365,7 @@ export function OcrInvoiceDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Scan Invoice dari Foto</DialogTitle>
           <DialogDescription>
