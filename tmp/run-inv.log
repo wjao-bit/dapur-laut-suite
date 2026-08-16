@@ -4097,6 +4097,549 @@ BAGIAN 5 — Aksi PEMBAYARAN invoice (bayar → sisa berkurang → Lunas)
   ✅ payment(10000, sudah 10000, nominal 1000) → bayar 10000, sisa 0, Lunas
   ✅ payment(250000, sudah 0, nominal 25000) → bayar 25000, sisa 225000, Pending
   ✅ payment(250000, sudah 225000, nominal 50000) → bayar 250000, sisa 0, Lunas
-[Dap
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Toko Bayar",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "total": 76500,
+  "totalModal": 51500,
+  "totalPenjualan": 76500,
+  "margin": 25000
+}
+  ✅ invoice dibuat sebelum pembayaran
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "nominal": 30000,
+  "tanggal": "2026-08-07",
+  "keterangan": "DP"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "dibayar": 30000,
+  "sisa": 46500,
+  "status": "Pending",
+  "total": 76500
+}
+  ✅ bayar 30.000 tercatat
+  ✅ DB: dibayar 30.000, sisa 46.500, riwayat 1
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "nominal": 46500,
+  "tanggal": "2026-08-09",
+  "keterangan": "Pelunasan"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "dibayar": 76500,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 76500
+}
+  ✅ bayar pelunasan → LUNAS
+  ✅ DB: Lunas, sisa 0, riwayat 2
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "nominal": 999999
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "dibayar": 76500,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 76500
+}
+  ✅ bayar berlebih dibatasi (tercatat 0, tetap Lunas)
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-GAK-ADA",
+  "nominal": 1000
+}
+  ✅ invoice tidak ditemukan ditolak
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-GAK-ADA",
+  "nominal": 0
+}
+  ✅ nominal 0 ditolak
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-BAY-SUP",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "CV Pasok",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-BAY-SUP",
+  "total": 20000,
+  "totalModal": 20000,
+  "totalPenjualan": 20000,
+  "margin": 0
+}
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAY-SUP",
+  "nominal": 20000
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAY-SUP",
+  "dibayar": 20000,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 20000
+}
+  ✅ Supplier: bayar 20.000 → Lunas
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Kios",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Keripik",
+      "harga": 10000,
+      "qty": 5,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-BAYAR",
+  "total": 50000
+}
+[Dapur Laut] bayarInvoiceTetesan request: {
+  "idInvoice": "TET-BAYAR",
+  "nominal": 20000
+}
+[Dapur Laut] bayarInvoiceTetesan response: {
+  "idInvoice": "TET-BAYAR",
+  "dibayar": 20000,
+  "sisa": 30000,
+  "status": "Pending",
+  "total": 50000
+}
+  ✅ Tetesan: bayar 20.000 → sisa 30.000 Pending
+[Dapur Laut] bayarInvoiceTetesan request: {
+  "idInvoice": "TET-BAYAR",
+  "nominal": 30000
+}
+[Dapur Laut] bayarInvoiceTetesan response: {
+  "idInvoice": "TET-BAYAR",
+  "dibayar": 50000,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 50000
+}
+  ✅ Tetesan: pelunasan → LUNAS
+  ✅ Tetesan: DB Lunas, riwayat 2
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-REBAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-REBAYAR",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-REBAYAR",
+  "nominal": 10000,
+  "tanggal": "2026-08-08"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-REBAYAR",
+  "dibayar": 10000,
+  "sisa": 20000,
+  "status": "Pending",
+  "total": 30000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-REBAYAR",
+  "tanggal": "2026-08-10",
+  "tipe": "Reseller",
+  "namaPihak": "B",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-REBAYAR",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+  ✅ re-save berhasil & pembayaran tidak hilang
+  ✅ re-save: sisa tetap konsisten (tidak negatif)
 
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 95.653 characters. Read it separately or use code_search for the relevant section.
+======================================================================
+BAGIAN 6 — EDIT invoice yang sudah jadi (stok & kas dibatalkan lalu diterapkan)
+======================================================================
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-EDIT1",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 2,
+      "subtotal": 50000
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Teh",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "qty": 3,
+      "subtotal": 45000
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-EDIT1",
+  "total": 95000,
+  "totalModal": 70000,
+  "totalPenjualan": 95000,
+  "margin": 25000
+}
+  ✅ edit: create awal 2 riwayat stok keluar
+  ✅ edit: create awal kas masuk 95.000
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-EDIT1",
+  "tanggal": "2026-08-07",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller B",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 5,
+      "subtotal": 125000
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Susu",
+      "hargaModal": 5000,
+      "hargaJual": 8000,
+      "qty": 10,
+      "subtotal": 80000
+    }
+  ]
+}
+[Dapur Laut] editInvoice response: {
+  "idInvoice": "INV-EDIT1",
+  "total": 205000,
+  "totalModal": 150000,
+  "totalPenjualan": 205000,
+  "margin": 55000
+}
+  ✅ edit: sukses & total baru 205.000
+  ✅ edit: riwayat stok lama dihapus — hanya 2 baris baru
+  ✅ edit: stok Kopi −5 & Susu −10
+  ✅ edit: kas tetap 1 entri dengan nilai baru 205.000
+  ✅ edit: pihak & tanggal ikut berubah
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "Victoria",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Ikan",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "stokAwal": 20,
+      "stokAkhir": 5,
+      "qty": 20,
+      "subtotal": 225000
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "total": 225000,
+  "totalModal": 150000,
+  "totalPenjualan": 225000,
+  "margin": 75000
+}
+  ✅ pasar edit: create awal 2 riwayat (kirim 20, kembali 5)
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "tanggal": "2026-08-08",
+  "tipe": "Pasar",
+  "namaPihak": "Tunas",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Ikan",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "stokAwal": 30,
+      "stokAkhir": 10,
+      "qty": 30,
+      "subtotal": 300000
+    }
+  ]
+}
+[Dapur Laut] editInvoice response: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "total": 300000,
+  "totalModal": 200000,
+  "totalPenjualan": 300000,
+  "margin": 100000
+}
+  ✅ pasar edit: riwayat baru 2 (kirim 30, kembali 10)
+  ✅ pasar edit: total baru 300.000
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "DPL A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 10,
+      "subtotal": 250000
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "total": 250000,
+  "totalModal": 200000,
+  "totalPenjualan": 250000,
+  "margin": 50000
+}
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "nominal": 100000,
+  "tanggal": "2026-08-08"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "dibayar": 100000,
+  "sisa": 150000,
+  "status": "Pending",
+  "total": 250000
+}
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "DPL A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 16,
+      "subtotal": 400000
+    }
+  ]
+}
+[Dapur Laut] editInvoice response: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "total": 400000,
+  "totalModal": 320000,
+  "totalPenjualan": 400000,
+  "margin": 80000
+}
+  ✅ edit: dibayar tetap 100.000 & riwayat tetap 1
+  ✅ edit: sisa dihitung ulang = 300.000
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-TIDAK-ADA",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "X",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 1000,
+      "hargaJual": 2000,
+      "qty": 1,
+      "subtotal": 2000
+    }
+  ]
+}
+  ✅ edit invoice tak ada → ditolak
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT1",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Kios A",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BJK001",
+      "namaBarang": "Keripik",
+      "harga": 10000,
+      "qty": 5,
+      "subtotal": 50000
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT1",
+  "total": 50000
+}
+[Dapur Laut] editInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT1",
+  "tanggal": "2026-08-07",
+  "tipe": "Penjualan",
+  "namaPihak": "Kios B",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BJK001",
+      "namaBarang": "Keripik",
+      "harga": 10000,
+      "qty": 8,
+      "subtotal": 80000
+    },
+    {
+      "kodeBarang": "BJK002",
+      "namaBarang": "Abon",
+      "harga": 20000,
+      "qty": 2,
+      "subtotal": 40000
+    }
+  ]
+}
+[Dapur Laut] editInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT1",
+  "total": 120000
+}
+  ✅ tetesan edit: sukses & total 120.000
+  ✅ tetesan edit: riwayat baru 2 (keluar 8 & 2)
+  ✅ tetesan edit: kas tetap 1 entri 120.000
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT-M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Pemasok A",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BBK001",
+      "namaBarang": "Tepung",
+      "harga": 5000,
+      "qty": 10,
+      "subtotal": 50000
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT-M",
+  "total": 50000
+}
+  ✅ tetesan modal create: stok baku +10 & gudang −10
+[Dapur Laut] editInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT-M",
+  "tanggal": "2026-08-07",
+  "tipe": "Modal",
+  "namaPihak": "Pemasok B",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BBK001",
+      "namaBarang": "Tepung",
+      "harga": 5000,
+      "qty": 15,
+      "subtotal": 75000
+    }
+  ]
+}
+[Dapur Laut] editInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT-M",
+  "total": 75000
+}
+  ✅ tetesan modal edit: sukses & total 75.000
+  ✅ tetesan modal edit: stok baku 1 riwayat +15 & gudang 1 riwayat −15
+  ✅ tetesan modal edit: kas keluar 75.000 (1 entri)
+
+======================================================================
+HASIL: 278 lulus, 0 gagal — SEMUA LULUS ✅
+======================================================================

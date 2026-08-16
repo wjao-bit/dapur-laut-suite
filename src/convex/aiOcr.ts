@@ -345,6 +345,62 @@ async function scanWithCloudflare(imageDataUrl: string, apiToken: string, accoun
     }
 
     const json = await res.json();
-    const content: string = json?.result?.respon
+    const content: string = json?.result?.response ?? "";
+    if (!content) {
+      return { ok: false, error: "Cloudflare tidak mengembalikan teks — coba lagi." };
+    }
+    return parseAiContent(content);
+  } catch (e: any) {
+    return {
+      ok: false,
+      error: `Gagal memanggil Cloudflare: ${e?.message ?? "koneksi"}. Periksa koneksi internet, atau pakai OCR biasa.`,
+    };
+  }
+}
 
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 14.035 characters. Read it separately or use code_search for the relevant section.
+export const scanInvoiceWithAi = action({
+  args: {
+    imageDataUrl: v.string(),
+    tipe: v.optional(v.string()),
+    instruksi: v.optional(v.string()),
+  },
+  handler: async (_ctx, { imageDataUrl, tipe, instruksi }): Promise<AiOcrResult> => {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const cfToken = process.env.CF_API_TOKEN;
+    const cfAccount = process.env.CF_ACCOUNT_ID;
+    const openAiKey = process.env.OPENAI_API_KEY;
+    const cfReady = !!(cfToken && cfAccount);
+
+    if (!cfReady && !geminiKey && !openAiKey) {
+      return {
+        ok: false,
+        error:
+          "Belum ada kunci AI di proyek. Provider UTAMA: Cloudflare Workers AI — dash.cloudflare.com → Workers AI → API token → simpan CF_API_TOKEN & CF_ACCOUNT_ID di menu Keys / API keys proyek (kuota gratis harian, tanpa kartu kredit). Cadangan: GEMINI_API_KEY (aistudio.google.com). Tanpa kunci, tombol 'OCR Biasa' tetap bisa dipakai.",
+      };
+    }
+    if (!imageDataUrl || !imageDataUrl.startsWith("data:image")) {
+      return { ok: false, error: "Gambar tidak valid — coba pilih foto lagi." };
+    }
+    const tipeValid = TIPE_VALID.includes(tipe as any) ? tipe : undefined;
+
+    // Urutan: CLOUDFLARE (utama) → Gemini (cadangan gratis) → OpenAI (berbayar).
+    // Jika provider utama gagal, otomatis coba provider berikutnya.
+    if (cfReady) {
+      const cfRes = await scanWithCloudflare(imageDataUrl, cfToken, cfAccount, tipeValid, instruksi);
+      if (cfRes.ok) return cfRes;
+      if (geminiKey) {
+        const gRes = await scanWithGemini(imageDataUrl, geminiKey, tipeValid, instruksi);
+        if (gRes.ok) return gRes;
+      }
+      if (openAiKey) return scanWithOpenAi(imageDataUrl, openAiKey, tipeValid, instruksi);
+      return cfRes;
+    }
+    if (geminiKey) {
+      const gRes = await scanWithGemini(imageDataUrl, geminiKey, tipeValid, instruksi);
+      if (gRes.ok) return gRes;
+      if (openAiKey) return scanWithOpenAi(imageDataUrl, openAiKey, tipeValid, instruksi);
+      return gRes;
+    }
+    return scanWithOpenAi(imageDataUrl, openAiKey!, tipeValid, instruksi);
+  },
+});
