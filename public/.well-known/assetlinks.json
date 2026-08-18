@@ -1,10 +1,1 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.dapurlaut.bisnis",
-      "sha256_cert_fingerprints": ["GANTI_DENGAN_SHA256_FINGERPRINT"]
-    }
-  }
-]
+[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.

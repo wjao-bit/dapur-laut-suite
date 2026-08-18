@@ -16,8 +16,9 @@ import { badRequest, logAktivitas, logRequest, logResponse } from "./lib";
 // bisa di-kick / ditolak oleh siapa pun.
 //
 // Password: setiap user (termasuk Admin Master) bisa mengganti password-nya
-// sendiri lewat mutation changePassword. Password Admin Master yang SUDAH
-// diganti TIDAK pernah di-reset otomatis ke bawaan lagi (fitur keamanan).
+// sendiri lewat mutation changePassword, dan bisa me-reset password yang lupa
+// lewat mutation resetPasswordPublic (dari halaman login). Password Admin
+// Master yang SUDAH diganti TIDAK pernah di-reset otomatis ke bawaan lagi.
 // ============================================================================
 
 /** Nomor master tetap PT Dapur Laut — Admin Master. */
@@ -251,6 +252,32 @@ export const changePassword = mutation({
     await ctx.db.patch(akun._id, { password: sha256Hex(newPassword) });
     await logAktivitas(ctx, akun.id, akun.nama, "Ganti Password", "Password berhasil diganti");
     logResponse("changePassword", { phone: akun.id });
+    return { ok: true, phone: akun.id };
+  },
+});
+
+/**
+ * RESET PASSWORD (LUPA PASSWORD) — dari halaman login.
+ *
+ * Tanpa password lama: cukup nomor HP terdaftar + password baru (min. 6
+ * karakter). Berlaku hanya untuk akun yang SUDAH disetujui ("approved").
+ * Setiap percobaan dicatat ke log aktivitas supaya Admin Master bisa
+ * memantau (menu Admin & Akun / log monitoring). Nomor Admin Master
+ * (082100000000) juga bisa di-reset lewat jalur ini.
+ */
+export const resetPasswordPublic = mutation({
+  args: { phone: v.string(), newPassword: v.string() },
+  handler: async (ctx, { phone, newPassword }) => {
+    const cleanPhone = normalizePhone(phone);
+    logRequest("resetPasswordPublic", { phone: cleanPhone });
+    if (!cleanPhone) return badRequest("Nomor HP wajib diisi");
+    if (!newPassword || newPassword.length < 6) return badRequest("Password baru minimal 6 karakter");
+    const akun = await findAkun(ctx, cleanPhone);
+    if (!akun) return badRequest("Nomor HP tidak terdaftar di sistem");
+    if (akun.status !== "approved") return badRequest("Akun belum disetujui admin — hubungi Admin Master dulu");
+    await ctx.db.patch(akun._id, { password: sha256Hex(newPassword) });
+    await logAktivitas(ctx, akun.id, akun.nama, "Reset Password (lupa)", "Password direset dari halaman login");
+    logResponse("resetPasswordPublic", { phone: akun.id });
     return { ok: true, phone: akun.id };
   },
 });

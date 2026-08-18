@@ -1,21 +1,28 @@
 "use node";
 
 // ============================================================================
-// AI OCR — baca invoice/nota dari foto dengan model vision OpenAI (gpt-4o-mini).
-//
+// AI OCR — baca invoice/nota dari foto dengan model vision.
 // Dipanggil dari dialog "Scan Invoice". Hasilnya SELALU berupa draft yang
 // diverifikasi user sebelum disimpan (tidak pernah langsung masuk database).
 //
-// Kunci API dibaca dari environment variable OPENAI_API_KEY (atur lewat menu
-// Keys / API keys proyek). Kalau kunci belum ada, action mengembalikan
-// { ok: false, error: ... } dan dialog tetap memakai Tesseract sebagai
-// cadangan (tanpa biaya & tanpa kunci).
+// PROVIDER (dipilih otomatis, urutan prioritas):
+//   1. CF_API_TOKEN + CF_ACCOUNT_ID → Cloudflare Workers AI
+//      (@cf/qwen/qwen2.5-vl-7b-instruct) — PROVIDER UTAMA. Punya KUOTA GRATIS
+//      harian, TANPA kartu kredit (10.000 neuron/hari). Kunci dari
+//      dash.cloudflare.com → Workers AI. Bisa dipakai terus (kuota direset
+//      tiap hari).
+//   2. GEMINI_API_KEY → Google Gemini (gemini-2.5-flash) — kuota gratis
+//      harian (aistudio.google.com). Dipakai HANYA kalau Cloudflare belum
+//      dikonfigurasi atau gagal.
+//   3. OPENAI_API_KEY → OpenAI gpt-4o-mini (berbayar; kredit kecil utk akun
+//      baru). Cadangan terakhir.
 //
-// `tipe` (opsional) dipilih user SEBELUM scan supaya perintah pembacaan
-// diarahkan: Supplier → harga beli/modal, Reseller/DPL → harga jual,
-// Pasar → qty = stok awal & baca stok akhir.
-// `instruksi` (opsional) = perintah tambahan bebas dari user, ditambahkan
-// ke perintah AI (mis. "hanya baca 5 baris pertama", "abaikan yang tanpa harga").
+// Tanpa ketiganya, action mengembalikan pesan instruksi; tombol "OCR Biasa"
+// (Tesseract) tetap jalan tanpa kunci apa pun.
+//
+// Kunci dibaca dari environment variable (atur lewat menu Keys / API keys
+// proyek). Semua provider memakai perintah (prompt) yang sama & mengembalikan
+// JSON dengan bentuk yang sama, jadi hasilnya konsisten.
 // ============================================================================
 
 import { action } from "./_generated/server";
@@ -123,38 +130,188 @@ function buildUserPrompt(tipe?: string, instruksi?: string): string {
   return teks;
 }
 
-export const scanInvoiceWithAi = action({
-  args: {
-    imageDataUrl: v.string(),
-    tipe: v.optional(v.string()),
-    instruksi: v.optional(v.string()),
-  },
-  handler: async (_ctx, { imageDataUrl, tipe, instruksi }): Promise<AiOcrResult> => {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+/** Ubah JSON mentah dari model menjadi daftar item yang bersih. */
+function parseAiContent(content: string): AiOcrResult {
+  const parsed = extractJson(content);
+  if (!parsed || typeof parsed !== "object") {
+    return { ok: false, error: "AI tidak mengembalikan JSON yang valid — coba lagi atau gunakan OCR biasa." };
+  }
+  const p = parsed as Record<string, unknown>;
+  const rawItems = Array.isArray(p.items) ? (p.items as unknown[]) : [];
+  const items: AiOcrItem[] = rawItems
+    .map((raw) => {
+      const it = (raw ?? {}) as Record<string, unknown>;
+      const stokAkhir = toNum(it.stokAkhir);
+      return {
+        namaBarang: String(it.namaBarang ?? it.nama ?? "").trim(),
+        qty: Math.max(0, toNum(it.qty)),
+        harga: Math.max(0, toNum(it.harga ?? it.hargaSatuan ?? it.price)),
+        ...(stokAkhir > 0 ? { stokAkhir } : {}),
+      };
+    })
+    .filter((it) => it.namaBarang.length > 0)
+    .slice(0, 60);
+
+  const tipeRaw = String(p.tipe ?? "").trim();
+  const tipeAi = TIPE_VALID.includes(tipeRaw as any) ? tipeRaw : undefined;
+
+  let tanggal = String(p.tanggal ?? "").trim();
+  if (tanggal && !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
+    // Coba konversi DD/MM/YYYY atau DD-MM-YYYY
+    const m = tanggal.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{4})$/);
+    if (m) tanggal = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    else tanggal = "";
+  }
+  if (tanggal && Number.isNaN(new Date(tanggal).getTime())) tanggal = "";
+
+  return {
+    ok: true,
+    data: {
+      tipe: tipeAi,
+      namaPihak: String(p.namaPihak ?? "").trim() || undefined,
+      tanggal: tanggal || undefined,
+      items,
+    },
+  };
+}
+
+/** Panggil OpenAI (gpt-4o-mini vision) — provider berbayar, cadangan terakhir. */
+async function scanWithOpenAi(imageDataUrl: string, apiKey: string, tipeValid?: string, instruksi?: string): Promise<AiOcrResult> {
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 1800,
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: buildUserPrompt(tipeValid, instruksi) },
+              { type: "image_url", image_url: { url: imageDataUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      let msg = `OpenAI gagal (${res.status})`;
+      try {
+        const j = JSON.parse(body);
+        msg = j?.error?.message ?? msg;
+      } catch {
+        /* body bukan JSON */
+      }
+      return { ok: false, error: msg };
+    }
+
+    const json = await res.json();
+    const content: string = json?.choices?.[0]?.message?.content ?? "";
+    return parseAiContent(content);
+  } catch (e: any) {
+    return {
+      ok: false,
+      error: `Gagal memanggil OpenAI: ${e?.message ?? "koneksi"}. Periksa koneksi internet, atau pakai OCR biasa.`,
+    };
+  }
+}
+
+/** Panggil Google Gemini (gemini-2.5-flash) — cadangan gratis bila Cloudflare belum ada/gagal. */
+async function scanWithGemini(imageDataUrl: string, apiKey: string, tipeValid?: string, instruksi?: string): Promise<AiOcrResult> {
+  // imageDataUrl berbentuk "data:image/jpeg;base64,...." → ambil bagian base64
+  const base64 = String(imageDataUrl).split(",").slice(1).join(",");
+  if (!base64) return { ok: false, error: "Gambar tidak valid — coba pilih foto lagi." };
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: buildUserPrompt(tipeValid, instruksi) },
+                { inline_data: { mime_type: "image/jpeg", data: base64 } },
+              ],
+            },
+          ],
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 1800,
+            responseMimeType: "application/json",
+          },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      let msg = `Gemini gagal (${res.status})`;
+      try {
+        const j = JSON.parse(body);
+        msg = j?.error?.message ?? j?.message ?? msg;
+      } catch {
+        /* body bukan JSON */
+      }
+      // 429 = kuota gratis habis sementara → beri tahu yang bisa dilakukan
+      if (res.status === 429) {
+        msg =
+          "Kuota gratis Gemini habis sementara (429). Sistem otomatis mencoba OpenAI — atau tunggu beberapa saat.";
+      }
+      return { ok: false, error: msg };
+    }
+
+    const json = await res.json();
+    const parts: any[] = json?.candidates?.[0]?.content?.parts ?? [];
+    const content = parts.map((p: any) => p?.text ?? "").join("");
+    if (!content) {
+      const fb = json?.promptFeedback?.blockReason;
       return {
         ok: false,
-        error:
-          "OPENAI_API_KEY belum diatur. Scan AI memakai model vision OpenAI (gpt-4o-mini) — tambahkan kunci di menu Keys / API keys proyek. Tanpa kunci, tombol 'OCR Biasa' tetap bisa dipakai.",
+        error: fb ? `Gemini memblokir permintaan (${fb}) — coba foto yang lebih jelas.` : "Gemini tidak mengembalikan teks — coba lagi.",
       };
     }
-    if (!imageDataUrl || !imageDataUrl.startsWith("data:image")) {
-      return { ok: false, error: "Gambar tidak valid — coba pilih foto lagi." };
-    }
-    const tipeValid = TIPE_VALID.includes(tipe as any) ? tipe : undefined;
+    return parseAiContent(content);
+  } catch (e: any) {
+    return {
+      ok: false,
+      error: `Gagal memanggil Gemini: ${e?.message ?? "koneksi"}. Periksa koneksi internet, atau pakai OCR biasa.`,
+    };
+  }
+}
 
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+/**
+ * Panggil Cloudflare Workers AI (@cf/qwen/qwen2.5-vl-7b-instruct) — PROVIDER
+ * UTAMA. Punya KUOTA GRATIS harian, TANPA kartu kredit (10.000 neuron/hari).
+ * Model open-source yang bagus membaca gambar/nota dan bisa mengeluarkan JSON.
+ * Butuh CF_API_TOKEN (token API dari dash.cloudflare.com) dan CF_ACCOUNT_ID
+ * (Account ID di halaman Workers AI).
+ */
+async function scanWithCloudflare(imageDataUrl: string, apiToken: string, accountId: string, tipeValid?: string, instruksi?: string): Promise<AiOcrResult> {
+  if (!imageDataUrl.startsWith("data:image")) {
+    return { ok: false, error: "Gambar tidak valid — coba pilih foto lagi." };
+  }
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/@cf/qwen/qwen2.5-vl-7b-instruct`,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiToken}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
-          max_tokens: 1800,
-          temperature: 0,
-          response_format: { type: "json_object" },
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             {
@@ -166,71 +323,28 @@ export const scanInvoiceWithAi = action({
             },
           ],
         }),
-      });
+      },
+    );
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        let msg = `OpenAI gagal (${res.status})`;
-        try {
-          const j = JSON.parse(body);
-          msg = j?.error?.message ?? msg;
-        } catch {
-          /* body bukan JSON */
-        }
-        return { ok: false, error: msg };
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      let msg = `Cloudflare gagal (${res.status})`;
+      try {
+        const j = JSON.parse(body);
+        msg = j?.errors?.[0]?.message ?? j?.error ?? msg;
+      } catch {
+        /* body bukan JSON */
       }
-
-      const json = await res.json();
-      const content: string = json?.choices?.[0]?.message?.content ?? "";
-      const parsed = extractJson(content);
-
-      if (!parsed || typeof parsed !== "object") {
-        return { ok: false, error: "AI tidak mengembalikan JSON yang valid — coba lagi atau gunakan OCR biasa." };
+      if (res.status === 429) {
+        msg = "Kuota gratis Cloudflare habis sementara (429). Sistem otomatis mencoba cadangan — atau tunggu beberapa saat.";
       }
-
-      const p = parsed as Record<string, unknown>;
-      const rawItems = Array.isArray(p.items) ? (p.items as unknown[]) : [];
-      const items: AiOcrItem[] = rawItems
-        .map((raw) => {
-          const it = (raw ?? {}) as Record<string, unknown>;
-          const stokAkhir = toNum(it.stokAkhir);
-          return {
-            namaBarang: String(it.namaBarang ?? it.nama ?? "").trim(),
-            qty: Math.max(0, toNum(it.qty)),
-            harga: Math.max(0, toNum(it.harga ?? it.hargaSatuan ?? it.price)),
-            ...(stokAkhir > 0 ? { stokAkhir } : {}),
-          };
-        })
-        .filter((it) => it.namaBarang.length > 0)
-        .slice(0, 60);
-
-      const tipeRaw = String(p.tipe ?? "").trim();
-      const tipeAi = TIPE_VALID.includes(tipeRaw as any) ? tipeRaw : undefined;
-
-      let tanggal = String(p.tanggal ?? "").trim();
-      if (tanggal && !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-        // Coba konversi DD/MM/YYYY atau DD-MM-YYYY
-        const m = tanggal.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
-        if (m) tanggal = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-        else tanggal = "";
+      if (res.status === 401 || res.status === 403) {
+        msg = "Kunci Cloudflare salah/kadaluarsa — cek CF_API_TOKEN & CF_ACCOUNT_ID di menu Keys, atau pakai tombol Tes Kunci AI.";
       }
-      if (tanggal && Number.isNaN(new Date(tanggal).getTime())) tanggal = "";
-
-      return {
-        ok: true,
-        data: {
-          // Tipe dari user (dipilih sebelum scan) menang; AI hanya memberi saran.
-          tipe: tipeValid ?? tipeAi,
-          namaPihak: String(p.namaPihak ?? "").trim() || undefined,
-          tanggal: tanggal || undefined,
-          items,
-        },
-      };
-    } catch (e: any) {
-      return {
-        ok: false,
-        error: `Gagal memanggil AI: ${e?.message ?? "koneksi"}. Periksa koneksi internet, atau pakai OCR biasa.`,
-      };
+      return { ok: false, error: msg };
     }
-  },
-});
+
+    const json = await res.json();
+    const content: string = json?.result?.respon
+
+[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 14.035 characters. Read it separately or use code_search for the relevant section.
