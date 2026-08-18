@@ -43,8 +43,10 @@ interface KatalogRow {
   updatedAt: number;
 }
 
-function itemKey(it: KatalogItem): string {
-  return String(it.kodeBarang || it.namaBarang || "").toLowerCase();
+/** Always-unique React key per katalog item — uses _id + index + kode/name combo. */
+function itemKey(rowId: string, idx: number, it: KatalogItem): string {
+  const ref = (it.kodeBarang || it.namaBarang || "x").toLowerCase();
+  return `${rowId}-${idx}-${ref}`;
 }
 
 export default function KatalogPage() {
@@ -127,14 +129,14 @@ export default function KatalogPage() {
   };
 
   const handleSavePrice = async (k: KatalogRow, it: KatalogItem, idx: number) => {
-    const key = k.id + "|" + idx + "-" + itemKey(it);
-    const harga = parseNum(drafts[key]);
+    const draftKey = `${k.id}|${idx}-${(it.kodeBarang || it.namaBarang || "").toLowerCase()}`;
+    const harga = parseNum(drafts[draftKey]);
     if (harga <= 0) { toast.error("Harga harus lebih dari 0"); return; }
     if (harga === it.harga) {
-      setDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
+      setDrafts((prev) => { const next = { ...prev }; delete next[draftKey]; return next; });
       return;
     }
-    setSavingIdx(key);
+    setSavingIdx(draftKey);
     try {
       await addKatalogItem({
         tipe: k.tipe,
@@ -144,7 +146,7 @@ export default function KatalogPage() {
         harga,
       });
       toast.success(`Harga "${it.namaBarang}" diperbarui`);
-      setDrafts((prev) => { const next = { ...prev }; delete next[key]; return next; });
+      setDrafts((prev) => { const next = { ...prev }; delete next[draftKey]; return next; });
     } catch (e: any) {
       toast.error(e?.data?.message ?? e?.message ?? "Gagal menyimpan harga");
     } finally {
@@ -216,7 +218,7 @@ export default function KatalogPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {filtered?.map((k: KatalogRow) => (
-          <div key={k.id} className="rounded-lg border bg-card">
+          <div key={k._id} className="rounded-lg border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-4 py-3">
               <div className="flex items-center gap-2">
                 {k.tipe === "Supplier" ? (
@@ -269,10 +271,10 @@ export default function KatalogPage() {
                   </thead>
                   <tbody>
                     {k.items.map((it, idx) => {
-                      const key = k.id + "|" + idx + "-" + itemKey(it);
-                      const draftVal = drafts[key] !== undefined ? drafts[key] : it.harga;
+                      const draftKey = `${k.id}|${idx}-${(it.kodeBarang || it.namaBarang || "").toLowerCase()}`;
+                      const draftVal = drafts[draftKey] !== undefined ? drafts[draftKey] : it.harga;
                       return (
-                        <tr key={key} className="border-b last:border-0">
+                        <tr key={itemKey(k._id, idx, it)} className="border-b last:border-0">
                           <td className="px-4 py-2">
                             <p className="font-medium">{it.namaBarang}</p>
                             {it.kodeBarang && (
@@ -284,9 +286,9 @@ export default function KatalogPage() {
                               <NumInput
                                 className="h-8 w-28 text-right text-sm"
                                 value={draftVal}
-                                onValue={(n) => setDrafts((prev) => ({ ...prev, [key]: n }))}
+                                onValue={(n) => setDrafts((prev) => ({ ...prev, [draftKey]: n }))}
                               />
-                              {savingIdx === key ? (
+                              {savingIdx === draftKey ? (
                                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
                               ) : (
                                 <Button
@@ -356,7 +358,7 @@ export default function KatalogPage() {
                 />
                 <datalist id="katalog-pihak-options">
                   {pihakOptions.map((p: string, i: number) => (
-                    <option key={p + "-" + i} value={p} />
+                    <option key={`opt-${p}-${i}`} value={p} />
                   ))}
                 </datalist>
               </div>
