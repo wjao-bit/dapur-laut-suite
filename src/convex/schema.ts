@@ -66,7 +66,7 @@ const schema = defineSchema(
     // ------------------------------------------------------------------ 3.
     // Reseller — IDReseller PRIMARY KEY / UNIQUE
     reseller: defineTable({
-      id: v.string(),
+      id: v.string(), // IDReseller (unique)
       nama: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
@@ -75,7 +75,7 @@ const schema = defineSchema(
     // ------------------------------------------------------------------ 4.
     // DPL (Pasar grosir) — IDDPL PRIMARY KEY / UNIQUE
     dpl: defineTable({
-      id: v.string(),
+      id: v.string(), // IDDPL (unique)
       namaPasar: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
@@ -84,7 +84,7 @@ const schema = defineSchema(
     // ------------------------------------------------------------------ 5.
     // Pasar (Victoria/Tunas) — IDPasar PRIMARY KEY / UNIQUE
     pasar: defineTable({
-      id: v.string(),
+      id: v.string(), // IDPasar (unique)
       namaPasar: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
@@ -93,7 +93,7 @@ const schema = defineSchema(
     // ------------------------------------------------------------------ 6.
     // Karyawan — IDKaryawan PRIMARY KEY / UNIQUE
     karyawan: defineTable({
-      id: v.string(),
+      id: v.string(), // IDKaryawan (unique)
       nama: v.string(),
       jabatan: v.optional(v.string()),
       gajiPokok: v.number(),
@@ -132,25 +132,19 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"]),
 
     // ------------------------------------------------------------------ 9.
-    // Invoice (multi-barang) — idInvoice UNIQUE, mataUang default "Rp"
-    // Pembayaran: dibayar = total yg sudah dibayar, sisa = total - dibayar,
-    // riwayatBayar = daftar pembayaran (tanggal, nominal, keterangan).
+    // Invoice (multi-barang)
     invoice: defineTable({
       idInvoice: v.string(), // UNIQUE
       tanggal: v.string(),
       tipe: v.union(v.literal("Supplier"), v.literal("Reseller"), v.literal("DPL"), v.literal("Pasar")),
       namaPihak: v.string(),
-      tenggat: v.optional(v.string()), // jatuh tempo pembayaran (manual input)
-      mataUang: v.union(v.literal("Rp"), v.literal("$")), // default "Rp"; Supplier bisa pilih "$"
       items: v.array(
         v.object({
           kodeBarang: v.string(),
           namaBarang: v.string(),
           hargaModal: v.number(),
-          qty: v.number(),
           hargaJual: v.optional(v.number()),
-          stokAwal: v.optional(v.number()),
-          stokAkhir: v.optional(v.number()),
+          qty: v.number(),
           subtotal: v.number(),
         }),
       ),
@@ -158,9 +152,11 @@ const schema = defineSchema(
       totalModal: v.number(),
       totalPenjualan: v.number(),
       margin: v.number(),
-      statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending" (default Pending)
+      mataUang: v.union(v.literal("Rp"), v.literal("$")),
+      statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending"
       dibayar: v.optional(v.number()),
       sisa: v.optional(v.number()),
+      tenggat: v.optional(v.string()),
       riwayatBayar: v.optional(
         v.array(
           v.object({
@@ -170,175 +166,92 @@ const schema = defineSchema(
           }),
         ),
       ),
-      // Sampah (recycle bin): diisi timestamp saat invoice dihapus. Invoice
-      // dengan deletedAt tidak tampil di daftar/laporan aktif, tapi masih bisa
-      // dipulihkan. Efek kas & stok TIDAK dibatalkan selama masih di sampah;
-      // dibatalkan hanya saat dihapus permanen (purge).
-      deletedAt: v.optional(v.number()),
+      deletedAt: v.optional(v.string()), // soft-delete (recycle bin)
     })
       .index("by_idInvoice", ["idInvoice"])
       .index("by_tanggal", ["tanggal"])
-      .index("by_tipe", ["tipe"]),
-
-    // ------------------------------------------------------------------ 9b.
-    // Langganan notifikasi perangkat (Web Push / PWA) — satu baris per endpoint.
-    // Dipakai mengirim notifikasi ke HP/PC lewat push service browser.
-    pushSubscription: defineTable({
-      endpoint: v.string(), // URL endpoint push service (unique)
-      keys: v.object({
-        p256dh: v.string(),
-        auth: v.string(),
-      }),
-      createdAt: v.number(),
-    }).index("by_endpoint", ["endpoint"]),
-
-    // ------------------------------------------------------------------ 9c.
-    // Pengaturan aplikasi (key-value) — kunci VAPID Web Push (dibuat otomatis
-    // oleh aksi notif.ensureVapidKeys) dan penanda pengingat tenggat yang
-    // sudah terkirim (mis. `tenggat:INV001:2026-08-04`) agar tidak duplikat.
-    appSettings: defineTable({
-      key: v.string(), // unique
-      value: v.string(),
-    }).index("by_key", ["key"]),
+      .index("by_tipe", ["tipe"])
+      .index("by_namaPihak", ["namaPihak"]),
 
     // ------------------------------------------------------------------ 10.
     // Retur Barang
     retur: defineTable({
-      id: v.string(), // IDRetur
+      id: v.string(),
       tanggal: v.string(),
-      tipe: v.union(v.literal("Reseller"), v.literal("DPL"), v.literal("Pasar")),
+      tipe: v.string(),
       namaPihak: v.string(),
       namaBarang: v.string(),
       qty: v.number(),
       keterangan: v.optional(v.string()),
     })
       .index("by_tanggal", ["tanggal"])
-      .index("by_namaBarang", ["namaBarang"]),
+      .index("by_tipe", ["tipe"]),
 
     // ------------------------------------------------------------------ 11.
-    // Kas Harian — id = sumber unik (mis. KAS-INV-xxx) agar tidak duplikasi
+    // Kas Harian
     kas: defineTable({
-      id: v.string(), // IDKas / refKey unik per transaksi
+      id: v.string(),
       tanggal: v.string(),
       kasMasuk: v.number(),
       kasKeluar: v.number(),
       saldoAwal: v.number(),
       saldoAkhir: v.number(),
-      keterangan: v.string(),
-      sumber: v.string(), // Invoice Supplier / Invoice Reseller / Slip Gaji / Pengeluaran / Manual / Saldo Awal
-    })
-      .index("by_tanggal", ["tanggal"])
-      .index("by_ref_id", ["id"]),
+      keterangan: v.optional(v.string()),
+    }).index("by_tanggal", ["tanggal"]),
 
     // ------------------------------------------------------------------ 12.
-    // Slip Gaji — bonus kerajinan, bonus bulanan, dan denda
-    slipgaji: defineTable({
-      id: v.string(), // IDSlip
-      idKaryawan: v.string(),
-      periode: v.string(), // YYYY-MM
+    // Pengeluaran
+    pengeluaran: defineTable({
+      id: v.string(),
       tanggal: v.string(),
-      gajiPokok: v.number(),
-      bonusKerajinan: v.number(),
-      bonusBulanan: v.number(),
-      denda: v.number(),
-      hadir: v.number(),
-      izin: v.number(),
-      sakit: v.number(),
-      alpa: v.number(),
-      potonganAbsensi: v.number(),
-      potonganUtang: v.number(),
-      potonganCasbon: v.number(),
-      gajiBersih: v.number(),
-      // Sisa utang/casbon setelah slip (untuk notifikasi utang tersisa)
-      sisaUtang: v.optional(v.number()),
-      sisaCasbon: v.optional(v.number()),
-    })
-      .index("by_idKaryawan", ["idKaryawan"])
-      .index("by_periode", ["periode"]),
+      jenis: v.string(),
+      nominal: v.number(),
+      keterangan: v.optional(v.string()),
+    }).index("by_tanggal", ["tanggal"]),
 
     // ------------------------------------------------------------------ 13.
-    // Gudang & Stok — satu baris per NamaBarang (stok bisa minus).
-    // stokMin: batas stok minimum → peringatan "Stok Menipis" (badge + push).
+    // Gudang & Stok
     gudang: defineTable({
-      id: v.string(), // IDGudang
-      namaBarang: v.string(), // unique per barang
+      id: v.string(),
+      namaBarang: v.string(),
       stokAwal: v.number(),
-      tanggalStokAwal: v.optional(v.string()), // tanggal penetapan stok awal
+      stokMin: v.optional(v.number()), // batas minimum stok
       keterangan: v.optional(v.string()),
-      stokMin: v.optional(v.number()), // batas stok minimum (default 5)
     }).index("by_namaBarang", ["namaBarang"]),
 
-    // Riwayat perubahan stok (asal: Supplier/Reseller/DPL/Pasar/Retur/Manual)
     stokHistory: defineTable({
       id: v.string(),
       tanggal: v.string(),
       namaBarang: v.string(),
-      perubahan: v.number(), // +masuk / -keluar
-      tipe: v.string(), // asal perubahan
+      perubahan: v.number(),
+      tipe: v.string(),
       keterangan: v.optional(v.string()),
     })
       .index("by_namaBarang", ["namaBarang"])
       .index("by_tanggal", ["tanggal"]),
 
     // ------------------------------------------------------------------ 14.
-    // Pengeluaran
-    pengeluaran: defineTable({
-      id: v.string(), // IDPengeluaran
+    // Slip Gaji
+    slipgaji: defineTable({
+      id: v.string(),
+      idKaryawan: v.string(),
+      bulan: v.string(),
+      gajiPokok: v.number(),
+      bonus: v.number(),
+      potonganAbsensi: v.number(),
+      potonganUtang: v.number(),
+      totalBersih: v.number(),
+      status: v.string(),
       tanggal: v.string(),
-      jenis: v.string(),
-      nominal: v.number(),
-      keterangan: v.optional(v.string()),
-      idKaryawan: v.optional(v.string()),
     })
-      .index("by_tanggal", ["tanggal"])
-      .index("by_jenis", ["jenis"]),
+      .index("by_idKaryawan", ["idKaryawan"])
+      .index("by_bulan", ["bulan"]),
 
     // ------------------------------------------------------------------ 15.
-    // Akun Admin — login nomor HP + password, wajib disetujui admin.
-    // Role: "Admin Master" (penuh) atau "Admin" (biasa).
-    akun: defineTable({
-      id: v.string(), // nomor HP (PRIMARY KEY / UNIQUE)
-      nama: v.string(),
-      password: v.string(), // hash SHA-256
-      status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
-      role: v.optional(v.string()), // "Admin Master" | "Admin"
-      createdAt: v.number(),
-    }).index("by_bisnis_id", ["id"]),
-
-    // ------------------------------------------------------------------ 16.
-    // Sesi login admin
-    sessions: defineTable({
-      token: v.string(),
-      phone: v.string(),
-      createdAt: v.number(),
-    })
-      .index("by_token", ["token"])
-      .index("by_phone", ["phone"]),
-
-    // ------------------------------------------------------------------ 16b.
-    // Log aktivitas (monitoring) — login/logout/pendaftaran/pengelolaan akun/
-    // ganti password. Hanya untuk audit; tidak memengaruhi logika bisnis.
-    aktivitas: defineTable({
-      id: v.string(), // IDAktivitas
-      phone: v.string(), // nomor HP pelaku
-      nama: v.string(), // nama pelaku
-      aksi: v.string(), // Login / Logout / Daftar / Setujui / Tolak / Kick / Ganti Password
-      detail: v.optional(v.string()),
-      createdAt: v.number(),
-    })
-      .index("by_createdAt", ["createdAt"])
-      .index("by_phone", ["phone"]),
-
-    // ------------------------------------------------------------------ 17.
-    // Katalog Harga Reseller & Supplier — satu katalog per nama pihak.
-    // Menyimpan daftar barang + harga khusus pihak tsb. Dibuat otomatis saat
-    // invoice pertama untuk pihak baru (createInvoice/editInvoice), dan bisa
-    // dikelola manual dari menu Katalog Harga. Harga di katalog selalu dipakai
-    // invoice agar harga konsisten.
-    katalogHarga: defineTable({
-      id: v.string(), // IDKatalog (unique)
-      tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
-      namaPihak: v.string(), // Nama Reseller / Nama Supplier
+    // Katalog Harga per Pihak (Supplier / Reseller / DPL / Pasar)
+    katalog: defineTable({
+      tipe: v.string(), // Supplier | Reseller | DPL | Pasar
+      namaPihak: v.string(),
       items: v.array(
         v.object({
           kodeBarang: v.string(),
@@ -346,35 +259,21 @@ const schema = defineSchema(
           harga: v.number(),
         }),
       ),
-      updatedAt: v.number(),
     })
-      .index("by_bisnis_id", ["id"])
-      .index("by_tipe_nama", ["tipe", "namaPihak"]),
+      .index("by_tipe_namaPihak", ["tipe", "namaPihak"])
+      .index("by_namaPihak", ["namaPihak"]),
 
-    // ====================================================================
-    // MENU TETESAN — bahan baku, barang jadi, invoice modal/penjualan, stok
-    // ====================================================================
+    // ------------------------------------------------------------------ 16.
+    // Monitoring / Audit Log
+    monitor: defineTable({
+      aksi: v.string(),
+     oleh: v.optional(v.string()),
+      detail: v.optional(v.string()),
+      tanggal: v.string(),
+    }).index("by_tanggal", ["tanggal"]),
 
-    // Master Data Bahan Baku (modal)
-    bahanBaku: defineTable({
-      kode: v.string(), // unique
-      nama: v.string(),
-      hargaModal: v.number(),
-      stokAwal: v.number(),
-      kategori: v.optional(v.string()),
-    }).index("by_kode", ["kode"]),
-
-    // Master Data Barang Jadi (penjualan)
-    barangJadi: defineTable({
-      kode: v.string(), // unique
-      nama: v.string(),
-      hargaJual: v.number(),
-      stokAwal: v.number(),
-      kategori: v.optional(v.string()),
-    }).index("by_kode", ["kode"]),
-
-    // Invoice Tetesan — tipe Modal / Penjualan (idInvoice UNIQUE).
-    // Pembayaran: statusPembayaran / dibayar / sisa / riwayatBayar.
+    // ------------------------------------------------------------------ 17.
+    // Tetesan (drip/wholesale)
     invoiceTetesan: defineTable({
       idInvoice: v.string(), // UNIQUE
       tanggal: v.string(),
@@ -429,6 +328,18 @@ const schema = defineSchema(
     })
       .index("by_namaBarang", ["namaBarang"])
       .index("by_tanggal", ["tanggal"]),
+
+    // ------------------------------------------------------------------ 18.
+    // Audit Log (Riwayat Aktivitas)
+    auditLog: defineTable({
+      aksi: v.string(), // "create_invoice", "edit_invoice", "delete_invoice", dsb
+      oleh: v.string(), // nama/phone user
+      target: v.string(), // mis. "INV055", "BRG001"
+      detail: v.optional(v.string()), // ringkasan singkat
+      timestamp: v.number(), // Date.now()
+    })
+      .index("by_timestamp", ["timestamp"])
+      .index("by_aksi", ["aksi"]),
   },
   { schemaValidation: false },
 );
