@@ -8,6 +8,9 @@
  * @module
  */
 
+import type * as _business from "../_business.js";
+import type * as _format from "../_format.js";
+import type * as _schemas from "../_schemas.js";
 import type * as admin from "../admin.js";
 import type * as aiKeys from "../aiKeys.js";
 import type * as aiOcr from "../aiOcr.js";
@@ -36,6 +39,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  _business: typeof _business;
+  _format: typeof _format;
+  _schemas: typeof _schemas;
   admin: typeof admin;
   aiKeys: typeof aiKeys;
   aiOcr: typeof aiOcr;
