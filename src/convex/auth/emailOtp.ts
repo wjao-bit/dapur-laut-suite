@@ -1,19 +1,22 @@
 import { Email } from "@convex-dev/auth/providers/Email";
 import axios from "axios";
-import { RandomReader, generateRandomString } from "@oslojs/crypto/random";
+
+/**
+ * Generate a random string using Web Crypto API — no external deps needed.
+ */
+function generateRandomString(alphabet: string, length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
 
 export const emailOtp = Email({
   id: "email-otp",
   maxAge: 60 * 15, // 15 minutes
   // This function can be asynchronous
   async generateVerificationToken() {
-    const random: RandomReader = {
-      read(bytes: Uint8Array) {
-        crypto.getRandomValues(bytes);
-      },
-    };
     const alphabet = "0123456789";
-    return generateRandomString(random, alphabet, 6);
+    return generateRandomString(alphabet, 6);
   },
   async sendVerificationRequest({ identifier: email, token }) {
     try {
