@@ -104,7 +104,7 @@ export const invokeDelete = (ctx, args) => run(deleteKatalog, ctx, args);
 export const queryList = async (ctx) => (await listKatalog._handler(ctx, {}));
 export const queryGet = (ctx, args) => getKatalog._handler(ctx, args);
 export function snapshot(ctx) {
-  return { katalog: ctx.db.query("katalogHarga").collect() };
+  return { katalog: ctx.db.query("katalog").collect() };
 }
 `;
 
@@ -294,3 +294,4 @@ try {
   /* abaikan */
 }
 process.exit(fail === 0 ? 0 : 1);
+
