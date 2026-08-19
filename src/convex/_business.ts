@@ -3,7 +3,7 @@
 // module is fully unit-testable with vitest.
 // ============================================================================
 
-import { roundNum } from "./format";
+import { roundNum } from "./_format";
 
 export type InvoiceTipe = "Supplier" | "Reseller" | "DPL" | "Pasar";
 export const INVOICE_TIPES: InvoiceTipe[] = ["Supplier", "Reseller", "DPL", "Pasar"];
@@ -464,3 +464,4 @@ export function daysUntil(tanggal: string, from: string = todayStr()): number {
   const b = new Date(y2, m2 - 1, d2);
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
+

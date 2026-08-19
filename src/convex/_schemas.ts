@@ -11,7 +11,7 @@ import {
   PENGELUARAN_JENISES,
   UTANG_JENISES,
   UTANG_STATUSES,
-} from "./business";
+} from "./_business";
 
 // ---------------------------------------------------------------------------
 // Master data
@@ -307,3 +307,4 @@ export type BarangJadi = z.infer<typeof barangJadiSchema>;
 export type TetesanStok = z.infer<typeof tetesanStokSchema>;
 export type TetesanItemPayload = z.infer<typeof tetesanItemSchema>;
 export type InvoiceTetesanPayload = z.infer<typeof invoiceTetesanSchema>;
+
