@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { sha256 } from "@oslojs/crypto/sha2";
 import { badRequest, logAktivitas, logRequest, logResponse } from "./lib";
 
 // ============================================================================
@@ -27,11 +26,12 @@ export const MASTER_DEFAULT_PASSWORD = "makan123";
 /** Password bawaan lama — dipakai untuk migrasi otomatis ke password baru. */
 export const MASTER_OLD_DEFAULT_PASSWORD = "admin123";
 
-/** SHA-256 hex (matching schema `akun.password`). */
-function sha256Hex(input: string): string {
+/** SHA-256 hex using pure Web Crypto API — compatible with Convex runtime. */
+async function sha256Hex(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input);
-  const digest = sha256(bytes);
-  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+  const hashArray = new Uint8Array(hashBuffer);
+  return Array.from(hashArray, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -45,8 +45,8 @@ function normalizePhone(raw: string): string {
 }
 
 /** Token sesi acak — tidak bisa ditebak. */
-function genToken(phone: string): string {
-  return sha256Hex(`${phone}|${Date.now().toString(36)}|${Math.random().toString(36).slice(2)}|${Math.random()}`);
+async function genToken(phone: string): Promise<string> {
+  return await sha256Hex(`${phone}|${Date.now().toString(36)}|${Math.random().toString(36).slice(2)}|${Math.random()}`);
 }
 
 async function findAkun(ctx: any, phone: string) {
@@ -98,7 +98,7 @@ async function syncMasterAccount(ctx: any): Promise<{ akun: any; created: boolea
     await ctx.db.insert("akun", {
       id: MASTER_PHONE,
       nama: "Admin Master",
-      password: sha256Hex(MASTER_DEFAULT_PASSWORD),
+      password: await sha256Hex(MASTER_DEFAULT_PASSWORD),
       status: "approved",
       role: "Admin Master",
       createdAt: Date.now(),
@@ -109,8 +109,8 @@ async function syncMasterAccount(ctx: any): Promise<{ akun: any; created: boolea
   const patch: Record<string, unknown> = {};
   // Migrasi password bawaan LAMA (admin123) → bawaan baru (makan123) sekali.
   // Password lain (sudah diganti pemilik) TIDAK disentuh.
-  if (akun.password === sha256Hex(MASTER_OLD_DEFAULT_PASSWORD)) {
-    patch.password = sha256Hex(MASTER_DEFAULT_PASSWORD);
+  if (akun.password === await sha256Hex(MASTER_OLD_DEFAULT_PASSWORD)) {
+    patch.password = await sha256Hex(MASTER_DEFAULT_PASSWORD);
   }
   if (akun.role !== "Admin Master") patch.role = "Admin Master";
   if (akun.status !== "approved") patch.status = "approved";
@@ -151,12 +151,12 @@ export const adminLogin = mutation({
     if (cleanPhone === MASTER_PHONE) {
       akun = (await syncMasterAccount(ctx)).akun;
     }
-    if (!akun || akun.password !== sha256Hex(password || "")) {
+    if (!akun || akun.password !== await sha256Hex(password || "")) {
       return badRequest("Nomor HP atau password salah");
     }
     if (akun.status === "pending") return badRequest("Akun belum disetujui — tunggu persetujuan Admin Master");
     if (akun.status === "rejected") return badRequest("Akun ditolak — hubungi Admin Master");
-    const token = genToken(cleanPhone);
+    const token = await genToken(cleanPhone);
     await ctx.db.insert("sessions", { token, phone: cleanPhone, createdAt: Date.now() });
     await logAktivitas(ctx, cleanPhone, akun.nama, "Login", "Login berhasil");
     logResponse("adminLogin", { phone: cleanPhone, nama: akun.nama });
@@ -219,7 +219,7 @@ export const registerAkun = mutation({
     await ctx.db.insert("akun", {
       id: cleanPhone,
       nama: nama.trim(),
-      password: sha256Hex(password),
+      password: await sha256Hex(password),
       status: isMaster ? "approved" : "pending",
       role: isMaster ? "Admin Master" : "Admin",
       createdAt: Date.now(),
@@ -247,9 +247,9 @@ export const changePassword = mutation({
     const { akun } = await requireSession(ctx, token);
     if (!oldPassword) return badRequest("Password lama wajib diisi");
     if (!newPassword || newPassword.length < 6) return badRequest("Password baru minimal 6 karakter");
-    if (akun.password !== sha256Hex(oldPassword)) return badRequest("Password lama salah");
+    if (akun.password !== await sha256Hex(oldPassword)) return badRequest("Password lama salah");
     if (newPassword === oldPassword) return badRequest("Password baru harus berbeda dari password lama");
-    await ctx.db.patch(akun._id, { password: sha256Hex(newPassword) });
+    await ctx.db.patch(akun._id, { password: await sha256Hex(newPassword) });
     await logAktivitas(ctx, akun.id, akun.nama, "Ganti Password", "Password berhasil diganti");
     logResponse("changePassword", { phone: akun.id });
     return { ok: true, phone: akun.id };
@@ -275,7 +275,7 @@ export const resetPasswordPublic = mutation({
     const akun = await findAkun(ctx, cleanPhone);
     if (!akun) return badRequest("Nomor HP tidak terdaftar di sistem");
     if (akun.status !== "approved") return badRequest("Akun belum disetujui admin — hubungi Admin Master dulu");
-    await ctx.db.patch(akun._id, { password: sha256Hex(newPassword) });
+    await ctx.db.patch(akun._id, { password: await sha256Hex(newPassword) });
     await logAktivitas(ctx, akun.id, akun.nama, "Reset Password (lupa)", "Password direset dari halaman login");
     logResponse("resetPasswordPublic", { phone: akun.id });
     return { ok: true, phone: akun.id };
