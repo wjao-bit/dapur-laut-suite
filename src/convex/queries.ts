@@ -407,7 +407,7 @@ export const listSlipGaji = query({
     let rows = await ctx.db.query("slipgaji").collect();
     if (idKaryawan) rows = rows.filter((r) => r.idKaryawan === idKaryawan);
     if (periode) rows = rows.filter((r) => r.periode === periode);
-    return rows.sort((a, b) => b.periode.localeCompare(a.periode) || a.idKaryawan.localeCompare(b.idKaryawan));
+    return rows.sort((a, b) => (b.periode ?? "").localeCompare(a.periode ?? "") || a.idKaryawan.localeCompare(b.idKaryawan));
   },
 });
 
@@ -482,7 +482,6 @@ export const dashboardStats = query({
       .reduce((s, i) => s + i.margin, 0);
 
     // Nilai stok (stok akhir × harga terakhir dari master barang / invoice).
-    // Gudang di-stok per NamaBarang, jadi peta harga dikunci per nama (fallback kode).
     const gudangRows = computeGudangRows(
       gudang.map((g) => ({ id: g.id, namaBarang: g.namaBarang, stokAwal: g.stokAwal, keterangan: g.keterangan ?? "" })),
       history.map((h) => ({ namaBarang: h.namaBarang, perubahan: h.perubahan })),
@@ -578,7 +577,7 @@ export const laporanKeuangan = query({
     const pengeluaranReport = {
       manual: pen.reduce((s, p) => s + p.nominal, 0),
       invoiceSupplier: inv.filter((i) => i.tipe === "Supplier").reduce((s, i) => s + i.total, 0),
-      slipGaji: slp.reduce((s, x) => s + x.gajiBersih, 0),
+      slipGaji: slp.reduce((s, x) => s + (x.gajiBersih ?? 0), 0),
       utangDibayar: 0, // utang dibayar sudah masuk melalui slip gaji / pembayaran kas
       total: 0,
     };
@@ -750,4 +749,3 @@ export const internalListInvoicesForNotif = internalQuery({
       }));
   },
 });
-

@@ -286,19 +286,19 @@ const schema = defineSchema(
     slipgaji: defineTable({
       id: v.string(),
       idKaryawan: v.string(),
-      bulan: v.string(),
+      bulan: v.optional(v.string()),
       periode: v.optional(v.string()),
       gajiPokok: v.number(),
-      bonus: v.number(),
+      bonus: v.optional(v.number()),
       bonusKerajinan: v.optional(v.number()),
       bonusBulanan: v.optional(v.number()),
       denda: v.optional(v.number()),
       potonganAbsensi: v.number(),
       potonganUtang: v.number(),
       potonganCasbon: v.optional(v.number()),
-      totalBersih: v.number(),
+      totalBersih: v.optional(v.number()),
       gajiBersih: v.optional(v.number()),
-      status: v.string(),
+      status: v.optional(v.string()),
       tanggal: v.string(),
       hadir: v.optional(v.number()),
       izin: v.optional(v.number()),
@@ -397,70 +397,26 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"]),
 
     // ------------------------------------------------------------------
-    // 18. Audit Log (Riwayat Aktivitas)
-    // ------------------------------------------------------------------
-    auditLog: defineTable({
-      aksi: v.string(),
-      oleh: v.string(),
-      target: v.string(),
-      detail: v.optional(v.string()),
-      timestamp: v.number(),
-    })
-      .index("by_timestamp", ["timestamp"])
-      .index("by_aksi", ["aksi"]),
-
-    // ------------------------------------------------------------------
-    // Bahan Baku (Tetesan)
+    // Master Bahan Baku (Tetesan)
     // ------------------------------------------------------------------
     bahanBaku: defineTable({
       kode: v.string(),
       nama: v.string(),
-      harga: v.number(),
+      hargaModal: v.number(),
+      stokAwal: v.number(),
       kategori: v.optional(v.string()),
     }).index("by_kode", ["kode"]),
 
     // ------------------------------------------------------------------
-    // Barang Jadi (Tetesan)
+    // Master Barang Jadi (Tetesan)
     // ------------------------------------------------------------------
     barangJadi: defineTable({
       kode: v.string(),
       nama: v.string(),
-      harga: v.number(),
+      hargaJual: v.number(),
+      stokAwal: v.number(),
       kategori: v.optional(v.string()),
     }).index("by_kode", ["kode"]),
-
-    // ------------------------------------------------------------------
-    // Push Subscriptions (Web Push)
-    // ------------------------------------------------------------------
-    pushSubscription: defineTable({
-      endpoint: v.string(),
-      keys: v.object({
-        p256dh: v.string(),
-        auth: v.string(),
-      }),
-      createdAt: v.number(),
-    }).index("by_endpoint", ["endpoint"]),
-
-    // ------------------------------------------------------------------
-    // App Settings (key-value)
-    // ------------------------------------------------------------------
-    appSettings: defineTable({
-      key: v.string(),
-      value: v.string(),
-    }).index("by_key", ["key"]),
-
-    // ------------------------------------------------------------------
-    // Piutang
-    // ------------------------------------------------------------------
-    piutang: defineTable({
-      id: v.string(),
-      idInvoice: v.optional(v.string()),
-      namaPihak: v.optional(v.string()),
-      tipe: v.optional(v.string()),
-      nominal: v.number(),
-      tanggal: v.string(),
-      status: v.optional(v.string()),
-    }).index("by_tanggal", ["tanggal"]),
   },
   { schemaValidation: false },
 );
