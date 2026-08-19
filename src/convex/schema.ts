@@ -417,6 +417,58 @@ const schema = defineSchema(
       stokAwal: v.number(),
       kategori: v.optional(v.string()),
     }).index("by_kode", ["kode"]),
+
+    // ------------------------------------------------------------------
+    // Audit Log (detail aktivitas pengguna)
+    // ------------------------------------------------------------------
+    auditLog: defineTable({
+      aksi: v.string(),
+      oleh: v.string(),
+      target: v.string(),
+      detail: v.optional(v.string()),
+      timestamp: v.number(),
+    })
+      .index("by_timestamp", ["timestamp"])
+      .index("by_aksi", ["aksi"]),
+
+    // ------------------------------------------------------------------
+    // Push Subscriptions (web push notification)
+    // ------------------------------------------------------------------
+    pushSubscription: defineTable({
+      endpoint: v.string(),
+      keys: v.object({
+        p256dh: v.string(),
+        auth: v.string(),
+      }),
+      createdAt: v.number(),
+    }).index("by_endpoint", ["endpoint"]),
+
+    // ------------------------------------------------------------------
+    // App Settings (key-value store)
+    // ------------------------------------------------------------------
+    appSettings: defineTable({
+      key: v.string(),
+      value: v.string(),
+    }).index("by_key", ["key"]),
+
+    // ------------------------------------------------------------------
+    // Piutang (legacy — diakses oleh dashboard)
+    // ------------------------------------------------------------------
+    piutang: defineTable({
+      id: v.string(),
+      idInvoice: v.optional(v.string()),
+      namaPihak: v.string(),
+      tipe: v.optional(v.string()),
+      nominal: v.number(),
+      dibayar: v.optional(v.number()),
+      sisa: v.optional(v.number()),
+      tanggal: v.string(),
+      tenggat: v.optional(v.string()),
+      status: v.optional(v.string()),
+      keterangan: v.optional(v.string()),
+    })
+      .index("by_tanggal", ["tanggal"])
+      .index("by_namaPihak", ["namaPihak"]),
   },
   { schemaValidation: false },
 );
