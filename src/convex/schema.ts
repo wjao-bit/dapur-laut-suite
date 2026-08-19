@@ -55,7 +55,7 @@ const schema = defineSchema(
       status: v.string(),
       role: v.optional(v.string()),
       createdAt: v.number(),
-    }).index("by_id", ["id"]),
+    }).index("by_akun_id", ["id"]),
 
     // ------------------------------------------------------------------
     // Sesi login custom (phone-based)
@@ -474,3 +474,5 @@ const schema = defineSchema(
 );
 
 export default schema;
+
+

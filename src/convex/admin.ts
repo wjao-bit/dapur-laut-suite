@@ -1,16 +1,57 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { badRequest, logAktivitas, logRequest, logResponse } from "./lib";
 
 // ============================================================================
 // AKUN ADMIN & SESI — login nomor HP + password (hash SHA-256).
+// Fully self-contained — no imports from lib.ts to avoid esbuild bundling issues.
 // ============================================================================
 
 export const MASTER_PHONE = "082100000000";
 export const MASTER_DEFAULT_PASSWORD = "makan123";
 export const MASTER_OLD_DEFAULT_PASSWORD = "admin123";
 
-// Pure JavaScript SHA-256 — zero dependencies, FIPS 180-4 compliant.
+// ---- Inline helpers (from lib.ts) to keep this module self-contained ----
+
+function logRequest(route: string, payload: unknown) {
+  console.log(`[Dapur Laut] ${route} request:`, JSON.stringify(payload, null, 2));
+}
+
+function logResponse(route: string, payload: unknown) {
+  console.log(`[Dapur Laut] ${route} response:`, JSON.stringify(payload, null, 2));
+}
+
+function badRequest(message: string, extra?: unknown): never {
+  console.error(`[Dapur Laut] Invalid request:`, message, extra ?? "");
+  throw new (Error as any)(message);
+}
+
+function genId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+async function logAktivitas(
+  ctx: any,
+  phone: string,
+  nama: string,
+  aksi: string,
+  detail?: string,
+) {
+  try {
+    await ctx.db.insert("aktivitas", {
+      id: genId("AKT"),
+      phone,
+      nama: nama || phone,
+      aksi,
+      detail: detail ?? "",
+      createdAt: Date.now(),
+    });
+  } catch {
+    // aktivitas table might not exist yet — ignore
+  }
+}
+
+// ---- Pure JavaScript SHA-256 (FIPS 180-4 compliant) ----
+
 function sha256Hex(input: string): string {
   const K = [
     0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -62,6 +103,8 @@ function sha256Hex(input: string): string {
     .map((v) => (v >>> 0).toString(16).padStart(8, "0"))
     .join("");
 }
+
+// ---- Helper functions ----
 
 function normalizePhone(raw: string): string {
   return String(raw || "").replace(/[^\d]/g, "").trim();
@@ -266,8 +309,8 @@ export const listAkun = query({
     await requireMaster(ctx, token);
     const rows = await ctx.db.query("akun").collect();
     const out = rows
-      .map((a) => ({ phone: a.id, nama: a.nama, status: a.status, role: a.role ?? "Admin", createdAt: a.createdAt }))
-      .sort((a, b) => b.createdAt - a.createdAt);
+      .map((a: any) => ({ phone: a.id, nama: a.nama, status: a.status, role: a.role ?? "Admin", createdAt: a.createdAt }))
+      .sort((a: any, b: any) => b.createdAt - a.createdAt);
     return out;
   },
 });
