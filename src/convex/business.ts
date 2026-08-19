@@ -25,7 +25,7 @@ import {
   type InvoiceTipe,
   type TetesanItem,
   type TetesanTipe,
-} from "../lib/business";
+} from "./_shared/business";
 import {
   validate,
   barangSchema,
@@ -41,7 +41,7 @@ import {
   kasSchema,
   pengeluaranSchema,
   gudangSchema,
-} from "../lib/schemas";
+} from "./_shared/schemas";
 
 // ============================================================================
 // MASTER DATA — semua upsert memakai semantik PRIMARY KEY (ON CONFLICT)
@@ -1384,3 +1384,5 @@ export const deleteInvoiceTetesan = mutation({
     return { deleted: true };
   },
 });
+
+

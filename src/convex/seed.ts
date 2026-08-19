@@ -1,6 +1,6 @@
 import { mutation } from "./_generated/server";
 import { upsertByKey, recordKas, addStokHistory, ensureGudangRow } from "./lib";
-import { todayStr } from "../lib/business";
+import { todayStr } from "./_shared/business";
 
 // ============================================================================
 // Seed data demo PT Dapur Laut (idempotent — hanya berjalan jika kosong)
@@ -215,3 +215,4 @@ export const seedDemo = mutation({
     return { seeded: true, barang: barang.length, karyawan: karyawan.length };
   },
 });
+

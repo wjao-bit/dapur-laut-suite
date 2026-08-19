@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery, mutation } from "./_generated/server";
 import { badRequest, findOneByKey, logRequest, logResponse } from "./lib";
-import { computeGudangRows } from "../lib/business";
+import { computeGudangRows } from "./_shared/business";
 
 // ============================================================================
 // GUDANG — peringatan stok menipis
@@ -54,3 +54,4 @@ export const internalListGudangForNotif = internalQuery({
     }));
   },
 });
+

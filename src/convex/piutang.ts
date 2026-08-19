@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { daysUntil, todayStr } from "../lib/business";
+import { daysUntil, todayStr } from "./_shared/business";
 
 // ============================================================================
 // PIUTANG — tagihan penjualan yang belum lunas
@@ -45,3 +45,4 @@ export const listPiutang = query({
       });
   },
 });
+
