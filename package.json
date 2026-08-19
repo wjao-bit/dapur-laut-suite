@@ -78,7 +78,8 @@
     "ora": "^9.4.1",
     "tesseract.js": "^7.0.0",
     "web-push": "^3.6.7",
-    "@esbuild/linux-x64": "^0.28.2"
+    "@esbuild/linux-x64": "^0.28.2",
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
