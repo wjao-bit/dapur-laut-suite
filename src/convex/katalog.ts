@@ -2,21 +2,6 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { badRequest, findOneByKey, logRequest, logResponse } from "./lib";
 
-// ============================================================================
-// KATALOG HARGA RESELLER & SUPPLIER
-//
-// Satu katalog per nama pihak (tipe: Reseller | Supplier). Menyimpan daftar
-// barang + harga khusus pihak tsb. Katalog dibuat OTOMATIS saat invoice
-// pertama untuk pihak baru (dari createInvoice/editInvoice di business.ts),
-// dan bisa dikelola manual dari menu Katalog Harga. Form invoice menarik
-// harga dari katalog ini agar harga selalu konsisten.
-//
-// ID katalog bersifat deterministik: KTL-<TIPE>-<slug nama>. Pencarian pihak
-// dicoba lewat ID lebih dulu sehingga variasi huruf besar/kecil pada nama
-// (mis. "Reseller A" vs "reseller a") TETAP mengarah ke katalog yang sama dan
-// tidak membuat duplikat / error index unik.
-// ============================================================================
-
 function katalogId(tipe: string, namaPihak: string): string {
   const slug = String(namaPihak ?? "")
     .trim()
@@ -26,17 +11,12 @@ function katalogId(tipe: string, namaPihak: string): string {
   return `KTL-${tipe.toUpperCase()}-${slug}`;
 }
 
-/**
- * Cari katalog sebuah pihak. Urutan pencarian:
- *   1. by ID deterministik (menangkap variasi huruf besar/kecil nama);
- *   2. by pasangan tipe + namaPihak persis (fallback data lama).
- */
 async function findKatalog(ctx: any, tipe: string, namaPihak: string) {
   const party = String(namaPihak ?? "").trim();
   if (!party) return null;
-  const byId = await findOneByKey(ctx, "katalogHarga", "id", katalogId(tipe, party));
+  const byId = await findOneByKey(ctx, "katalog" as any, "id", katalogId(tipe, party));
   if (byId) return byId;
-  return (ctx.db.query("katalogHarga") as any)
+  return (ctx.db.query("katalog") as any)
     .filter((q: any) => q.and(q.eq(q.field("tipe"), tipe), q.eq(q.field("namaPihak"), party)))
     .first();
 }
@@ -44,9 +24,9 @@ async function findKatalog(ctx: any, tipe: string, namaPihak: string) {
 export const listKatalog = query({
   args: {},
   handler: async (ctx) => {
-    const rows = await ctx.db.query("katalogHarga").collect();
+    const rows = await ctx.db.query("katalog" as any).collect();
     return rows.sort(
-      (a, b) => a.tipe.localeCompare(b.tipe) || a.namaPihak.localeCompare(b.namaPihak),
+      (a: any, b: any) => (a.tipe ?? "").localeCompare(b.tipe ?? "") || (a.namaPihak ?? "").localeCompare(b.namaPihak ?? ""),
     );
   },
 });
@@ -62,7 +42,6 @@ export const getKatalog = query({
   },
 });
 
-/** Simpan katalog utuh (ganti seluruh daftar item). Membuat katalog baru bila belum ada. */
 export const upsertKatalog = mutation({
   args: {
     tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
@@ -84,7 +63,7 @@ export const upsertKatalog = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, { items: clean, updatedAt: Date.now() });
     } else {
-      await ctx.db.insert("katalogHarga", {
+      await (ctx.db as any).insert("katalog", {
         id: katalogId(tipe, party),
         tipe,
         namaPihak: party,
@@ -97,7 +76,6 @@ export const upsertKatalog = mutation({
   },
 });
 
-/** Tambah / perbarui satu barang di katalog pihak (bila nama sudah ada → harga diganti). */
 export const addKatalogItem = mutation({
   args: {
     tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
@@ -127,7 +105,7 @@ export const addKatalogItem = mutation({
       logResponse("addKatalogItem", { ok: true, id: existing._id });
       return { ok: true, id: existing._id };
     }
-    const id = await ctx.db.insert("katalogHarga", {
+    const id = await (ctx.db as any).insert("katalog", {
       id: katalogId(tipe, party),
       tipe,
       namaPihak: party,
@@ -139,12 +117,11 @@ export const addKatalogItem = mutation({
   },
 });
 
-/** Hapus satu barang dari katalog (by kode bila ada, selain itu by nama). */
 export const removeKatalogItem = mutation({
   args: { id: v.string(), kodeBarang: v.string(), namaBarang: v.string() },
   handler: async (ctx, { id, kodeBarang, namaBarang }) => {
     logRequest("removeKatalogItem", { id, kodeBarang, namaBarang });
-    const row = await findOneByKey(ctx, "katalogHarga", "id", id);
+    const row = await findOneByKey(ctx, "katalog" as any, "id", id);
     if (!row) return { ok: false };
     const items = ((row as any).items ?? []).filter((it: any) => {
       if (kodeBarang) return String(it.kodeBarang ?? "") !== kodeBarang;
@@ -156,12 +133,11 @@ export const removeKatalogItem = mutation({
   },
 });
 
-/** Hapus seluruh katalog sebuah pihak. */
 export const deleteKatalog = mutation({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
     logRequest("deleteKatalog", { id });
-    const row = await findOneByKey(ctx, "katalogHarga", "id", id);
+    const row = await findOneByKey(ctx, "katalog" as any, "id", id);
     if (!row) return { deleted: false };
     await ctx.db.delete(row._id);
     logResponse("deleteKatalog", { deleted: true, id });

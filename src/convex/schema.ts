@@ -45,67 +45,107 @@ const schema = defineSchema(
       role: v.optional(v.string()),
     }).index("email", ["email"]),
 
-    // ------------------------------------------------------------------ 1.
-    // Barang — KodeBarang PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
+    // Akun (phone-based auth)
+    // ------------------------------------------------------------------
+    akun: defineTable({
+      id: v.string(),
+      nama: v.string(),
+      password: v.string(),
+      status: v.string(),
+      role: v.optional(v.string()),
+      createdAt: v.number(),
+    }).index("by_id", ["id"]),
+
+    // ------------------------------------------------------------------
+    // Sesi login custom (phone-based)
+    // ------------------------------------------------------------------
+    sessions: defineTable({
+      token: v.string(),
+      phone: v.string(),
+      createdAt: v.number(),
+    }).index("by_token", ["token"]).index("by_phone", ["phone"]),
+
+    // ------------------------------------------------------------------
+    // Aktivitas / Audit Log
+    // ------------------------------------------------------------------
+    aktivitas: defineTable({
+      id: v.string(),
+      phone: v.string(),
+      nama: v.string(),
+      aksi: v.string(),
+      detail: v.optional(v.string()),
+      createdAt: v.number(),
+    }).index("by_createdAt", ["createdAt"]),
+
+    // ------------------------------------------------------------------
+    // 1. Barang — KodeBarang PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
     barang: defineTable({
-      kode: v.string(), // KodeBarang (unique)
-      nama: v.string(), // NamaBarang
-      harga: v.number(), // Harga
+      kode: v.string(),
+      nama: v.string(),
+      harga: v.number(),
       kategori: v.optional(v.string()),
     }).index("by_kode", ["kode"]),
 
-    // ------------------------------------------------------------------ 2.
-    // Supplier — IDSupplier PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
+    // 2. Supplier — IDSupplier PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
     supplier: defineTable({
-      id: v.string(), // IDSupplier (unique)
+      id: v.string(),
       nama: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
     }).index("by_bisnis_id", ["id"]),
 
-    // ------------------------------------------------------------------ 3.
-    // Reseller — IDReseller PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
+    // 3. Reseller — IDReseller PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
     reseller: defineTable({
-      id: v.string(), // IDReseller (unique)
+      id: v.string(),
       nama: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
     }).index("by_bisnis_id", ["id"]),
 
-    // ------------------------------------------------------------------ 4.
-    // DPL (Pasar grosir) — IDDPL PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
+    // 4. DPL (Pasar grosir) — IDDPL PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
     dpl: defineTable({
-      id: v.string(), // IDDPL (unique)
+      id: v.string(),
       namaPasar: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
     }).index("by_bisnis_id", ["id"]),
 
-    // ------------------------------------------------------------------ 5.
-    // Pasar (Victoria/Tunas) — IDPasar PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
+    // 5. Pasar (Victoria/Tunas) — IDPasar PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
     pasar: defineTable({
-      id: v.string(), // IDPasar (unique)
+      id: v.string(),
       namaPasar: v.string(),
       alamat: v.optional(v.string()),
       kontak: v.optional(v.string()),
     }).index("by_bisnis_id", ["id"]),
 
-    // ------------------------------------------------------------------ 6.
-    // Karyawan — IDKaryawan PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
+    // 6. Karyawan — IDKaryawan PRIMARY KEY / UNIQUE
+    // ------------------------------------------------------------------
     karyawan: defineTable({
-      id: v.string(), // IDKaryawan (unique)
+      id: v.string(),
       nama: v.string(),
       jabatan: v.optional(v.string()),
       gajiPokok: v.number(),
       utangTotal: v.number(),
     }).index("by_bisnis_id", ["id"]),
 
-    // ------------------------------------------------------------------ 7.
-    // Absensi Harian
+    // ------------------------------------------------------------------
+    // 7. Absensi Harian
+    // ------------------------------------------------------------------
     absensi: defineTable({
-      id: v.string(), // IDAbsensi
+      id: v.string(),
       idKaryawan: v.string(),
-      tanggal: v.string(), // YYYY-MM-DD
+      tanggal: v.string(),
       status: v.union(v.literal("Hadir"), v.literal("Izin"), v.literal("Sakit"), v.literal("Alpa")),
       jamMasuk: v.optional(v.string()),
       jamKeluar: v.optional(v.string()),
@@ -114,10 +154,11 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"])
       .index("by_karyawan_tanggal", ["idKaryawan", "tanggal"]),
 
-    // ------------------------------------------------------------------ 8.
-    // Utang Karyawan
+    // ------------------------------------------------------------------
+    // 8. Utang Karyawan
+    // ------------------------------------------------------------------
     utang: defineTable({
-      id: v.string(), // IDUtang
+      id: v.string(),
       idKaryawan: v.string(),
       tanggal: v.string(),
       nominal: v.number(),
@@ -131,10 +172,11 @@ const schema = defineSchema(
       .index("by_idKaryawan", ["idKaryawan"])
       .index("by_tanggal", ["tanggal"]),
 
-    // ------------------------------------------------------------------ 9.
-    // Invoice (multi-barang)
+    // ------------------------------------------------------------------
+    // 9. Invoice (multi-barang)
+    // ------------------------------------------------------------------
     invoice: defineTable({
-      idInvoice: v.string(), // UNIQUE
+      idInvoice: v.string(),
       tanggal: v.string(),
       tipe: v.union(v.literal("Supplier"), v.literal("Reseller"), v.literal("DPL"), v.literal("Pasar")),
       namaPihak: v.string(),
@@ -146,6 +188,8 @@ const schema = defineSchema(
           hargaJual: v.optional(v.number()),
           qty: v.number(),
           subtotal: v.number(),
+          stokAwal: v.optional(v.number()),
+          stokAkhir: v.optional(v.number()),
         }),
       ),
       total: v.number(),
@@ -153,7 +197,7 @@ const schema = defineSchema(
       totalPenjualan: v.number(),
       margin: v.number(),
       mataUang: v.union(v.literal("Rp"), v.literal("$")),
-      statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending"
+      statusPembayaran: v.optional(v.string()),
       dibayar: v.optional(v.number()),
       sisa: v.optional(v.number()),
       tenggat: v.optional(v.string()),
@@ -166,15 +210,16 @@ const schema = defineSchema(
           }),
         ),
       ),
-      deletedAt: v.optional(v.string()), // soft-delete (recycle bin)
+      deletedAt: v.optional(v.string()),
     })
       .index("by_idInvoice", ["idInvoice"])
       .index("by_tanggal", ["tanggal"])
       .index("by_tipe", ["tipe"])
       .index("by_namaPihak", ["namaPihak"]),
 
-    // ------------------------------------------------------------------ 10.
-    // Retur Barang
+    // ------------------------------------------------------------------
+    // 10. Retur Barang
+    // ------------------------------------------------------------------
     retur: defineTable({
       id: v.string(),
       tanggal: v.string(),
@@ -187,8 +232,9 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"])
       .index("by_tipe", ["tipe"]),
 
-    // ------------------------------------------------------------------ 11.
-    // Kas Harian
+    // ------------------------------------------------------------------
+    // 11. Kas Harian
+    // ------------------------------------------------------------------
     kas: defineTable({
       id: v.string(),
       tanggal: v.string(),
@@ -197,25 +243,29 @@ const schema = defineSchema(
       saldoAwal: v.number(),
       saldoAkhir: v.number(),
       keterangan: v.optional(v.string()),
+      sumber: v.optional(v.string()),
     }).index("by_tanggal", ["tanggal"]),
 
-    // ------------------------------------------------------------------ 12.
-    // Pengeluaran
+    // ------------------------------------------------------------------
+    // 12. Pengeluaran
+    // ------------------------------------------------------------------
     pengeluaran: defineTable({
       id: v.string(),
       tanggal: v.string(),
       jenis: v.string(),
       nominal: v.number(),
       keterangan: v.optional(v.string()),
+      idKaryawan: v.optional(v.string()),
     }).index("by_tanggal", ["tanggal"]),
 
-    // ------------------------------------------------------------------ 13.
-    // Gudang & Stok
+    // ------------------------------------------------------------------
+    // 13. Gudang & Stok
+    // ------------------------------------------------------------------
     gudang: defineTable({
       id: v.string(),
       namaBarang: v.string(),
       stokAwal: v.number(),
-      stokMin: v.optional(v.number()), // batas minimum stok
+      stokMin: v.optional(v.number()),
       keterangan: v.optional(v.string()),
     }).index("by_namaBarang", ["namaBarang"]),
 
@@ -230,52 +280,71 @@ const schema = defineSchema(
       .index("by_namaBarang", ["namaBarang"])
       .index("by_tanggal", ["tanggal"]),
 
-    // ------------------------------------------------------------------ 14.
-    // Slip Gaji
+    // ------------------------------------------------------------------
+    // 14. Slip Gaji
+    // ------------------------------------------------------------------
     slipgaji: defineTable({
       id: v.string(),
       idKaryawan: v.string(),
       bulan: v.string(),
+      periode: v.optional(v.string()),
       gajiPokok: v.number(),
       bonus: v.number(),
+      bonusKerajinan: v.optional(v.number()),
+      bonusBulanan: v.optional(v.number()),
+      denda: v.optional(v.number()),
       potonganAbsensi: v.number(),
       potonganUtang: v.number(),
+      potonganCasbon: v.optional(v.number()),
       totalBersih: v.number(),
+      gajiBersih: v.optional(v.number()),
       status: v.string(),
       tanggal: v.string(),
+      hadir: v.optional(v.number()),
+      izin: v.optional(v.number()),
+      sakit: v.optional(v.number()),
+      alpa: v.optional(v.number()),
     })
       .index("by_idKaryawan", ["idKaryawan"])
       .index("by_bulan", ["bulan"]),
 
-    // ------------------------------------------------------------------ 15.
-    // Katalog Harga per Pihak (Supplier / Reseller / DPL / Pasar)
+    // ------------------------------------------------------------------
+    // 15. Katalog Harga per Pihak
+    // ------------------------------------------------------------------
     katalog: defineTable({
-      tipe: v.string(), // Supplier | Reseller | DPL | Pasar
+      id: v.optional(v.string()),
+      tipe: v.string(),
       namaPihak: v.string(),
       items: v.array(
         v.object({
           kodeBarang: v.string(),
           namaBarang: v.string(),
           harga: v.number(),
+          kategori: v.optional(v.string()),
+          satuan: v.optional(v.string()),
+          deskripsi: v.optional(v.string()),
         }),
       ),
+      updatedAt: v.optional(v.number()),
     })
       .index("by_tipe_namaPihak", ["tipe", "namaPihak"])
       .index("by_namaPihak", ["namaPihak"]),
 
-    // ------------------------------------------------------------------ 16.
-    // Monitoring / Audit Log
+    // ------------------------------------------------------------------
+    // 16. Monitoring / Audit Log
+    // ------------------------------------------------------------------
     monitor: defineTable({
       aksi: v.string(),
-     oleh: v.optional(v.string()),
+      oleh: v.optional(v.string()),
       detail: v.optional(v.string()),
       tanggal: v.string(),
     }).index("by_tanggal", ["tanggal"]),
 
-    // ------------------------------------------------------------------ 17.
-    // Tetesan (drip/wholesale)
+    // ------------------------------------------------------------------
+    // 17. Tetesan (drip/wholesale)
+    // ------------------------------------------------------------------
     invoiceTetesan: defineTable({
-      idInvoice: v.string(), // UNIQUE
+      idInvoice: v.string(),
       tanggal: v.string(),
       tipe: v.union(v.literal("Modal"), v.literal("Penjualan")),
       namaPihak: v.string(),
@@ -284,13 +353,13 @@ const schema = defineSchema(
         v.object({
           kodeBarang: v.string(),
           namaBarang: v.string(),
-          harga: v.number(), // harga modal (Modal) / harga jual (Penjualan)
+          harga: v.number(),
           qty: v.number(),
           subtotal: v.number(),
         }),
       ),
       total: v.number(),
-      statusPembayaran: v.optional(v.string()), // "Lunas" | "Pending"
+      statusPembayaran: v.optional(v.string()),
       dibayar: v.optional(v.number()),
       sisa: v.optional(v.number()),
       riwayatBayar: v.optional(
@@ -307,39 +376,91 @@ const schema = defineSchema(
       .index("by_tanggal", ["tanggal"])
       .index("by_tipe", ["tipe"]),
 
-    // Stok Tetesan — satu baris per nama barang (tipe: Baku | Jadi)
     tetesanStok: defineTable({
-      id: v.string(), // IDTetesanStok
-      namaBarang: v.string(), // unique per barang
+      id: v.string(),
+      namaBarang: v.string(),
       tipe: v.union(v.literal("Baku"), v.literal("Jadi")),
       stokAwal: v.number(),
       tanggalStokAwal: v.optional(v.string()),
       keterangan: v.optional(v.string()),
     }).index("by_namaBarang", ["namaBarang"]),
 
-    // Riwayat perubahan stok tetesan (asal: Invoice Modal / Invoice Penjualan / Stok Awal / Manual)
     tetesanStokHistory: defineTable({
       id: v.string(),
       tanggal: v.string(),
       namaBarang: v.string(),
-      perubahan: v.number(), // +masuk / -keluar
-      tipe: v.string(), // asal perubahan
+      perubahan: v.number(),
+      tipe: v.string(),
       keterangan: v.optional(v.string()),
     })
       .index("by_namaBarang", ["namaBarang"])
       .index("by_tanggal", ["tanggal"]),
 
-    // ------------------------------------------------------------------ 18.
-    // Audit Log (Riwayat Aktivitas)
+    // ------------------------------------------------------------------
+    // 18. Audit Log (Riwayat Aktivitas)
+    // ------------------------------------------------------------------
     auditLog: defineTable({
-      aksi: v.string(), // "create_invoice", "edit_invoice", "delete_invoice", dsb
-      oleh: v.string(), // nama/phone user
-      target: v.string(), // mis. "INV055", "BRG001"
-      detail: v.optional(v.string()), // ringkasan singkat
-      timestamp: v.number(), // Date.now()
+      aksi: v.string(),
+      oleh: v.string(),
+      target: v.string(),
+      detail: v.optional(v.string()),
+      timestamp: v.number(),
     })
       .index("by_timestamp", ["timestamp"])
       .index("by_aksi", ["aksi"]),
+
+    // ------------------------------------------------------------------
+    // Bahan Baku (Tetesan)
+    // ------------------------------------------------------------------
+    bahanBaku: defineTable({
+      kode: v.string(),
+      nama: v.string(),
+      harga: v.number(),
+      kategori: v.optional(v.string()),
+    }).index("by_kode", ["kode"]),
+
+    // ------------------------------------------------------------------
+    // Barang Jadi (Tetesan)
+    // ------------------------------------------------------------------
+    barangJadi: defineTable({
+      kode: v.string(),
+      nama: v.string(),
+      harga: v.number(),
+      kategori: v.optional(v.string()),
+    }).index("by_kode", ["kode"]),
+
+    // ------------------------------------------------------------------
+    // Push Subscriptions (Web Push)
+    // ------------------------------------------------------------------
+    pushSubscription: defineTable({
+      endpoint: v.string(),
+      keys: v.object({
+        p256dh: v.string(),
+        auth: v.string(),
+      }),
+      createdAt: v.number(),
+    }).index("by_endpoint", ["endpoint"]),
+
+    // ------------------------------------------------------------------
+    // App Settings (key-value)
+    // ------------------------------------------------------------------
+    appSettings: defineTable({
+      key: v.string(),
+      value: v.string(),
+    }).index("by_key", ["key"]),
+
+    // ------------------------------------------------------------------
+    // Piutang
+    // ------------------------------------------------------------------
+    piutang: defineTable({
+      id: v.string(),
+      idInvoice: v.optional(v.string()),
+      namaPihak: v.optional(v.string()),
+      tipe: v.optional(v.string()),
+      nominal: v.number(),
+      tanggal: v.string(),
+      status: v.optional(v.string()),
+    }).index("by_tanggal", ["tanggal"]),
   },
   { schemaValidation: false },
 );
