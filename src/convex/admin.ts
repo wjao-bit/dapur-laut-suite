@@ -41,6 +41,283 @@ function sha256Hex(input: string): string {
   dv.setUint32(msg.length - 4, bitLen >>> 0, false);
 
   let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
- 
+  let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
 
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 2.409 characters. Read it separately or use code_search for the relevant section.
+  for (let i = 0; i < msg.length; i += 64) {
+    const W = new Array<number>(64);
+    for (let j = 0; j < 16; j++) W[j] = dv.getUint32(i + j * 4, false);
+    for (let j = 16; j < 64; j++) W[j] = (smS1(W[j - 2]) + W[j - 7] + smS0(W[j - 15]) + W[j - 16]) | 0;
+
+    let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+    for (let j = 0; j < 64; j++) {
+      const T1 = (h + bigS1(e) + ch(e, f, g) + K[j] + W[j]) | 0;
+      const T2 = (bigS0(a) + maj(a, b, c)) | 0;
+      h = g; g = f; f = e; e = (d + T1) | 0;
+      d = c; c = b; b = a; a = (T1 + T2) | 0;
+    }
+    h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
+    h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
+  }
+  return [h0, h1, h2, h3, h4, h5, h6, h7]
+    .map((v) => (v >>> 0).toString(16).padStart(8, "0"))
+    .join("");
+}
+
+function normalizePhone(raw: string): string {
+  return String(raw || "").replace(/[^\d]/g, "").trim();
+}
+
+function genToken(phone: string): string {
+  return sha256Hex(`${phone}|${Date.now().toString(36)}|${Math.random().toString(36).slice(2)}|${Math.random()}`);
+}
+
+async function findAkun(ctx: any, phone: string) {
+  return (ctx.db.query("akun") as any)
+    .filter((q: any) => q.eq(q.field("id"), phone))
+    .first();
+}
+
+async function findSession(ctx: any, token: string) {
+  return (ctx.db.query("sessions") as any)
+    .filter((q: any) => q.eq(q.field("token"), token))
+    .first();
+}
+
+async function requireSession(ctx: any, token: string) {
+  const sesi = await findSession(ctx, token);
+  if (!sesi) return badRequest("Sesi tidak valid — silakan masuk kembali");
+  const akun = await findAkun(ctx, sesi.phone);
+  if (!akun || akun.status !== "approved") return badRequest("Akun tidak aktif — silakan masuk kembali");
+  return { sesi, akun };
+}
+
+export async function requireMaster(ctx: any, token: string) {
+  const { akun } = await requireSession(ctx, token);
+  if ((akun.role ?? "Admin") !== "Admin Master") {
+    return badRequest("Hanya Admin Master yang dapat melakukan aksi ini");
+  }
+  return akun;
+}
+
+async function syncMasterAccount(ctx: any): Promise<{ akun: any; created: boolean }> {
+  let akun = await findAkun(ctx, MASTER_PHONE);
+  if (!akun) {
+    await ctx.db.insert("akun", {
+      id: MASTER_PHONE,
+      nama: "Admin Master",
+      password: sha256Hex(MASTER_DEFAULT_PASSWORD),
+      status: "approved",
+      role: "Admin Master",
+      createdAt: Date.now(),
+    });
+    akun = await findAkun(ctx, MASTER_PHONE);
+    return { akun, created: true };
+  }
+  const patch: Record<string, unknown> = {};
+  if (akun.password === sha256Hex(MASTER_OLD_DEFAULT_PASSWORD)) {
+    patch.password = sha256Hex(MASTER_DEFAULT_PASSWORD);
+  }
+  if (akun.role !== "Admin Master") patch.role = "Admin Master";
+  if (akun.status !== "approved") patch.status = "approved";
+  if (Object.keys(patch).length > 0) {
+    await ctx.db.patch(akun._id, patch);
+    akun = await findAkun(ctx, MASTER_PHONE);
+  }
+  return { akun, created: false };
+}
+
+// ============================================================================
+// SESI — getSession / adminLogin / adminLogout
+// ============================================================================
+
+export const getSession = query({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    logRequest("getSession", { token: token ? "***" : "" });
+    const sesi = await findSession(ctx, token);
+    if (!sesi) return null;
+    const akun = await findAkun(ctx, sesi.phone);
+    if (!akun) return null;
+    const out = { phone: akun.id, nama: akun.nama, status: akun.status, role: akun.role ?? "Admin" };
+    logResponse("getSession", { phone: out.phone });
+    return out;
+  },
+});
+
+export const adminLogin = mutation({
+  args: { phone: v.string(), password: v.string() },
+  handler: async (ctx, { phone, password }) => {
+    const cleanPhone = normalizePhone(phone);
+    logRequest("adminLogin", { phone: cleanPhone });
+    let akun = await findAkun(ctx, cleanPhone);
+    if (cleanPhone === MASTER_PHONE) {
+      akun = (await syncMasterAccount(ctx)).akun;
+    }
+    if (!akun || akun.password !== sha256Hex(password || "")) {
+      return badRequest("Nomor HP atau password salah");
+    }
+    if (akun.status === "pending") return badRequest("Akun belum disetujui — tunggu persetujuan Admin Master");
+    if (akun.status === "rejected") return badRequest("Akun ditolak — hubungi Admin Master");
+    const token = genToken(cleanPhone);
+    await ctx.db.insert("sessions", { token, phone: cleanPhone, createdAt: Date.now() });
+    await logAktivitas(ctx, cleanPhone, akun.nama, "Login", "Login berhasil");
+    logResponse("adminLogin", { phone: cleanPhone, nama: akun.nama });
+    return { token, phone: cleanPhone, nama: akun.nama, role: akun.role ?? "Admin" };
+  },
+});
+
+export const adminLogout = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    logRequest("adminLogout", {});
+    const sesi = await findSession(ctx, token);
+    if (sesi) {
+      const akun = await findAkun(ctx, sesi.phone);
+      await ctx.db.delete(sesi._id);
+      if (akun) await logAktivitas(ctx, akun.id, akun.nama, "Logout", "Keluar dari aplikasi");
+    }
+    return { ok: true };
+  },
+});
+
+// ============================================================================
+// PENDAFTARAN
+// ============================================================================
+
+export const ensureDefaultAdmin = mutation({
+  args: {},
+  handler: async (ctx) => {
+    logRequest("ensureDefaultAdmin", {});
+    const { created } = await syncMasterAccount(ctx);
+    logResponse("ensureDefaultAdmin", { phone: MASTER_PHONE, created });
+    return { created, phone: MASTER_PHONE, password: "" };
+  },
+});
+
+export const registerAkun = mutation({
+  args: { nama: v.string(), phone: v.string(), password: v.string() },
+  handler: async (ctx, { nama, phone, password }) => {
+    const cleanPhone = normalizePhone(phone);
+    logRequest("registerAkun", { nama, phone: cleanPhone });
+    if (!nama?.trim()) return badRequest("Nama wajib diisi");
+    if (!/^0\d{8,13}$/.test(cleanPhone)) return badRequest("Nomor HP tidak valid");
+    if (!password || password.length < 6) return badRequest("Password minimal 6 karakter");
+    const existing = await findAkun(ctx, cleanPhone);
+    if (existing) return badRequest("Nomor HP sudah terdaftar", { phone: cleanPhone });
+    const isMaster = cleanPhone === MASTER_PHONE;
+    await ctx.db.insert("akun", {
+      id: cleanPhone,
+      nama: nama.trim(),
+      password: sha256Hex(password),
+      status: isMaster ? "approved" : "pending",
+      role: isMaster ? "Admin Master" : "Admin",
+      createdAt: Date.now(),
+    });
+    await logAktivitas(ctx, cleanPhone, nama.trim(),
+      isMaster ? "Daftar (Admin Master)" : "Daftar Akun Baru",
+      isMaster ? "Disetujui otomatis" : "Menunggu persetujuan Admin Master");
+    return { status: isMaster ? "approved" : "pending", phone: cleanPhone };
+  },
+});
+
+// ============================================================================
+// GANTI PASSWORD
+// ============================================================================
+
+export const changePassword = mutation({
+  args: { token: v.string(), oldPassword: v.string(), newPassword: v.string() },
+  handler: async (ctx, { token, oldPassword, newPassword }) => {
+    logRequest("changePassword", {});
+    const { akun } = await requireSession(ctx, token);
+    if (!oldPassword) return badRequest("Password lama wajib diisi");
+    if (!newPassword || newPassword.length < 6) return badRequest("Password baru minimal 6 karakter");
+    if (akun.password !== sha256Hex(oldPassword)) return badRequest("Password lama salah");
+    if (newPassword === oldPassword) return badRequest("Password baru harus berbeda dari password lama");
+    await ctx.db.patch(akun._id, { password: sha256Hex(newPassword) });
+    await logAktivitas(ctx, akun.id, akun.nama, "Ganti Password", "Password berhasil diganti");
+    return { ok: true, phone: akun.id };
+  },
+});
+
+export const resetPasswordPublic = mutation({
+  args: { phone: v.string(), newPassword: v.string() },
+  handler: async (ctx, { phone, newPassword }) => {
+    const cleanPhone = normalizePhone(phone);
+    logRequest("resetPasswordPublic", { phone: cleanPhone });
+    if (!cleanPhone) return badRequest("Nomor HP wajib diisi");
+    if (!newPassword || newPassword.length < 6) return badRequest("Password baru minimal 6 karakter");
+    const akun = await findAkun(ctx, cleanPhone);
+    if (!akun) return badRequest("Nomor HP tidak terdaftar di sistem");
+    if (akun.status !== "approved") return badRequest("Akun belum disetujui admin");
+    await ctx.db.patch(akun._id, { password: sha256Hex(newPassword) });
+    await logAktivitas(ctx, akun.id, akun.nama, "Reset Password (lupa)", "Password direset dari halaman login");
+    return { ok: true, phone: akun.id };
+  },
+});
+
+// ============================================================================
+// KELOLA AKUN (KHUSUS ADMIN MASTER)
+// ============================================================================
+
+export const listAkun = query({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    logRequest("listAkun", {});
+    await requireMaster(ctx, token);
+    const rows = await ctx.db.query("akun").collect();
+    const out = rows
+      .map((a) => ({ phone: a.id, nama: a.nama, status: a.status, role: a.role ?? "Admin", createdAt: a.createdAt }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+    return out;
+  },
+});
+
+export const approveAkun = mutation({
+  args: { token: v.string(), phone: v.string() },
+  handler: async (ctx, { token, phone }) => {
+    const cleanPhone = normalizePhone(phone);
+    const master = await requireMaster(ctx, token);
+    const target = await findAkun(ctx, cleanPhone);
+    if (!target) return badRequest("Akun tidak ditemukan");
+    if (target.id === MASTER_PHONE) return badRequest("Akun Admin Master tidak dapat diubah");
+    await ctx.db.patch(target._id, { status: "approved" });
+    await logAktivitas(ctx, master.id, master.nama, "Setujui Akun", `${target.nama} (${cleanPhone})`);
+    return { phone: cleanPhone, status: "approved" };
+  },
+});
+
+export const rejectAkun = mutation({
+  args: { token: v.string(), phone: v.string() },
+  handler: async (ctx, { token, phone }) => {
+    const cleanPhone = normalizePhone(phone);
+    const master = await requireMaster(ctx, token);
+    const target = await findAkun(ctx, cleanPhone);
+    if (!target) return badRequest("Akun tidak ditemukan");
+    if (target.id === MASTER_PHONE) return badRequest("Admin Master tidak dapat ditolak");
+    await ctx.db.patch(target._id, { status: "rejected" });
+    const sesi = await (ctx.db.query("sessions") as any)
+      .filter((q: any) => q.eq(q.field("phone"), cleanPhone))
+      .collect();
+    for (const s of sesi) await ctx.db.delete(s._id);
+    await logAktivitas(ctx, master.id, master.nama, "Tolak Akun", `${target.nama} (${cleanPhone})`);
+    return { phone: cleanPhone, status: "rejected" };
+  },
+});
+
+export const kickAkun = mutation({
+  args: { token: v.string(), phone: v.string() },
+  handler: async (ctx, { token, phone }) => {
+    const cleanPhone = normalizePhone(phone);
+    const master = await requireMaster(ctx, token);
+    const target = await findAkun(ctx, cleanPhone);
+    if (!target) return badRequest("Akun tidak ditemukan");
+    if (target.id === MASTER_PHONE) return badRequest("Admin Master tidak dapat di-kick");
+    const sesi = await (ctx.db.query("sessions") as any)
+      .filter((q: any) => q.eq(q.field("phone"), cleanPhone))
+      .collect();
+    for (const s of sesi) await ctx.db.delete(s._id);
+    await ctx.db.patch(target._id, { status: "rejected" });
+    await logAktivitas(ctx, master.id, master.nama, "Kick Akun", `${target.nama} (${cleanPhone})`);
+    return { phone: cleanPhone, status: "rejected" };
+  },
+});

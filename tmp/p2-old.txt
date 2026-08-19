@@ -1,1 +1,23 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+export const deleteInvoice = mutation({
+  args: { idInvoice: v.string() },
+  handler: async (ctx, { idInvoice }) => {
+    logRequest("deleteInvoice", { idInvoice });
+    const inv = await findOneByKey(ctx, "invoice", "idInvoice", idInvoice);
+    if (!inv) return { deleted: false };
+    // Hapus riwayat stok yang berasal dari invoice ini.
+    const allHist = await ctx.db.query("stokHistory").collect();
+    const hist = allHist.filter(
+      (h) =>
+        h.keterangan === `Invoice ${idInvoice}` ||
+        (h.keterangan ?? "").includes(`(${idInvoice})`),
+    );
+    for (const h of hist) await ctx.db.delete(h._id);
+    // Hapus entri kas milik invoice
+    const kas = await findOneByKey(ctx, "kas", "id", `INV-${idInvoice}`);
+    if (kas) await ctx.db.delete(kas._id);
+    await recomputeKas(ctx);
+    await ctx.db.delete(inv._id);
+    logResponse("deleteInvoice", { deleted: true });
+    return { deleted: true };
+  },
+});
