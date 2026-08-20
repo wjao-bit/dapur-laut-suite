@@ -80,26 +80,29 @@ export const addKatalogItem = mutation({
   args: {
     tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
     namaPihak: v.string(),
-    kodeBarang: v.string(),
-    namaBarang: v.string(),
-    harga: v.number(),
+    item: v.object({
+      kodeBarang: v.string(),
+      namaBarang: v.string(),
+      harga: v.number(),
+    }),
   },
-  handler: async (ctx, { tipe, namaPihak, kodeBarang, namaBarang, harga }) => {
+  handler: async (ctx, { tipe, namaPihak, item }) => {
+    const { kodeBarang, namaBarang, harga } = item;
     logRequest("addKatalogItem", { tipe, namaPihak, kodeBarang, namaBarang, harga });
     const party = String(namaPihak ?? "").trim();
     const name = String(namaBarang ?? "").trim();
     if (!party) return badRequest("Nama pihak wajib diisi");
     if (!name) return badRequest("Nama barang wajib diisi");
     const existing = await findKatalog(ctx, tipe, party);
-    const item = { kodeBarang: kodeBarang ?? "", namaBarang: name, harga: Number(harga) || 0 };
+    const cleanItem = { kodeBarang: kodeBarang ?? "", namaBarang: name, harga: Number(harga) || 0 };
     const items = existing ? [...((existing as any).items ?? [])] : [];
     const idx = items.findIndex(
       (it: any) =>
         String(it.namaBarang ?? "").toLowerCase() === name.toLowerCase() ||
         (kodeBarang && String(it.kodeBarang ?? "") === kodeBarang),
     );
-    if (idx >= 0) items[idx] = item;
-    else items.push(item);
+    if (idx >= 0) items[idx] = cleanItem;
+    else items.push(cleanItem);
     if (existing) {
       await ctx.db.patch(existing._id, { items, updatedAt: Date.now() });
       logResponse("addKatalogItem", { ok: true, id: existing._id });
@@ -118,29 +121,35 @@ export const addKatalogItem = mutation({
 });
 
 export const removeKatalogItem = mutation({
-  args: { id: v.string(), kodeBarang: v.string(), namaBarang: v.string() },
-  handler: async (ctx, { id, kodeBarang, namaBarang }) => {
-    logRequest("removeKatalogItem", { id, kodeBarang, namaBarang });
-    const row = await findOneByKey(ctx, "katalog" as any, "id", id);
+  args: {
+    tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
+    namaPihak: v.string(),
+    kodeBarang: v.string(),
+  },
+  handler: async (ctx, { tipe, namaPihak, kodeBarang }) => {
+    logRequest("removeKatalogItem", { tipe, namaPihak, kodeBarang });
+    const party = String(namaPihak ?? "").trim();
+    const row = await findKatalog(ctx, tipe, party);
     if (!row) return { ok: false };
-    const items = ((row as any).items ?? []).filter((it: any) => {
-      if (kodeBarang) return String(it.kodeBarang ?? "") !== kodeBarang;
-      return String(it.namaBarang ?? "") !== namaBarang;
-    });
+    const items = ((row as any).items ?? []).filter((it: any) => String(it.kodeBarang ?? "") !== kodeBarang);
     await ctx.db.patch(row._id, { items, updatedAt: Date.now() });
-    logResponse("removeKatalogItem", { ok: true, id });
-    return { ok: true, id };
+    logResponse("removeKatalogItem", { ok: true, tipe, namaPihak: party });
+    return { ok: true };
   },
 });
 
 export const deleteKatalog = mutation({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => {
-    logRequest("deleteKatalog", { id });
-    const row = await findOneByKey(ctx, "katalog" as any, "id", id);
+  args: {
+    tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
+    namaPihak: v.string(),
+  },
+  handler: async (ctx, { tipe, namaPihak }) => {
+    const party = String(namaPihak ?? "").trim();
+    logRequest("deleteKatalog", { tipe, namaPihak: party });
+    const row = await findKatalog(ctx, tipe, party);
     if (!row) return { deleted: false };
     await ctx.db.delete(row._id);
-    logResponse("deleteKatalog", { deleted: true, id });
-    return { deleted: true, id };
+    logResponse("deleteKatalog", { deleted: true, tipe, namaPihak: party });
+    return { deleted: true };
   },
 });
