@@ -80,14 +80,11 @@ export const addKatalogItem = mutation({
   args: {
     tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
     namaPihak: v.string(),
-    item: v.object({
-      kodeBarang: v.string(),
-      namaBarang: v.string(),
-      harga: v.number(),
-    }),
+    kodeBarang: v.string(),
+    namaBarang: v.string(),
+    harga: v.number(),
   },
-  handler: async (ctx, { tipe, namaPihak, item }) => {
-    const { kodeBarang, namaBarang, harga } = item;
+  handler: async (ctx, { tipe, namaPihak, kodeBarang, namaBarang, harga }) => {
     logRequest("addKatalogItem", { tipe, namaPihak, kodeBarang, namaBarang, harga });
     const party = String(namaPihak ?? "").trim();
     const name = String(namaBarang ?? "").trim();
@@ -122,34 +119,35 @@ export const addKatalogItem = mutation({
 
 export const removeKatalogItem = mutation({
   args: {
-    tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
-    namaPihak: v.string(),
+    id: v.string(),
     kodeBarang: v.string(),
+    namaBarang: v.string(),
   },
-  handler: async (ctx, { tipe, namaPihak, kodeBarang }) => {
-    logRequest("removeKatalogItem", { tipe, namaPihak, kodeBarang });
-    const party = String(namaPihak ?? "").trim();
-    const row = await findKatalog(ctx, tipe, party);
+  handler: async (ctx, { id, kodeBarang, namaBarang }) => {
+    logRequest("removeKatalogItem", { id, kodeBarang, namaBarang });
+    const row = await (ctx.db.query("katalog") as any)
+      .filter((q: any) => q.eq(q.field("id"), id))
+      .first();
     if (!row) return { ok: false };
     const items = ((row as any).items ?? []).filter((it: any) => String(it.kodeBarang ?? "") !== kodeBarang);
     await ctx.db.patch(row._id, { items, updatedAt: Date.now() });
-    logResponse("removeKatalogItem", { ok: true, tipe, namaPihak: party });
+    logResponse("removeKatalogItem", { ok: true, id });
     return { ok: true };
   },
 });
 
 export const deleteKatalog = mutation({
   args: {
-    tipe: v.union(v.literal("Reseller"), v.literal("Supplier")),
-    namaPihak: v.string(),
+    id: v.string(),
   },
-  handler: async (ctx, { tipe, namaPihak }) => {
-    const party = String(namaPihak ?? "").trim();
-    logRequest("deleteKatalog", { tipe, namaPihak: party });
-    const row = await findKatalog(ctx, tipe, party);
+  handler: async (ctx, { id }) => {
+    logRequest("deleteKatalog", { id });
+    const row = await (ctx.db.query("katalog") as any)
+      .filter((q: any) => q.eq(q.field("id"), id))
+      .first();
     if (!row) return { deleted: false };
     await ctx.db.delete(row._id);
-    logResponse("deleteKatalog", { deleted: true, tipe, namaPihak: party });
+    logResponse("deleteKatalog", { deleted: true, id });
     return { deleted: true };
   },
 });
