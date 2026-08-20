@@ -20,6 +20,12 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
   const lunas = sisa <= 0;
   const isPasar = invoice.tipe === "Pasar";
   const margin = isPasar ? totalMargin(invoice) : 0;
+
+  // Grand total qty
+  const grandQty = isPasar
+    ? (invoice.items ?? []).reduce((s: number, it: any) => s + (parseNum(it.stokAwal) - parseNum(it.stokAkhir)), 0)
+    : (invoice.items ?? []).reduce((s: number, it: any) => s + parseNum(it.qty), 0);
+
   return (
     <div className="relative">
       {/* Watermark status pembayaran (BELUM LUNAS / LUNAS) */}
@@ -105,43 +111,37 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
         )}
 
         {/* Tabel barang.
-            LAYAR: geser horizontal tetap lancar di Android (touch-pan-x), tabel
-            nyaman dengan min-w + text-sm.
-            CETAK: tabel DIPAKSA muat di lebar kertas (A4, margin 10mm) supaya
-            SEMUA kolom tampil utuh — termasuk invoice Pasar yang kolomnya banyak
-            (Stok Awal, Stok Akhir, Terjual, Harga Modal, Harga Jual, Subtotal,
-            Margin). table-fixed + colgroup persentase di print → tidak ada kolom
-            terpotong; font & padding diperkecil, kode tidak wrap, dan tiap baris
-            tidak dibelah ke dua halaman (break-inside-avoid). */}
+            LAYAR: semua kolom tampil (No, Kode, Nama, Qty, Harga, Subtotal, Margin).
+            CETAK: kolom Kode & Margin DISEMBUNYIKAN → hanya: No, Nama, Qty, Harga, Subtotal. */}
         <div className="overflow-x-auto touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch] print:overflow-visible">
           <table className="w-full min-w-[580px] border-collapse text-xs sm:text-sm print:min-w-0 print:w-full print:table-fixed print:text-[10px]">
             {isPasar ? (
               <colgroup>
                 <col className="print:w-[5%]" />
-                <col className="print:w-[14%]" />
-                <col className="print:w-[18%]" />
-                <col className="print:w-[8%]" />
-                <col className="print:w-[8%]" />
-                <col className="print:w-[8%]" />
-                <col className="print:w-[11%]" />
-                <col className="print:w-[11%]" />
+                <col className="print:hidden" />
+                <col className="print:w-[22%]" />
                 <col className="print:w-[10%]" />
-                <col className="print:w-[7%]" />
+                <col className="print:w-[10%]" />
+                <col className="print:w-[10%]" />
+                <col className="print:w-[12%]" />
+                <col className="print:w-[12%]" />
+                <col className="print:w-[13%]" />
+                <col className="print:hidden" />
               </colgroup>
             ) : (
               <colgroup>
-                <col className="print:w-[6%]" />
-                <col className="print:w-[16%]" />
-                <col className="print:w-[32%]" />
-                <col className="print:w-[10%]" />
-                <col className="print:w-[16%]" />
-                <col className="print:w-[20%]" />
+                <col className="print:w-[7%]" />
+                <col className="print:hidden" />
+                <col className="print:w-[40%]" />
+                <col className="print:w-[12%]" />
+                <col className="print:w-[18%]" />
+                <col className="print:w-[23%]" />
               </colgroup>
             )}
             <thead>
               <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
                 <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2 print:px-1 print:py-0.5">No</th>
-                <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2 print:px-1 print:py-0.5">Kode</th>
+                <th className="border border-slate-200 px-1.5 py-1.5 print:hidden sm:px-2 sm:py-2 print:px-1 print:py-0.5">Kode</th>
                 <th className="border border-slate-200 px-1.5 py-1.5 sm:px-2 sm:py-2 print:px-1 print:py-0.5">Nama Barang</th>
                 {isPasar ? (
                   <>
@@ -159,7 +159,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 )}
                 <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2 print:px-1 print:py-0.5">Subtotal</th>
                 {isPasar && (
-                  <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2 print:px-1 print:py-0.5">Margin</th>
+                  <th className="hidden border border-slate-200 px-1.5 py-1.5 text-right print:hidden sm:px-2 sm:py-2 print:px-1 print:py-0.5">Margin</th>
                 )}
               </tr>
             </thead>
@@ -177,7 +177,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 return (
                   <tr key={i} className="print:break-inside-avoid">
                     <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5 print:px-1 print:py-[2px]">{i + 1}</td>
-                    <td className="border border-slate-200 px-1.5 py-1 sm:px-2 sm:py-1.5 print:px-1 print:py-[2px] print:whitespace-nowrap">{it.kodeBarang}</td>
+                    <td className="border border-slate-200 px-1.5 py-1 print:hidden sm:px-2 sm:py-1.5 print:px-1 print:py-[2px] print:whitespace-nowrap">{it.kodeBarang}</td>
                     <td className="border border-slate-200 px-1.5 py-1 break-words sm:px-2 sm:py-1.5 print:px-1 print:py-[2px]">{it.namaBarang}</td>
                     {isPasar ? (
                       <>
@@ -195,7 +195,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                     )}
                     <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5 print:px-1 print:py-[2px]">{formatCurrency(subtotal, mu)}</td>
                     {isPasar && (
-                      <td className={`border border-slate-200 px-1.5 py-1 text-right font-semibold sm:px-2 sm:py-1.5 print:px-1 print:py-[2px] ${m >= 0 ? "text-sky-700" : "text-rose-600"}`}>
+                      <td className={`hidden border border-slate-200 px-1.5 py-1 text-right font-semibold print:hidden sm:px-2 sm:py-1.5 print:px-1 print:py-[2px] ${m >= 0 ? "text-sky-700" : "text-rose-600"}`}>
                         {formatCurrency(m, mu)}
                       </td>
                     )}
@@ -206,10 +206,14 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           </table>
         </div>
 
-        {/* Ringkasan nilai: Pasar menampilkan margin (per barang ada di kolom Margin);
-            nota lain hanya total akhir. */}
+        {/* Ringkasan nilai — NOTA: Total Qty, Sudah Dibayar, Sisa, Total */}
         <div className="mt-4 flex justify-end print:break-inside-avoid print:mt-3">
           <div className="w-full space-y-1 text-sm sm:w-64">
+            {/* Grand Total Qty */}
+            <div className="flex justify-between text-slate-600">
+              <span>Total Qty</span>
+              <span className="font-semibold tabular-nums">{formatNum(grandQty)}</span>
+            </div>
             {isPasar && (
               <div className="flex justify-between text-slate-600">
                 <span>Margin</span>
@@ -255,3 +259,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
     </div>
   );
 }
+
+
+
+
