@@ -619,7 +619,7 @@ export function InvoiceFormDialog({
               </p>
             )}
           </div>
-          {tipe === "Supplier" ? (
+          {tipe !== "Pasar" && (
             <div>
               <Label className="text-xs font-medium">Mata Uang *</Label>
               <Select value={mataUang} onValueChange={(v) => setMataUang(v as MataUang)}>
@@ -632,15 +632,15 @@ export function InvoiceFormDialog({
                 </SelectContent>
               </Select>
             </div>
-          ) : (
-            (tipe === "Reseller" || tipe === "DPL") && (
-              <div>
-                <Label className="text-xs font-medium">
-                  Tenggat Pembayaran <span className="text-muted-foreground">(opsional)</span>
-                </Label>
-                <Input
-                  className="mt-1.5"
-                  type="date"
+          )}
+          {(tipe === "Reseller" || tipe === "DPL") && (
+            <div>
+              <Label className="text-xs font-medium">
+                Tenggat Pembayaran <span className="text-muted-foreground">(opsional)</span>
+              </Label>
+              <Input
+                className="mt-1.5"
+                type="date"
                   min={tanggal}
                   value={tenggat}
                   onChange={(e) => setTenggat(e.target.value)}

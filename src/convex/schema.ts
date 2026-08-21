@@ -64,6 +64,7 @@ const schema = defineSchema(
       token: v.string(),
       phone: v.string(),
       createdAt: v.number(),
+      expiresAt: v.optional(v.number()),
     }).index("by_token", ["token"]).index("by_phone", ["phone"]),
 
     // ------------------------------------------------------------------

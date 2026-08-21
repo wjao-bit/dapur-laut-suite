@@ -129,6 +129,11 @@ async function findSession(ctx: any, token: string) {
 async function requireSession(ctx: any, token: string) {
   const sesi = await findSession(ctx, token);
   if (!sesi) return badRequest("Sesi tidak valid — silakan masuk kembali");
+  // Cek expired (session lama tanpa expiresAt tetap valid)
+  if (sesi.expiresAt && Date.now() > sesi.expiresAt) {
+    await ctx.db.delete(sesi._id);
+    return badRequest("Sesi sudah kadaluarsa — silakan masuk kembali");
+  }
   const akun = await findAkun(ctx, sesi.phone);
   if (!akun || akun.status !== "approved") return badRequest("Akun tidak aktif — silakan masuk kembali");
   return { sesi, akun };
@@ -202,7 +207,9 @@ export const adminLogin = mutation({
     if (akun.status === "pending") return badRequest("Akun belum disetujui — tunggu persetujuan Admin Master");
     if (akun.status === "rejected") return badRequest("Akun ditolak — hubungi Admin Master");
     const token = genToken(cleanPhone);
-    await ctx.db.insert("sessions", { token, phone: cleanPhone, createdAt: Date.now() });
+    // Session berlaku 15 tahun (sampai 2039+)
+    const EXPIRY_MS = 15 * 365 * 24 * 60 * 60 * 1000;
+    await ctx.db.insert("sessions", { token, phone: cleanPhone, createdAt: Date.now(), expiresAt: Date.now() + EXPIRY_MS });
     await logAktivitas(ctx, cleanPhone, akun.nama, "Login", "Login berhasil");
     logResponse("adminLogin", { phone: cleanPhone, nama: akun.nama });
     return { token, phone: cleanPhone, nama: akun.nama, role: akun.role ?? "Admin" };
