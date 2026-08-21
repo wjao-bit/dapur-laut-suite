@@ -3,8 +3,9 @@ import { useSearchParams } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Eye, CheckCircle2, CalendarClock, Wallet, Pencil, ScanLine, Copy, MessageCircle } from "lucide-react";
+import { FileText, Plus, Trash2, Eye, CheckCircle2, CalendarClock, Wallet, Pencil, ScanLine, Copy, MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -95,6 +96,7 @@ export default function InvoicePage() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [filterTipe, setFilterTipe] = useState<string>("");
   const [filterPihak, setFilterPihak] = useState<string>("");
+  const [searchText, setSearchText] = useState<string>("");
   const [printInv, setPrintInv] = useState<any>(null);
   /** Invoice yang sedang diedit (mode edit — isi form otomatis dari invoice). */
   const [editInv, setEditInv] = useState<any>(null);
@@ -142,12 +144,22 @@ export default function InvoicePage() {
 
   const filtered = useMemo(() => {
     if (!invoices) return invoices;
+    const q = searchText.trim().toLowerCase();
     return invoices.filter((i: any) => {
       if (filterTipe && i.tipe !== filterTipe) return false;
       if (filterPihak && i.namaPihak !== filterPihak) return false;
+      if (q) {
+        const haystack = [
+          i.idInvoice,
+          i.namaPihak,
+          i.tipe,
+          ...(i.items ?? []).map((it: any) => `${it.kodeBarang} ${it.namaBarang}`),
+        ].join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [invoices, filterTipe, filterPihak]);
+  }, [invoices, filterTipe, filterPihak, searchText]);
 
   const openCreate = useCallback(() => {
     setEditInv(null);
@@ -421,7 +433,19 @@ export default function InvoicePage() {
         }
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 sm:max-w-lg">
+      <div className="mb-4 flex flex-wrap items-end gap-2">
+        <div className="w-full sm:max-w-xs">
+          <Label className="text-xs font-medium">Cari Invoice</Label>
+          <div className="relative mt-1.5">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Cari ID, pihak, barang..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <div>
           <Label className="text-xs font-medium">Filter Tipe</Label>
           <Select value={filterTipe} onValueChange={(v) => { setFilterTipe(v === "__all" ? "" : v); setFilterPihak(""); }}>
@@ -454,6 +478,8 @@ export default function InvoicePage() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
       </div>
 
       <DataTable

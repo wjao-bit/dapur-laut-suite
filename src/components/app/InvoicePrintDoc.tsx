@@ -159,7 +159,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                 )}
                 <th className="border border-slate-200 px-1.5 py-1.5 text-right sm:px-2 sm:py-2 print:px-1 print:py-0.5">Subtotal</th>
                 {isPasar && (
-                  <th className="hidden border border-slate-200 px-1.5 py-1.5 text-right print:hidden sm:px-2 sm:py-2 print:px-1 print:py-0.5">Margin</th>
+                  <th className="border border-slate-200 px-1.5 py-1.5 text-right print:hidden sm:px-2 sm:py-2 print:px-1 print:py-0.5">Margin</th>
                 )}
               </tr>
             </thead>
@@ -195,7 +195,7 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
                     )}
                     <td className="border border-slate-200 px-1.5 py-1 text-right sm:px-2 sm:py-1.5 print:px-1 print:py-[2px]">{formatCurrency(subtotal, mu)}</td>
                     {isPasar && (
-                      <td className={`hidden border border-slate-200 px-1.5 py-1 text-right font-semibold print:hidden sm:px-2 sm:py-1.5 print:px-1 print:py-[2px] ${m >= 0 ? "text-sky-700" : "text-rose-600"}`}>
+                      <td className={`border border-slate-200 px-1.5 py-1 text-right font-semibold print:hidden sm:px-2 sm:py-1.5 print:px-1 print:py-[2px] ${m >= 0 ? "text-sky-700" : "text-rose-600"}`}>
                         {formatCurrency(m, mu)}
                       </td>
                     )}
@@ -259,7 +259,3 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
     </div>
   );
 }
-
-
-
-

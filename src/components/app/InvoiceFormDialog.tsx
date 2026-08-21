@@ -49,9 +49,9 @@ export function itemSubtotal(tipe: string, it: any): number {
 
 /** Margin satu baris (hanya Pasar — dari selisih harga jual − modal × terjual). */
 export function itemMargin(tipe: string, it: any): number {
-  if (tipe !== "Pasar") return 0;
-  const terjual = roundNum(parseNum(it.stokAwal) - parseNum(it.stokAkhir));
-  return roundNum(terjual * (parseNum(it.hargaJual) - parseNum(it.hargaModal)));
+  if (tipe === "Supplier") return 0;
+  const qty = tipe === "Pasar" ? roundNum(parseNum(it.stokAwal) - parseNum(it.stokAkhir)) : parseNum(it.qty);
+  return roundNum(qty * (parseNum(it.hargaJual) - parseNum(it.hargaModal)));
 }
 
 function emptyItem(): InvoiceItem {
@@ -814,7 +814,7 @@ export function InvoiceFormDialog({
                         {formatCurrency(subtotal, mataUang)}
                       </p>
                     </div>
-                    {tipe === "Pasar" && (
+                    {tipe !== "Supplier" && (
                       <div>
                         <Label className="text-[11px] font-medium text-muted-foreground">Margin</Label>
                         <p
