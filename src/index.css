@@ -191,8 +191,14 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  .print\:hidden {
+  .print\:hidden,
+  .print-area .print\:hidden,
+  .print-area table .print\:hidden {
     display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
   }
 }
 
