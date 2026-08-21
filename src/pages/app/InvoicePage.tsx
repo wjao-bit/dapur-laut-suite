@@ -480,8 +480,6 @@ export default function InvoicePage() {
         </div>
       </div>
 
-      </div>
-
       <DataTable
         columns={columns}
         rows={filtered as any}

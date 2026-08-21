@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { parseNum, formatNum } from "@/lib/format";
 
@@ -17,6 +17,8 @@ import { parseNum, formatNum } from "@/lib/format";
  *   menggantikan nilai lama (memasukkan angka jadi lebih cepat di Android).
  * - Tampilan saat keluar kolom memakai format Indonesia: "0,7" bukan "0.7",
  *   "1.500" untuk ribuan — konsisten dengan semua tabel aplikasi.
+ * - onValue di-debounce 120ms supaya parent tidak re-render setiap ketikan →
+ *   typing di Android jauh lebih lancar.
  */
 export function NumInput({
   value,
@@ -37,10 +39,20 @@ export function NumInput({
   allowNegative?: boolean;
   id?: string;
 }) {
-  const [text, setText] = useState<string>(() =>
-    value && value !== 0 ? formatNum(value) : "",
+  const [text, setText] = useState<string>(
+    () => (value && value !== 0 ? formatNum(value) : ""),
   );
   const focused = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onValueRef = useRef(onValue);
+  onValueRef.current = onValue;
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   // Sinkron dari perubahan eksternal (prefill edit, pilih barang, reset form)
   // — tapi jangan timpa teks yang sedang diketik pengguna.
@@ -48,6 +60,24 @@ export function NumInput({
     if (focused.current) return;
     setText(value && value !== 0 ? formatNum(value) : "");
   }, [value]);
+
+  const flushPending = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const scheduleUpdate = useCallback(
+    (cleaned: string) => {
+      flushPending();
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        onValueRef.current(parseNum(cleaned));
+      }, 120);
+    },
+    [flushPending],
+  );
 
   const sanitize = (raw: string): string => {
     let s = raw.replace(allowNegative ? /[^0-9.,-]/g : /[^0-9.,]/g, "");
@@ -67,13 +97,18 @@ export function NumInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const cleaned = sanitize(e.target.value);
     setText(cleaned);
-    onValue(parseNum(cleaned));
+    scheduleUpdate(cleaned);
   };
 
   const handleBlur = () => {
     focused.current = false;
-    // Normalisasi tampilan saat keluar dari kolom: "0.7" / "0,7" → "0,7"
-    if (text.trim() !== "") setText(formatNum(parseNum(text)));
+    // Flush debounce supaya parent dapat nilai terakhir
+    flushPending();
+    if (text.trim() !== "") {
+      const num = parseNum(text);
+      setText(formatNum(num));
+      onValueRef.current(num);
+    }
   };
 
   return (
