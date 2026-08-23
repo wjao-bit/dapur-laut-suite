@@ -641,12 +641,11 @@ export function InvoiceFormDialog({
               <Input
                 className="mt-1.5"
                 type="date"
-                  min={tanggal}
-                  value={tenggat}
-                  onChange={(e) => setTenggat(e.target.value)}
-                />
-              </div>
-            )
+                min={tanggal}
+                value={tenggat}
+                onChange={(e) => setTenggat(e.target.value)}
+              />
+            </div>
           )}
           <div>
             <Label className="text-xs font-medium">Status Pembayaran *</Label>
