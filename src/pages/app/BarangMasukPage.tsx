@@ -109,6 +109,27 @@ function titleCase(s: string) {
   return s.replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
+const normName = (s: string) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Cari padanan nama di database master: sama persis → mengandung (min. 4 huruf). */
+function findBestMatch(
+  name: string,
+  list: { nama?: string; namaPasar?: string; harga?: number }[] | undefined,
+): { nama?: string; namaPasar?: string; harga?: number } | null {
+  if (!list || !list.length) return null;
+  const n = normName(name);
+  if (!n) return null;
+  let hit = list.find((x) => normName(x.nama ?? x.namaPasar) === n);
+  if (hit) return hit;
+  if (n.length >= 3) {
+    hit = list.find((x) => {
+      const xn = normName(x.nama ?? x.namaPasar);
+      return !!xn && (xn.includes(n) || n.includes(xn));
+    });
+  }
+  return hit ?? null;
+}
+
 /** Ubah ucapan cth. "tongkol lima kilo dari Aga" jadi item batch. */
 export function parseVoiceNote(
   text: string,
@@ -150,6 +171,8 @@ export default function BarangMasukPage() {
   const resellers = useQuery(api.queries.listReseller) as any[] | undefined;
   const dpls = useQuery(api.queries.listDpl) as any[] | undefined;
   const pasars = useQuery(api.queries.listPasar) as any[] | undefined;
+  const suppliers = useQuery(api.queries.listSupplier) as any[] | undefined;
+  const barangs = useQuery(api.queries.listBarang) as any[] | undefined;
 
   const createBatch = useMutation(api.batch.createBatchMasuk);
   const splitBatch = useMutation(api.batch.splitBatch);
@@ -208,10 +231,26 @@ export default function BarangMasukPage() {
       if (!transcript) return;
       const parsed = parseVoiceNote(transcript);
       if (parsed.items.length > 0) {
-        setItems(parsed.items.map((it) => ({ ...it })));
-        if (parsed.supplier) setNamaSupplier(parsed.supplier);
+        // Cocokkan nama barang & supplier dengan database master
+        const corrected = parsed.items.map((it) => {
+          const m = findBestMatch(it.namaBarang, barangs);
+          return {
+            ...it,
+            namaBarang: m ? (m.nama ?? it.namaBarang) : it.namaBarang,
+            hargaModal: m?.harga ?? it.hargaModal,
+          };
+        });
+        setItems(corrected);
+        if (parsed.supplier) {
+          const sm = findBestMatch(parsed.supplier, suppliers);
+          setNamaSupplier(sm ? (sm.nama ?? parsed.supplier) : parsed.supplier);
+        }
+        const fixed = corrected.filter(
+          (x, i) => x.namaBarang !== parsed.items[i].namaBarang,
+        ).length;
         toast.success(
-          `🎤 Terbaca: ${parsed.items.map((x) => `${x.namaBarang} ${x.qty}`).join(", ")}`,
+          `🎤 Terbaca: ${corrected.map((x) => `${x.namaBarang} ${x.qty}`).join(", ")}` +
+            (fixed > 0 ? ` (${fixed} nama disesuaikan dengan database)` : ""),
         );
       } else {
         toast.warning(
@@ -260,9 +299,35 @@ export default function BarangMasukPage() {
       toast.error("Minimal satu barang dengan qty lebih dari 0");
       return;
     }
+    // Pastikan nama supplier & barang sesuai database master
+    const sm = findBestMatch(namaSupplier.trim(), suppliers);
+    const finalSupplier = sm?.nama ?? namaSupplier.trim();
+    const correctedItems = items
+      .filter((it) => it.namaBarang.trim() && it.qty > 0)
+      .map((it) => {
+        const m = findBestMatch(it.namaBarang.trim(), barangs);
+        return { ...it, namaBarang: m ? (m.nama ?? it.namaBarang.trim()) : it.namaBarang.trim() };
+      });
+    if (!sm) {
+      toast.error("Supplier tidak ada di database — pilih dari daftar");
+      return;
+    }
+    const unknown = correctedItems
+      .filter((it) => !findBestMatch(it.namaBarang, barangs))
+      .map((it) => it.namaBarang);
+    if (unknown.length > 0) {
+      toast.error(`Barang belum terdaftar: ${unknown.join(", ")}`);
+      return;
+    }
     setSaving(true);
     try {
-      await createBatch({ tanggal, namaSupplier, petugas, catatan, items });
+      await createBatch({
+        tanggal,
+        namaSupplier: finalSupplier,
+        petugas,
+        catatan,
+        items: correctedItems,
+      });
       toast.success("Barang masuk tercatat 📦");
       resetCreateForm();
       setCreateOpen(false);
@@ -523,10 +588,16 @@ export default function BarangMasukPage() {
                 <Label>Nama Supplier *</Label>
                 <Input
                   placeholder="cth. Aga"
+                  list="supplier-options"
                   value={namaSupplier}
                   onChange={(e) => setNamaSupplier(e.target.value)}
                   className="mt-1"
                 />
+                <datalist id="supplier-options">
+                  {(suppliers ?? []).map((s: any) => (
+                    <option key={s._id ?? s.id} value={s.nama} />
+                  ))}
+                </datalist>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -583,6 +654,7 @@ export default function BarangMasukPage() {
                 <div key={idx} className="grid grid-cols-[1fr_72px_110px_36px] items-end gap-2">
                   <Input
                     placeholder="Nama barang"
+                    list="barang-master-options"
                     value={it.namaBarang}
                     onChange={(e) =>
                       setItems((prev) =>
@@ -630,6 +702,11 @@ export default function BarangMasukPage() {
                   </Button>
                 </div>
               ))}
+              <datalist id="barang-master-options">
+                {(barangs ?? []).map((b: any) => (
+                  <option key={b._id ?? b.kode} value={b.nama} />
+                ))}
+              </datalist>
               <Button
                 type="button"
                 variant="outline"
