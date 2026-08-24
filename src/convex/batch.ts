@@ -102,9 +102,12 @@ export const listBatchMasuk = query({
   args: {},
   handler: async (ctx) => {
     const batches = await (ctx.db as any).query("batchMasuk").order("desc").collect();
-    const allAlokasi = await (ctx.db as any).query("batchAlokasi").collect();
-    return batches.map((b: any) => {
-      const alokasi = allAlokasi.filter((a: any) => a.batchId === b.id);
+    return Promise.all(
+      batches.map(async (b: any) => {
+      const alokasi = await (ctx.db as any)
+        .query("batchAlokasi")
+        .withIndex("by_batch_id", (q: any) => q.eq("batchId", b.id))
+        .collect();
       const totalQty = b.items.reduce((s: number, it: any) => s + (it.qty || 0), 0);
       const totalModal = b.items.reduce(
         (s: number, it: any) => s + (it.qty || 0) * (it.hargaModal || 0),
@@ -125,7 +128,8 @@ export const listBatchMasuk = query({
       });
       const sisaTotal = sisaPerBarang.reduce((s: number, x: any) => s + Math.max(0, x.sisa), 0);
       return { ...b, alokasi, totalQty, totalModal, sisaPerBarang, sisaTotal };
-    });
+      }),
+    );
   },
 });
 
@@ -162,10 +166,12 @@ export const splitBatch = mutation({
     const item = (batch.items as any[]).find((it: any) => it.namaBarang === namaBarang);
     if (!item) return badRequest(`Barang "${namaBarang}" tidak ada di batch ini`);
 
-    const semuaAlokasi = await (ctx.db as any).query("batchAlokasi").collect();
-    const dipakai = (semuaAlokasi as any[])
-      .filter((a: any) => a.batchId === batchId && a.namaBarang === namaBarang)
-      .reduce((s: number, a: any) => s + a.qty, 0);
+    const alokasiBarang = await (ctx.db as any)
+      .query("batchAlokasi")
+      .withIndex("by_batch_id", (q: any) => q.eq("batchId", batchId))
+      .filter((q: any) => q.eq(q.field("namaBarang"), namaBarang))
+      .collect();
+    const dipakai = (alokasiBarang as any[]).reduce((s: number, a: any) => s + a.qty, 0);
     const sisa = (item.qty || 0) - dipakai;
     if (qty > sisa + 1e-9) {
       return badRequest(`Stok tidak cukup: sisa ${namaBarang} hanya ${sisa}`);
@@ -351,21 +357,50 @@ export const createBatchMasuk = mutation({
     await requireLogin(ctx);
     logRequest("createBatchMasuk", args);
     if (!args.namaSupplier.trim()) return badRequest("Nama supplier wajib diisi");
-    const items = args.items.filter((it) => it.namaBarang.trim() && it.qty > 0);
+    let items = args.items.filter((it) => it.namaBarang.trim() && it.qty > 0);
     if (items.length === 0) return badRequest("Minimal satu barang dengan qty > 0");
+
+    // ---- Validasi master data di SERVER (bukan hanya di browser) ----
+    const normName = (s?: string) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+    const bestMatch = (name: string, list: any[]) => {
+      const n = normName(name);
+      if (!n || !list.length) return null;
+      let hit = list.find((x) => normName(x?.nama) === n);
+      if (hit || n.length < 3) return hit ?? null;
+      hit = list.find((x) => {
+        const xn = normName(x?.nama);
+        return !!xn && (xn.includes(n) || n.includes(xn));
+      });
+      return hit ?? null;
+    };
+
+    const sup = bestMatch(args.namaSupplier, await (ctx.db as any).query("supplier").collect());
+    if (!sup) {
+      return badRequest("Supplier tidak ada di database — pilih dari daftar master");
+    }
+
+    const barangs = await (ctx.db as any).query("barang").collect();
+    for (const it of items) {
+      const m = bestMatch(it.namaBarang, barangs);
+      if (!m) return badRequest(`Barang belum terdaftar: ${it.namaBarang}`);
+    }
 
     const id = genBusinessId("BM");
     await (ctx.db as any).insert("batchMasuk", {
       id,
       tanggal: args.tanggal || todayStr(),
-      namaSupplier: args.namaSupplier.trim(),
+      namaSupplier: String(sup.nama),
       petugas: args.petugas?.trim() || undefined,
       catatan: args.catatan?.trim() || undefined,
-      items: items.map((it) => ({
-        namaBarang: it.namaBarang.trim(),
-        qty: it.qty,
-        hargaModal: it.hargaModal || 0,
-      })),
+      // Simpan nama resmi dari database master + harga modal default dari master
+      items: items.map((it) => {
+        const m = bestMatch(it.namaBarang, barangs)!;
+        return {
+          namaBarang: String(m.nama),
+          qty: it.qty,
+          hargaModal: it.hargaModal || Number(m.harga) || 0,
+        };
+      }),
     });
     logResponse("createBatchMasuk", { id });
     return { id };
