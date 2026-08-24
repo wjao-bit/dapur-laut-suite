@@ -35,6 +35,7 @@ import {
   LineChart,
   BookOpenText,
   Activity,
+  PackagePlus,
   type LucideIcon,
 } from "lucide-react";
 import { BrandLockup } from "@/components/Brand";
@@ -74,6 +75,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Transaksi",
     items: [
+      { to: "/dashboard/barang-masuk", label: "Barang Masuk", icon: PackagePlus },
       { to: "/dashboard/invoice", label: "Invoice", icon: FileText },
       { to: "/dashboard/piutang", label: "Piutang", icon: HandCoins },
       { to: "/dashboard/retur", label: "Retur Barang", icon: Undo2 },

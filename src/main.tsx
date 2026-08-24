@@ -69,6 +69,7 @@ const KaryawanPage = lazy(() => import("./pages/app/KaryawanPage.tsx"));
 const AbsensiPage = lazy(() => import("./pages/app/AbsensiPage.tsx"));
 const UtangPage = lazy(() => import("./pages/app/UtangPage.tsx"));
 const InvoicePage = lazy(() => import("./pages/app/InvoicePage.tsx"));
+const BarangMasukPage = lazy(() => import("./pages/app/BarangMasukPage.tsx"));
 const PiutangPage = lazy(() => import("./pages/app/PiutangPage.tsx"));
 const ReturPage = lazy(() => import("./pages/app/ReturPage.tsx"));
 const GudangPage = lazy(() => import("./pages/app/GudangPage.tsx"));
@@ -249,6 +250,7 @@ function Root() {
               <Route path="absensi" element={<AbsensiPage />} />
               <Route path="utang" element={<UtangPage />} />
               <Route path="invoice" element={<InvoicePage />} />
+              <Route path="barang-masuk" element={<BarangMasukPage />} />
               <Route path="piutang" element={<PiutangPage />} />
               <Route path="retur" element={<ReturPage />} />
               <Route path="gudang" element={<GudangPage />} />
