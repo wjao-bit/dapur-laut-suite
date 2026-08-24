@@ -1,236 +1,326 @@
-// Terapkan fitur voice note ke src/pages/app/BarangMasukPage.tsx
-// (str_replace pada file ini tidak persist di sandbox)
-const fs = require("fs");
-const p = "/project/src/pages/app/BarangMasukPage.tsx";
-let c = fs.readFileSync(p, "utf8");
-let ok = true;
+import { v } from "convex/values";
+import { query, mutation } from "./_generated/server";
+import { badRequest, genBusinessId, logRequest, logResponse, recordKas, addStokHistory } from "./lib";
+import { computeInvoiceTotals, todayStr, type InvoiceItem, type InvoiceTipe } from "./_business";
 
-function rep(oldS, newS) {
-  if (!c.includes(oldS)) {
-    console.error("NOT FOUND:", JSON.stringify(oldS.slice(0, 60)));
-    ok = false;
-    return;
-  }
-  c = c.replace(oldS, () => newS);
-}
+// ============================================================================
+// BARANG MASUK — batch barang datang dari supplier + pemecahan ke
+// Reseller/DPL/Pasar. Setiap alokasi otomatis membuat invoice sehingga nota
+// muncul di menu Invoice seperti biasa; rekap per batch bisa menelusuri asal.
+//
+// CATATAN: akses db untuk tabel batchMasuk/batchAlokasi memakai (ctx.db as any)
+// mengikuti pola lib.ts agar aman terhadap tipe _generated yang belum regen.
+// ============================================================================
 
-// 1) import useRef
-rep(
-  'import { useMemo, useState } from "react";',
-  'import { useMemo, useRef, useState } from "react";',
-);
+/**
+ * Terapkan efek gudang & kas untuk invoice hasil pemecahan batch.
+ * Logika identik dengan efek invoice manual di business.ts:
+ * - Reseller/DPL : stok berkurang, kas masuk sebesar penjualan.
+ * - Pasar        : stok awal dikirim & stok akhir kembali; kas masuk
+ *                  sebesar penjualan (stokAwal − stokAkhir).
+ */
+async function applyBatchInvoiceEffects(
+  ctx: any,
+  d: { idInvoice: string; tanggal: string; tipe: InvoiceTipe; namaPihak: string; items: InvoiceItem[] },
+  totalPenjualan: number,
+) {
+  const tipe = d.tipe;
+  const refKey = `INV-${d.idInvoice}`;
 
-// 2) import ikon Mic & MicOff
-rep(
-  "  FileText,\n  Loader2,\n} from \"lucide-react\";",
-  "  FileText,\n  Loader2,\n  Mic,\n  MicOff,\n} from \"lucide-react\";",
-);
-
-// 3) parser suara sebelum komponen
-rep(
-  "export default function BarangMasukPage() {",
-  `// ===== Parsing catatan suara (speech-to-text) =====
-const WORD_NUM: Record<string, number> = {
-  nol: 0,
-  satu: 1,
-  dua: 2,
-  tiga: 3,
-  empat: 4,
-  lima: 5,
-  enam: 6,
-  tujuh: 7,
-  delapan: 8,
-  sembilan: 9,
-  sepuluh: 10,
-  sebelas: 11,
-  setengah: 0.5,
-};
-
-function readNumberAt(
-  tokens: string[],
-  i: number,
-): { value: number; len: number } | null {
-  const t = tokens[i];
-  if (!t) return null;
-  if (/^\\d+([.,]\\d+)?$/.test(t))
-    return { value: parseFloat(t.replace(",", ".")), len: 1 };
-  const w = WORD_NUM[t];
-  if (w === undefined) return null;
-  if (w >= 1 && w <= 10 && tokens[i + 1] === "belas")
-    return { value: 10 + w, len: 2 };
-  if (w >= 1 && w <= 10 && tokens[i + 1] === "puluh") {
-    const u = tokens[i + 2] !== undefined ? WORD_NUM[tokens[i + 2]] : undefined;
-    if (u !== undefined && u < 10) return { value: w * 10 + u, len: 3 };
-    return { value: w * 10, len: 2 };
-  }
-  return { value: w, len: 1 };
-}
-
-const QTY_UNITS = new Set([
-  "kilo",
-  "kg",
-  "kilogram",
-  "gram",
-  "gr",
-  "ons",
-  "liter",
-  "ltr",
-  "buah",
-  "pcs",
-  "pack",
-  "dus",
-  "karung",
-  "sak",
-  "ikat",
-  "kotak",
-  "box",
-]);
-
-function titleCase(s: string) {
-  return s.replace(/\\b\\w/g, (ch) => ch.toUpperCase());
-}
-
-/** Ubah ucapan cth. "tongkol lima kilo dari Aga" jadi item batch. */
-export function parseVoiceNote(
-  text: string,
-): { supplier: string; items: BatchItem[] } {
-  let t = \` \${text.toLowerCase()} \`.replace(/[.,!?]/g, " ");
-  let supplier = "";
-  const di = t.lastIndexOf(" dari ");
-  if (di >= 0) {
-    supplier = t.slice(di + 6).trim();
-    t = t.slice(0, di);
-  }
-  const tokens = t.split(/\\s+/).filter(Boolean);
-  const items: BatchItem[] = [];
-  let curName: string[] = [];
-  let i = 0;
-  while (i < tokens.length) {
-    const num = readNumberAt(tokens, i);
-    if (num) {
-      i += num.len;
-      if (i < tokens.length && QTY_UNITS.has(tokens[i])) i++;
-      const name = curName.join(" ").trim();
-      if (name && num.value > 0)
-        items.push({ namaBarang: titleCase(name), qty: num.value, hargaModal: 0 });
-      curName = [];
-    } else {
-      curName.push(tokens[i]);
-      i++;
+  if (tipe === "Reseller" || tipe === "DPL") {
+    for (const it of d.items) {
+      await addStokHistory(ctx, it.namaBarang, d.tanggal, -it.qty, tipe, `Invoice ${d.idInvoice}`);
     }
-  }
-  return { supplier: titleCase(supplier), items };
-}
-
-export default function BarangMasukPage() {`,
-);
-
-// 4) state & handler voice di dalam komponen
-rep(
-  `  const [items, setItems] = useState<BatchItem[]>([emptyItem()]);
-  const [saving, setSaving] = useState(false);`,
-  `  const [items, setItems] = useState<BatchItem[]>([emptyItem()]);
-  const [saving, setSaving] = useState(false);
-
-  // ---- voice input (speech-to-text bawaan browser) ----
-  const [listening, setListening] = useState(false);
-  const recogRef = useRef<any>(null);
-  const speechSupported =
-    typeof window !== "undefined" &&
-    ((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
-
-  const startVoice = () => {
-    const SR =
-      (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    if (!SR) {
-      toast.error("Browser tidak mendukung voice — gunakan Chrome Android");
-      return;
-    }
-    if (listening) {
-      recogRef.current?.stop();
-      return;
-    }
-    const rec = new SR();
-    rec.lang = "id-ID";
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.onstart = () => setListening(true);
-    rec.onend = () => setListening(false);
-    rec.onerror = (e: any) => {
-      setListening(false);
-      toast.error(
-        e?.error === "not-allowed"
-          ? "Izin mikrofon ditolak"
-          : e?.error === "no-speech"
-            ? "Tidak ada suara terdeteksi"
-            : "Voice error, coba lagi",
+    await recordKas(
+      ctx,
+      refKey,
+      d.tanggal,
+      totalPenjualan,
+      0,
+      `Penjualan ke ${d.namaPihak} (${d.idInvoice})`,
+      `Invoice ${tipe}`,
+    );
+  } else if (tipe === "Pasar") {
+    for (const it of d.items) {
+      const stokAwal = it.stokAwal ?? 0;
+      const stokAkhir = it.stokAkhir ?? 0;
+      await addStokHistory(
+        ctx,
+        it.namaBarang,
+        d.tanggal,
+        -stokAwal,
+        "Pasar",
+        `Kirim stok awal ke ${d.namaPihak} (${d.idInvoice})`,
       );
-    };
-    rec.onresult = (e: any) => {
-      const transcript = Array.from(e.results as ArrayLike<any>)
-        .map((r: any) => r[0]?.transcript ?? "")
-        .join(" ")
-        .trim();
-      if (!transcript) return;
-      const parsed = parseVoiceNote(transcript);
-      if (parsed.items.length > 0) {
-        setItems(parsed.items.map((it) => ({ ...it })));
-        if (parsed.supplier) setNamaSupplier(parsed.supplier);
-        toast.success(
-          \`🎤 Terbaca: \${parsed.items.map((x) => \`\${x.namaBarang} \${x.qty}\`).join(", ")}\`,
-        );
-      } else {
-        toast.warning(
-          \`🎤 Tidak dikenali: "\${transcript}". Contoh: "tongkol lima kilo dari Aga"\`,
+      if (stokAkhir > 0) {
+        await addStokHistory(
+          ctx,
+          it.namaBarang,
+          d.tanggal,
+          stokAkhir,
+          "Pasar",
+          `Stok akhir kembali dari ${d.namaPihak} (${d.idInvoice})`,
         );
       }
-    };
-    recogRef.current = rec;
-    try {
-      rec.start();
-    } catch {
-      /* sudah berjalan */
     }
-  };`,
-);
+    await recordKas(
+      ctx,
+      refKey,
+      d.tanggal,
+      totalPenjualan,
+      0,
+      `Penjualan di Pasar ${d.namaPihak} (${d.idInvoice})`,
+      "Invoice Pasar",
+    );
+  }
+  // Supplier tidak dibuat lewat pemecahan batch → tidak ada cabang lain.
+}
 
-// 5) tombol mic di header section Barang
-rep(
-  `            <div className="space-y-2">
-              <Label>Barang</Label>
-              {items.map((it, idx) => (`,
-  `            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label>Barang</Label>
-                {speechSupported && (
-                  <Button
-                    type="button"
-                    variant={listening ? "default" : "outline"}
-                    size="sm"
-                    className="cursor-pointer gap-1.5"
-                    onClick={startVoice}
-                  >
-                    {listening ? (
-                      <>
-                        <MicOff className="size-3.5 animate-pulse" /> Mendengarkan… ketuk untuk stop
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="size-3.5" /> Isi via Suara 🎤
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-              {listening && (
-                <p className="text-xs text-muted-foreground">
-                  Ucapkan cth: “<b>tongkol lima kilo dari Aga</b>” atau “cabai dua puluh kilo dari
-                  Budi” — lalu isi harga modal manual.
-                </p>
-              )}
-              {items.map((it, idx) => (`,
-);
+/** Semua batch barang masuk + ringkasan alokasi & sisa per batch. */
+export const listBatchMasuk = query({
+  args: {},
+  handler: async (ctx) => {
+    const batches = await (ctx.db as any).query("batchMasuk").order("desc").collect();
+    const allAlokasi = await (ctx.db as any).query("batchAlokasi").collect();
+    return batches.map((b: any) => {
+      const alokasi = allAlokasi.filter((a: any) => a.batchId === b.id);
+      const totalQty = b.items.reduce((s: number, it: any) => s + (it.qty || 0), 0);
+      const totalModal = b.items.reduce(
+        (s: number, it: any) => s + (it.qty || 0) * (it.hargaModal || 0),
+        0,
+      );
+      // Sisa per barang = qty batch − jumlah alokasi barang tsb.
+      const sisaPerBarang = b.items.map((it: any) => {
+        const dipakai = alokasi
+          .filter((a: any) => a.namaBarang === it.namaBarang)
+          .reduce((s: number, a: any) => s + a.qty, 0);
+        return {
+          namaBarang: it.namaBarang,
+          qty: it.qty,
+          hargaModal: it.hargaModal,
+          teralokasi: dipakai,
+          sisa: Math.round(((it.qty || 0) - dipakai) * 1000) / 1000,
+        };
+      });
+      const sisaTotal = sisaPerBarang.reduce((s: number, x: any) => s + Math.max(0, x.sisa), 0);
+      return { ...b, alokasi, totalQty, totalModal, sisaPerBarang, sisaTotal };
+    });
+  },
+});
 
-if (!ok) process.exit(1);
-fs.writeFileSync(p, c);
-console.log("OK — semua 5 patch diterapkan. Panjang file baru:", c.length);
+/**
+ * Pecahkan sebagian/seluruh stok satu barang dari batch ke sebuah tujuan
+ * (Reseller / DPL / Pasar). Untuk Reseller & DPL dibuat invoice penjualan;
+ * untuk Pasar dibuat invoice titipan (stokAwal = stokAkhir → belum terjual).
+ */
+export const splitBatch = mutation({
+  args: {
+    batchId: v.string(),
+    namaBarang: v.string(),
+    tujuan: v.union(v.literal("Reseller"), v.literal("DPL"), v.literal("Pasar")),
+    namaTujuan: v.string(),
+    qty: v.number(),
+    hargaJual: v.number(),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    logRequest("splitBatch", args);
+    const { batchId, namaBarang, tujuan, namaTujuan, qty, hargaJual } = args;
+
+    if (!namaTujuan.trim()) return badRequest("Nama tujuan wajib diisi");
+    if (!(qty > 0)) return badRequest("Qty harus lebih dari 0");
+    if (hargaJual < 0) return badRequest("Harga jual tidak valid");
+
+    const batch = await (ctx.db as any)
+      .query("batchMasuk")
+      .filter((q: any) => q.eq(q.field("id"), batchId))
+      .first();
+    if (!batch) return badRequest(`Batch ${batchId} tidak ditemukan`);
+
+    const item = (batch.items as any[]).find((it: any) => it.namaBarang === namaBarang);
+    if (!item) return badRequest(`Barang "${namaBarang}" tidak ada di batch ini`);
+
+    const semuaAlokasi = await (ctx.db as any).query("batchAlokasi").collect();
+    const dipakai = (semuaAlokasi as any[])
+      .filter((a: any) => a.batchId === batchId && a.namaBarang === namaBarang)
+      .reduce((s: number, a: any) => s + a.qty, 0);
+    const sisa = (item.qty || 0) - dipakai;
+    if (qty > sisa + 1e-9) {
+      return badRequest(`Stok tidak cukup: sisa ${namaBarang} hanya ${sisa}`);
+    }
+
+    const tanggal = todayStr();
+
+    // ------------------------------------------------------------------
+    // Buat invoice otomatis sesuai tipe tujuan
+    // ------------------------------------------------------------------
+    const idInvoice = `INV-B${Date.now().toString(36).toUpperCase()}${Math.random()
+      .toString(36)
+      .slice(2, 5)
+      .toUpperCase()}`;
+    const invItem: InvoiceItem =
+      tujuan === "Pasar"
+        ? {
+            kodeBarang: namaBarang,
+            namaBarang,
+            hargaModal: item.hargaModal || 0,
+            hargaJual,
+            qty,
+            subtotal: 0,
+            stokAwal: qty,
+            stokAkhir: qty, // titipan awal — belum ada laporan penjualan
+          }
+        : {
+            kodeBarang: namaBarang,
+            namaBarang,
+            hargaModal: item.hargaModal || 0,
+            hargaJual,
+            qty,
+            subtotal: Math.round(hargaJual * qty * 1000) / 1000,
+          };
+    const totals = computeInvoiceTotals(tujuan as InvoiceTipe, [invItem]);
+
+    await (ctx.db as any).insert("invoice", {
+      idInvoice,
+      tanggal,
+      tipe: tujuan,
+      namaPihak: namaTujuan.trim(),
+      tenggat: "",
+      mataUang: "Rp",
+      statusPembayaran: "Pending",
+      items: [invItem],
+      total: totals.total,
+      totalModal: totals.totalModal,
+      totalPenjualan: totals.totalPenjualan,
+      margin: totals.margin,
+      dibayar: 0,
+      sisa: totals.total,
+      riwayatBayar: [],
+    });
+
+    // Efek gudang & kas sama seperti invoice buatan manual
+    await applyBatchInvoiceEffects(
+      ctx as any,
+      { idInvoice, tanggal, tipe: tujuan, namaPihak: namaTujuan.trim(), items: [invItem] },
+      totals.totalPenjualan,
+    );
+
+    // ------------------------------------------------------------------
+    // Catat alokasi
+    // ------------------------------------------------------------------
+    const alokasiId = genBusinessId("ALK");
+    await (ctx.db as any).insert("batchAlokasi", {
+      id: alokasiId,
+      batchId,
+      namaBarang,
+      tujuan,
+      namaTujuan: namaTujuan.trim(),
+      qty,
+      hargaJual,
+      idInvoice,
+      status: "Dikirim",
+      tanggal,
+    });
+
+    logResponse("splitBatch", { alokasiId, idInvoice, ...totals });
+    return { alokasiId, idInvoice, ...totals };
+  },
+});
+
+/** Tandai alokasi sudah diterima tujuan. */
+export const confirmAlokasi = mutation({
+  args: { alokasiId: v.string() },
+  handler: async (ctx, { alokasiId }) => {
+    const alokasi = await (ctx.db as any)
+      .query("batchAlokasi")
+      .filter((q: any) => q.eq(q.field("id"), alokasiId))
+      .first();
+    if (!alokasi) return badRequest("Alokasi tidak ditemukan");
+    await (ctx.db as any).patch(alokasi._id, { status: "Diterima" });
+    return { ok: true };
+  },
+});
+
+/** Hapus alokasi — invoice ikut dihapus bila masih belum dibayar. */
+export const deleteAlokasi = mutation({
+  args: { alokasiId: v.string() },
+  handler: async (ctx, { alokasiId }) => {
+    const alokasi = await (ctx.db as any)
+      .query("batchAlokasi")
+      .filter((q: any) => q.eq(q.field("id"), alokasiId))
+      .first();
+    if (!alokasi) return badRequest("Alokasi tidak ditemukan");
+    if ((alokasi.status ?? "") === "Diterima") {
+      return badRequest("Alokasi sudah dikonfirmasi diterima — tidak bisa dihapus");
+    }
+    if (alokasi.idInvoice) {
+      const inv = await (ctx.db as any)
+        .query("invoice")
+        .filter((q: any) => q.eq(q.field("idInvoice"), alokasi.idInvoice))
+        .first();
+      if (inv && (inv.dibayar ?? 0) <= 0) {
+        await (ctx.db as any).delete(inv._id);
+      }
+    }
+    await (ctx.db as any).delete(alokasi._id);
+    return { ok: true };
+  },
+});
+
+/** Hapus batch (hanya bila belum punya alokasi). */
+export const deleteBatchMasuk = mutation({
+  args: { batchId: v.string() },
+  handler: async (ctx, { batchId }) => {
+    const batch = await (ctx.db as any)
+      .query("batchMasuk")
+      .filter((q: any) => q.eq(q.field("id"), batchId))
+      .first();
+    if (!batch) return badRequest("Batch tidak ditemukan");
+    const alokasi = await (ctx.db as any)
+      .query("batchAlokasi")
+      .filter((q: any) => q.eq(q.field("batchId"), batchId))
+      .first();
+    if (alokasi) return badRequest("Batch sudah punya alokasi — hapus alokasinya dulu");
+    await (ctx.db as any).delete(batch._id);
+    return { ok: true };
+  },
+});
+
+/** Catat barang masuk baru dari supplier. */
+export const createBatchMasuk = mutation({
+  args: {
+    tanggal: v.string(),
+    namaSupplier: v.string(),
+    petugas: v.optional(v.string()),
+    catatan: v.optional(v.string()),
+    items: v.array(
+      v.object({
+        namaBarang: v.string(),
+        qty: v.number(),
+        hargaModal: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    logRequest("createBatchMasuk", args);
+    if (!args.namaSupplier.trim()) return badRequest("Nama supplier wajib diisi");
+    const items = args.items.filter((it) => it.namaBarang.trim() && it.qty > 0);
+    if (items.length === 0) return badRequest("Minimal satu barang dengan qty > 0");
+
+    const id = genBusinessId("BM");
+    await (ctx.db as any).insert("batchMasuk", {
+      id,
+      tanggal: args.tanggal || todayStr(),
+      namaSupplier: args.namaSupplier.trim(),
+      petugas: args.petugas?.trim() || undefined,
+      catatan: args.catatan?.trim() || undefined,
+      items: items.map((it) => ({
+        namaBarang: it.namaBarang.trim(),
+        qty: it.qty,
+        hargaModal: it.hargaModal || 0,
+      })),
+    });
+    logResponse("createBatchMasuk", { id });
+    return { id };
+  },
+});

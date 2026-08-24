@@ -109,7 +109,7 @@ function titleCase(s: string) {
   return s.replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-const normName = (s: string) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+const normName = (s?: string) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 
 /** Cari padanan nama di database master: sama persis → mengandung (min. 4 huruf). */
 function findBestMatch(
