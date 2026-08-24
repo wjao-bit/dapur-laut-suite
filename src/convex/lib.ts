@@ -53,7 +53,9 @@ type BusinessTable =
   | "monitor"
   | "auditLog"
   | "stokHistory"
-  | "tetesanStokHistory";
+  | "tetesanStokHistory"
+  | "batchMasuk"
+  | "batchAlokasi";
 
 /**
  * Upsert dengan semantik PRIMARY KEY/UNIQUE

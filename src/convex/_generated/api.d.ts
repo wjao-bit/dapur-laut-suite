@@ -17,6 +17,7 @@ import type * as aiOcr from "../aiOcr.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
+import type * as batch from "../batch.js";
 import type * as business from "../business.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
   "auth/emailOtp": typeof auth_emailOtp;
+  batch: typeof batch;
   business: typeof business;
   crons: typeof crons;
   dashboard: typeof dashboard;

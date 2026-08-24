@@ -470,6 +470,38 @@ const schema = defineSchema(
     })
       .index("by_tanggal", ["tanggal"])
       .index("by_namaPihak", ["namaPihak"]),
+
+    batchMasuk: defineTable({
+      id: v.string(),
+      tanggal: v.string(),
+      namaSupplier: v.string(),
+      petugas: v.optional(v.string()),
+      catatan: v.optional(v.string()),
+      items: v.array(
+        v.object({
+          namaBarang: v.string(),
+          qty: v.number(),
+          hargaModal: v.number(),
+        }),
+      ),
+    })
+      .index("by_batch_id", ["id"])
+      .index("by_tanggal", ["tanggal"]),
+
+    batchAlokasi: defineTable({
+      id: v.string(),
+      batchId: v.string(),
+      namaBarang: v.string(),
+      tujuan: v.union(v.literal("Reseller"), v.literal("DPL"), v.literal("Pasar")),
+      namaTujuan: v.string(),
+      qty: v.number(),
+      hargaJual: v.number(),
+      idInvoice: v.optional(v.string()),
+      status: v.optional(v.string()),
+      tanggal: v.string(),
+    })
+      .index("by_batch_id", ["batchId"])
+      .index("by_tanggal", ["tanggal"]),
   },
   { schemaValidation: false },
 );
