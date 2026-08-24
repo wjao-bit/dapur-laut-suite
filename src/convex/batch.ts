@@ -1,6 +1,17 @@
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { badRequest, genBusinessId, logRequest, logResponse, recordKas, addStokHistory } from "./lib";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import {
+  badRequest,
+  genBusinessId,
+  logRequest,
+  logResponse,
+  recordKas,
+  addStokHistory,
+  recomputeKas,
+  findOneByKey,
+} from "./lib";
 import { computeInvoiceTotals, todayStr, type InvoiceItem, type InvoiceTipe } from "./_business";
 
 // ============================================================================
@@ -8,9 +19,19 @@ import { computeInvoiceTotals, todayStr, type InvoiceItem, type InvoiceTipe } fr
 // Reseller/DPL/Pasar. Setiap alokasi otomatis membuat invoice sehingga nota
 // muncul di menu Invoice seperti biasa; rekap per batch bisa menelusuri asal.
 //
+// KEAMANAN: semua mutasi wajib login (getAuthUserId).
 // CATATAN: akses db untuk tabel batchMasuk/batchAlokasi memakai (ctx.db as any)
 // mengikuti pola lib.ts agar aman terhadap tipe _generated yang belum regen.
 // ============================================================================
+
+/** Semua mutasi wajib login (email OTP / anonim sama-sama punya userId). */
+async function requireLogin(ctx: unknown): Promise<string> {
+  const userId = await getAuthUserId(ctx as any);
+  if (!userId) {
+    throw new ConvexError({ error: "Harus login dulu", message: "Harus login dulu" });
+  }
+  return userId;
+}
 
 /**
  * Terapkan efek gudang & kas untuk invoice hasil pemecahan batch.
@@ -124,6 +145,7 @@ export const splitBatch = mutation({
     catatan: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireLogin(ctx);
     logRequest("splitBatch", args);
     const { batchId, namaBarang, tujuan, namaTujuan, qty, hargaJual } = args;
 
@@ -154,7 +176,7 @@ export const splitBatch = mutation({
     // ------------------------------------------------------------------
     // Buat invoice otomatis sesuai tipe tujuan
     // ------------------------------------------------------------------
-    const idInvoice = `INV-B${Date.now().toString(36).toUpperCase()}${Math.random()
+    const idInvoice = `B${Date.now().toString(36).toUpperCase()}${Math.random()
       .toString(36)
       .slice(2, 5)
       .toUpperCase()}`;
@@ -178,6 +200,7 @@ export const splitBatch = mutation({
             qty,
             subtotal: Math.round(hargaJual * qty * 1000) / 1000,
           };
+
     const totals = computeInvoiceTotals(tujuan as InvoiceTipe, [invItem]);
 
     await (ctx.db as any).insert("invoice", {
@@ -231,6 +254,7 @@ export const splitBatch = mutation({
 export const confirmAlokasi = mutation({
   args: { alokasiId: v.string() },
   handler: async (ctx, { alokasiId }) => {
+    await requireLogin(ctx);
     const alokasi = await (ctx.db as any)
       .query("batchAlokasi")
       .filter((q: any) => q.eq(q.field("id"), alokasiId))
@@ -241,10 +265,14 @@ export const confirmAlokasi = mutation({
   },
 });
 
-/** Hapus alokasi — invoice ikut dihapus bila masih belum dibayar. */
+/**
+ * Hapus alokasi — invoice BESERTA seluruh efek kas & stoknya dibatalkan
+ * bila masih belum dibayar, supaya tidak ada angka dobel saat dipecah ulang.
+ */
 export const deleteAlokasi = mutation({
   args: { alokasiId: v.string() },
   handler: async (ctx, { alokasiId }) => {
+    await requireLogin(ctx);
     const alokasi = await (ctx.db as any)
       .query("batchAlokasi")
       .filter((q: any) => q.eq(q.field("id"), alokasiId))
@@ -259,6 +287,23 @@ export const deleteAlokasi = mutation({
         .filter((q: any) => q.eq(q.field("idInvoice"), alokasi.idInvoice))
         .first();
       if (inv && (inv.dibayar ?? 0) <= 0) {
+        // --- Batalkan seluruh jejak invoice ini supaya tidak dobel hitung ---
+        // 1) Hapus entri kas dengan ref INV-<idInvoice>, lalu hitung ulang saldo
+        const kasRow = await findOneByKey(ctx as any, "kas", "id", `INV-${alokasi.idInvoice}`);
+        if (kasRow) await (ctx.db as any).delete(kasRow._id);
+        await recomputeKas(ctx as any);
+        // 2) Hapus riwayat stok milik invoice ini (keterangan mengandung idInvoice)
+        const semuaHist = await (ctx.db as any).query("stokHistory").collect();
+        for (const h of semuaHist as any[]) {
+          const ket = String(h.keterangan ?? "");
+          if (
+            ket.includes(`(${alokasi.idInvoice})`) ||
+            ket.includes(`Invoice ${alokasi.idInvoice}`)
+          ) {
+            await (ctx.db as any).delete(h._id);
+          }
+        }
+        // 3) Baru hapus invoice-nya
         await (ctx.db as any).delete(inv._id);
       }
     }
@@ -271,6 +316,7 @@ export const deleteAlokasi = mutation({
 export const deleteBatchMasuk = mutation({
   args: { batchId: v.string() },
   handler: async (ctx, { batchId }) => {
+    await requireLogin(ctx);
     const batch = await (ctx.db as any)
       .query("batchMasuk")
       .filter((q: any) => q.eq(q.field("id"), batchId))
@@ -302,6 +348,7 @@ export const createBatchMasuk = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireLogin(ctx);
     logRequest("createBatchMasuk", args);
     if (!args.namaSupplier.trim()) return badRequest("Nama supplier wajib diisi");
     const items = args.items.filter((it) => it.namaBarang.trim() && it.qty > 0);
