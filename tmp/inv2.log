@@ -1,1 +1,4645 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+[esbuild] build START { entryPoints: [ '/project/scripts/.test-invoice-entry.tsx' ], external: 0, platform: 'node', bundle: true, format: 'cjs' }
+[esbuild] resolve#1 /project/scripts/.test-invoice-entry.tsx imp= kind=entry-point
+[esbuild] load#1 /project/scripts/.test-invoice-entry.tsx ns=file
+[esbuild] load#2 /project/src/lib/format.ts ns=file
+[esbuild] load#3 /project/src/convex/business.ts ns=file
+[esbuild] load#4 /project/src/convex/payment.ts ns=file
+[esbuild] load#5 /project/src/lib/schemas.ts ns=file
+[esbuild] load#6 /project/src/lib/business.ts ns=file
+[esbuild] resolve#2 convex/values imp=/project/src/convex/business.ts kind=import-statement
+[esbuild] resolve#3 convex/values imp=/project/src/convex/payment.ts kind=import-statement
+[esbuild] resolve#4 zod imp=/project/src/lib/schemas.ts kind=import-statement
+[esbuild] resolve#5 ./format imp=/project/src/lib/business.ts kind=import-statement
+[esbuild] resolve#6 ./_generated/server imp=/project/src/convex/business.ts kind=import-statement
+[esbuild] resolve#7 ./_generated/server imp=/project/src/convex/payment.ts kind=import-statement
+[esbuild] resolve#8 ./business imp=/project/src/lib/schemas.ts kind=import-statement
+[esbuild] resolve#9 ./lib imp=/project/src/convex/business.ts kind=import-statement
+[esbuild] resolve#10 ./lib imp=/project/src/convex/payment.ts kind=import-statement
+[esbuild] load#7 /project/node_modules/zod/index.cjs ns=file
+[esbuild] resolve#11 ../lib/business imp=/project/src/convex/business.ts kind=import-statement
+[esbuild] resolve#12 ../lib/business imp=/project/src/convex/payment.ts kind=import-statement
+[esbuild] resolve#13 ./v4/classic/external.cjs imp=/project/node_modules/zod/index.cjs kind=require-call
+[esbuild] resolve#14 ../lib/schemas imp=/project/src/convex/business.ts kind=import-statement
+[esbuild] load#8 /project/src/convex/lib.ts ns=file
+[esbuild] load#9 /project/node_modules/convex/dist/cjs/values/index.js ns=file
+[esbuild] load#10 /project/src/convex/_generated/server.js ns=file
+[esbuild] load#11 /project/node_modules/zod/v4/classic/external.cjs ns=file
+[esbuild] resolve#15 convex/values imp=/project/src/convex/lib.ts kind=import-statement
+[esbuild] resolve#16 ./value.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#17 convex/server imp=/project/src/convex/_generated/server.js kind=import-statement
+[esbuild] resolve#18 ../core/index.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] resolve#19 ../lib/business imp=/project/src/convex/lib.ts kind=import-statement
+[esbuild] resolve#20 ./validator.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] load#12 /project/node_modules/convex/dist/cjs/server/index.js ns=file
+[esbuild] resolve#21 ./schemas.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] resolve#22 ./base64.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#23 ./database.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#24 ./checks.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] resolve#25 ./errors.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#26 ./impl/registration_impl.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#27 ./errors.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] resolve#28 ./compare.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#29 ./impl/actions_impl.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#30 ./parse.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] resolve#31 ./size.js imp=/project/node_modules/convex/dist/cjs/values/index.js kind=require-call
+[esbuild] resolve#32 ./pagination.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#33 ./compat.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] load#13 /project/node_modules/convex/dist/cjs/values/size.js ns=file
+[esbuild] load#14 /project/node_modules/convex/dist/cjs/values/value.js ns=file
+[esbuild] load#15 /project/node_modules/convex/dist/cjs/values/validator.js ns=file
+[esbuild] load#16 /project/node_modules/convex/dist/cjs/values/base64.js ns=file
+[esbuild] load#17 /project/node_modules/convex/dist/cjs/values/errors.js ns=file
+[esbuild] load#18 /project/node_modules/convex/dist/cjs/values/compare.js ns=file
+[esbuild] resolve#34 ./search_filter_builder.js imp=/project/node_modules/convex/dist/cjs/server/index.js kind=require-call
+[esbuild] resolve#35 ../locales/en.cjs imp=/project/node_modules/zod/v4/classic/external.cjs kind=require-call
+[esbuild] resolve#36 ./value.js imp=/project/node_modules/convex/dist/cjs/values/size.js kind=require-call
+[esbuild] resolve#37 ./base64.js imp=/project/node_modules/convex/dist/cjs/values/value.js kind=require-call
+[esbuild] resolve#38 ./validators.js imp=/project/node_modules/convex/dist/cjs/values/validator.js kind=require-call
+[esbuild] resolve#39 ./value.js imp=/project/node_modules/convex/dist/cjs/values/errors.js kind=require-call
+[esbuild] resolve#40 ./value.js imp=/project/node_modules/convex/dist/cjs/values/compare.js kind=require-call
+[esbuild] load#19 /project/node_modules/convex/dist/cjs/values/validators.js ns=file
+[esbuild] load#20 /project/node_modules/convex/dist/cjs/common/index.js ns=file
+[esbuild] load#21 /project/node_modules/convex/dist/cjs/values/compare_utf8.js ns=file
+[esbuild] load#22 /project/node_modules/zod/v4/classic/coerce.cjs ns=file
+[esbuild] load#23 /project/node_modules/zod/v4/core/index.cjs ns=file
+[esbuild] load#24 /project/node_modules/zod/v4/classic/schemas.cjs ns=file
+[esbuild] load#25 /project/node_modules/zod/v4/classic/checks.cjs ns=file
+[esbuild] load#26 /project/node_modules/zod/v4/classic/errors.cjs ns=file
+[esbuild] load#27 /project/node_modules/zod/v4/classic/parse.cjs ns=file
+[esbuild] load#28 /project/node_modules/zod/v4/classic/compat.cjs ns=file
+[esbuild] load#29 /project/node_modules/zod/v4/locales/en.cjs ns=file
+[esbuild] load#30 /project/node_modules/zod/v4/core/json-schema-processors.cjs ns=file
+[esbuild] load#31 /project/node_modules/zod/v4/classic/from-json-schema.cjs ns=file
+[esbuild] load#32 /project/node_modules/zod/v4/locales/index.cjs ns=file
+[esbuild] load#33 /project/node_modules/zod/v4/classic/iso.cjs ns=file
+[esbuild] load#34 /project/node_modules/convex/dist/cjs/server/schema.js ns=file
+[esbuild] load#35 /project/node_modules/convex/dist/cjs/server/database.js ns=file
+[esbuild] load#36 /project/node_modules/convex/dist/cjs/server/impl/registration_impl.js ns=file
+[esbuild] load#37 /project/node_modules/convex/dist/cjs/server/impl/actions_impl.js ns=file
+[esbuild] load#38 /project/node_modules/convex/dist/cjs/server/pagination.js ns=file
+[esbuild] load#39 /project/node_modules/convex/dist/cjs/server/search_filter_builder.js ns=file
+[esbuild] load#40 /project/node_modules/convex/dist/cjs/server/storage.js ns=file
+[esbuild] build DONE 1.2s resolves=299 outputs=1 errors=0
+======================================================================
+BAGIAN 1 — Validasi schema & total (1–30 barang, semua tipe)
+======================================================================
+  ✅ [Supplier] 1 barang valid
+  ✅ [Supplier] 1 barang total cocok (20000 = 20000)
+  ✅ [Supplier] 2 barang valid
+  ✅ [Supplier] 2 barang total cocok (51500 = 51500)
+  ✅ [Supplier] 5 barang valid
+  ✅ [Supplier] 5 barang total cocok (177000 = 177000)
+  ✅ [Supplier] 10 barang valid
+  ✅ [Supplier] 10 barang total cocok (405500 = 405500)
+  ✅ [Supplier] 30 barang valid
+  ✅ [Supplier] 30 barang total cocok (1780500 = 1780500)
+  ✅ [Reseller] 1 barang valid
+  ✅ [Reseller] 1 barang total cocok (30000 = 30000)
+  ✅ [Reseller] 2 barang valid
+  ✅ [Reseller] 2 barang total cocok (76500 = 76500)
+  ✅ [Reseller] 5 barang valid
+  ✅ [Reseller] 5 barang total cocok (257000 = 257000)
+  ✅ [Reseller] 10 barang valid
+  ✅ [Reseller] 10 barang total cocok (570500 = 570500)
+  ✅ [Reseller] 30 barang valid
+  ✅ [Reseller] 30 barang total cocok (2295500 = 2295500)
+  ✅ [DPL] 1 barang valid
+  ✅ [DPL] 1 barang total cocok (30000 = 30000)
+  ✅ [DPL] 2 barang valid
+  ✅ [DPL] 2 barang total cocok (76500 = 76500)
+  ✅ [DPL] 5 barang valid
+  ✅ [DPL] 5 barang total cocok (257000 = 257000)
+  ✅ [DPL] 10 barang valid
+  ✅ [DPL] 10 barang total cocok (570500 = 570500)
+  ✅ [DPL] 30 barang valid
+  ✅ [DPL] 30 barang total cocok (2295500 = 2295500)
+  ✅ [Pasar] 1 barang valid
+  ✅ [Pasar] 1 barang total cocok (90000 = 90000)
+  ✅ [Pasar] 2 barang valid
+  ✅ [Pasar] 2 barang total cocok (183000 = 183000)
+  ✅ [Pasar] 5 barang valid
+  ✅ [Pasar] 5 barang total cocok (480000 = 480000)
+  ✅ [Pasar] 10 barang valid
+  ✅ [Pasar] 10 barang total cocok (1035000 = 1035000)
+  ✅ [Pasar] 30 barang valid
+  ✅ [Pasar] 30 barang total cocok (4005000 = 4005000)
+
+  — Regresi bug tenggat (invoice tanpa tanggal jatuh tempo harus bisa disimpan) —
+  ✅ [Supplier] tenggat kosong diterima
+  ✅ [Reseller] tenggat kosong diterima
+  ✅ [DPL] tenggat kosong diterima
+  ✅ [Pasar] tenggat kosong diterima
+  ✅ tenggat tidak valid ditolak
+  ✅ invoice tanpa barang ditolak
+  ✅ qty 0 ditolak
+  ✅ Pasar stok akhir > stok awal DITERIMA (terjual minus)
+  ✅ Pasar minus: total penjualan negatif
+
+======================================================================
+BAGIAN 2 — Handler ASLI createInvoice (1–30 barang, semua tipe)
+======================================================================
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV1S",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "PT Mitra 1",
+  "tenggat": "",
+  "mataUang": "$",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV1S",
+  "total": 20000,
+  "totalModal": 20000,
+  "totalPenjualan": 20000,
+  "margin": 0
+}
+  ✅ [Supplier] 1 barang tersimpan
+  ✅ [Supplier] 1 barang: invoice tersimpan di DB
+  ✅ [Supplier] 1 barang: field pembayaran diinisialisasi
+  ✅ [Supplier] 1 barang: kas keluar = total modal
+  ✅ [Supplier] 1 barang: 1 riwayat stok masuk
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV2S",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "PT Mitra 2",
+  "tenggat": "",
+  "mataUang": "$",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV2S",
+  "total": 51500,
+  "totalModal": 51500,
+  "totalPenjualan": 51500,
+  "margin": 0
+}
+  ✅ [Supplier] 2 barang tersimpan
+  ✅ [Supplier] 2 barang: invoice tersimpan di DB
+  ✅ [Supplier] 2 barang: field pembayaran diinisialisasi
+  ✅ [Supplier] 2 barang: kas keluar = total modal
+  ✅ [Supplier] 2 barang: 2 riwayat stok masuk
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV5S",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "PT Mitra 5",
+  "tenggat": "",
+  "mataUang": "$",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV5S",
+  "total": 177000,
+  "totalModal": 177000,
+  "totalPenjualan": 177000,
+  "margin": 0
+}
+  ✅ [Supplier] 5 barang tersimpan
+  ✅ [Supplier] 5 barang: invoice tersimpan di DB
+  ✅ [Supplier] 5 barang: field pembayaran diinisialisasi
+  ✅ [Supplier] 5 barang: kas keluar = total modal
+  ✅ [Supplier] 5 barang: 5 riwayat stok masuk
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV10S",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "PT Mitra 10",
+  "tenggat": "",
+  "mataUang": "$",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 3,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV10S",
+  "total": 405500,
+  "totalModal": 405500,
+  "totalPenjualan": 405500,
+  "margin": 0
+}
+  ✅ [Supplier] 10 barang tersimpan
+  ✅ [Supplier] 10 barang: invoice tersimpan di DB
+  ✅ [Supplier] 10 barang: field pembayaran diinisialisasi
+  ✅ [Supplier] 10 barang: kas keluar = total modal
+  ✅ [Supplier] 10 barang: 10 riwayat stok masuk
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV30S",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "PT Mitra 30",
+  "tenggat": "",
+  "mataUang": "$",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG011",
+      "namaBarang": "Barang 11",
+      "hargaModal": 15000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG012",
+      "namaBarang": "Barang 12",
+      "hargaModal": 15500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG013",
+      "namaBarang": "Barang 13",
+      "hargaModal": 16000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG014",
+      "namaBarang": "Barang 14",
+      "hargaModal": 16500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG015",
+      "namaBarang": "Barang 15",
+      "hargaModal": 17000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG016",
+      "namaBarang": "Barang 16",
+      "hargaModal": 17500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG017",
+      "namaBarang": "Barang 17",
+      "hargaModal": 18000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG018",
+      "namaBarang": "Barang 18",
+      "hargaModal": 18500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG019",
+      "namaBarang": "Barang 19",
+      "hargaModal": 19000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG020",
+      "namaBarang": "Barang 20",
+      "hargaModal": 19500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG021",
+      "namaBarang": "Barang 21",
+      "hargaModal": 20000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG022",
+      "namaBarang": "Barang 22",
+      "hargaModal": 20500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG023",
+      "namaBarang": "Barang 23",
+      "hargaModal": 21000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG024",
+      "namaBarang": "Barang 24",
+      "hargaModal": 21500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG025",
+      "namaBarang": "Barang 25",
+      "hargaModal": 22000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG026",
+      "namaBarang": "Barang 26",
+      "hargaModal": 22500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG027",
+      "namaBarang": "Barang 27",
+      "hargaModal": 23000,
+      "qty": 4,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG028",
+      "namaBarang": "Barang 28",
+      "hargaModal": 23500,
+      "qty": 5,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG029",
+      "namaBarang": "Barang 29",
+      "hargaModal": 24000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG030",
+      "namaBarang": "Barang 30",
+      "hargaModal": 24500,
+      "qty": 3,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV30S",
+  "total": 1780500,
+  "totalModal": 1780500,
+  "totalPenjualan": 1780500,
+  "margin": 0
+}
+  ✅ [Supplier] 30 barang tersimpan
+  ✅ [Supplier] 30 barang: invoice tersimpan di DB
+  ✅ [Supplier] 30 barang: field pembayaran diinisialisasi
+  ✅ [Supplier] 30 barang: kas keluar = total modal
+  ✅ [Supplier] 30 barang: 30 riwayat stok masuk
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV1R",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "PT Mitra 1",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV1R",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+  ✅ [Reseller] 1 barang tersimpan
+  ✅ [Reseller] 1 barang: invoice tersimpan di DB
+  ✅ [Reseller] 1 barang: field pembayaran diinisialisasi
+  ✅ [Reseller] 1 barang: kas masuk = total penjualan
+  ✅ [Reseller] 1 barang: 1 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV2R",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "PT Mitra 2",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV2R",
+  "total": 76500,
+  "totalModal": 51500,
+  "totalPenjualan": 76500,
+  "margin": 25000
+}
+  ✅ [Reseller] 2 barang tersimpan
+  ✅ [Reseller] 2 barang: invoice tersimpan di DB
+  ✅ [Reseller] 2 barang: field pembayaran diinisialisasi
+  ✅ [Reseller] 2 barang: kas masuk = total penjualan
+  ✅ [Reseller] 2 barang: 2 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV5R",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "PT Mitra 5",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV5R",
+  "total": 257000,
+  "totalModal": 177000,
+  "totalPenjualan": 257000,
+  "margin": 80000
+}
+  ✅ [Reseller] 5 barang tersimpan
+  ✅ [Reseller] 5 barang: invoice tersimpan di DB
+  ✅ [Reseller] 5 barang: field pembayaran diinisialisasi
+  ✅ [Reseller] 5 barang: kas masuk = total penjualan
+  ✅ [Reseller] 5 barang: 5 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV10R",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "PT Mitra 10",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 3,
+      "hargaJual": 17500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 4,
+      "hargaJual": 18000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 5,
+      "hargaJual": 18500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 2,
+      "hargaJual": 19000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 3,
+      "hargaJual": 19500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV10R",
+  "total": 570500,
+  "totalModal": 405500,
+  "totalPenjualan": 570500,
+  "margin": 165000
+}
+  ✅ [Reseller] 10 barang tersimpan
+  ✅ [Reseller] 10 barang: invoice tersimpan di DB
+  ✅ [Reseller] 10 barang: field pembayaran diinisialisasi
+  ✅ [Reseller] 10 barang: kas masuk = total penjualan
+  ✅ [Reseller] 10 barang: 10 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV30R",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "PT Mitra 30",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 3,
+      "hargaJual": 17500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 4,
+      "hargaJual": 18000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 5,
+      "hargaJual": 18500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 2,
+      "hargaJual": 19000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 3,
+      "hargaJual": 19500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG011",
+      "namaBarang": "Barang 11",
+      "hargaModal": 15000,
+      "qty": 4,
+      "hargaJual": 20000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG012",
+      "namaBarang": "Barang 12",
+      "hargaModal": 15500,
+      "qty": 5,
+      "hargaJual": 20500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG013",
+      "namaBarang": "Barang 13",
+      "hargaModal": 16000,
+      "qty": 2,
+      "hargaJual": 21000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG014",
+      "namaBarang": "Barang 14",
+      "hargaModal": 16500,
+      "qty": 3,
+      "hargaJual": 21500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG015",
+      "namaBarang": "Barang 15",
+      "hargaModal": 17000,
+      "qty": 4,
+      "hargaJual": 22000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG016",
+      "namaBarang": "Barang 16",
+      "hargaModal": 17500,
+      "qty": 5,
+      "hargaJual": 22500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG017",
+      "namaBarang": "Barang 17",
+      "hargaModal": 18000,
+      "qty": 2,
+      "hargaJual": 23000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG018",
+      "namaBarang": "Barang 18",
+      "hargaModal": 18500,
+      "qty": 3,
+      "hargaJual": 23500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG019",
+      "namaBarang": "Barang 19",
+      "hargaModal": 19000,
+      "qty": 4,
+      "hargaJual": 24000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG020",
+      "namaBarang": "Barang 20",
+      "hargaModal": 19500,
+      "qty": 5,
+      "hargaJual": 24500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG021",
+      "namaBarang": "Barang 21",
+      "hargaModal": 20000,
+      "qty": 2,
+      "hargaJual": 25000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG022",
+      "namaBarang": "Barang 22",
+      "hargaModal": 20500,
+      "qty": 3,
+      "hargaJual": 25500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG023",
+      "namaBarang": "Barang 23",
+      "hargaModal": 21000,
+      "qty": 4,
+      "hargaJual": 26000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG024",
+      "namaBarang": "Barang 24",
+      "hargaModal": 21500,
+      "qty": 5,
+      "hargaJual": 26500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG025",
+      "namaBarang": "Barang 25",
+      "hargaModal": 22000,
+      "qty": 2,
+      "hargaJual": 27000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG026",
+      "namaBarang": "Barang 26",
+      "hargaModal": 22500,
+      "qty": 3,
+      "hargaJual": 27500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG027",
+      "namaBarang": "Barang 27",
+      "hargaModal": 23000,
+      "qty": 4,
+      "hargaJual": 28000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG028",
+      "namaBarang": "Barang 28",
+      "hargaModal": 23500,
+      "qty": 5,
+      "hargaJual": 28500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG029",
+      "namaBarang": "Barang 29",
+      "hargaModal": 24000,
+      "qty": 2,
+      "hargaJual": 29000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG030",
+      "namaBarang": "Barang 30",
+      "hargaModal": 24500,
+      "qty": 3,
+      "hargaJual": 29500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV30R",
+  "total": 2295500,
+  "totalModal": 1780500,
+  "totalPenjualan": 2295500,
+  "margin": 515000
+}
+  ✅ [Reseller] 30 barang tersimpan
+  ✅ [Reseller] 30 barang: invoice tersimpan di DB
+  ✅ [Reseller] 30 barang: field pembayaran diinisialisasi
+  ✅ [Reseller] 30 barang: kas masuk = total penjualan
+  ✅ [Reseller] 30 barang: 30 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV1D",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "PT Mitra 1",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV1D",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+  ✅ [DPL] 1 barang tersimpan
+  ✅ [DPL] 1 barang: invoice tersimpan di DB
+  ✅ [DPL] 1 barang: field pembayaran diinisialisasi
+  ✅ [DPL] 1 barang: kas masuk = total penjualan
+  ✅ [DPL] 1 barang: 1 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV2D",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "PT Mitra 2",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV2D",
+  "total": 76500,
+  "totalModal": 51500,
+  "totalPenjualan": 76500,
+  "margin": 25000
+}
+  ✅ [DPL] 2 barang tersimpan
+  ✅ [DPL] 2 barang: invoice tersimpan di DB
+  ✅ [DPL] 2 barang: field pembayaran diinisialisasi
+  ✅ [DPL] 2 barang: kas masuk = total penjualan
+  ✅ [DPL] 2 barang: 2 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV5D",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "PT Mitra 5",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV5D",
+  "total": 257000,
+  "totalModal": 177000,
+  "totalPenjualan": 257000,
+  "margin": 80000
+}
+  ✅ [DPL] 5 barang tersimpan
+  ✅ [DPL] 5 barang: invoice tersimpan di DB
+  ✅ [DPL] 5 barang: field pembayaran diinisialisasi
+  ✅ [DPL] 5 barang: kas masuk = total penjualan
+  ✅ [DPL] 5 barang: 5 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV10D",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "PT Mitra 10",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 3,
+      "hargaJual": 17500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 4,
+      "hargaJual": 18000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 5,
+      "hargaJual": 18500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 2,
+      "hargaJual": 19000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 3,
+      "hargaJual": 19500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV10D",
+  "total": 570500,
+  "totalModal": 405500,
+  "totalPenjualan": 570500,
+  "margin": 165000
+}
+  ✅ [DPL] 10 barang tersimpan
+  ✅ [DPL] 10 barang: invoice tersimpan di DB
+  ✅ [DPL] 10 barang: field pembayaran diinisialisasi
+  ✅ [DPL] 10 barang: kas masuk = total penjualan
+  ✅ [DPL] 10 barang: 10 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV30D",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "PT Mitra 30",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 3,
+      "hargaJual": 17500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 4,
+      "hargaJual": 18000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 5,
+      "hargaJual": 18500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 2,
+      "hargaJual": 19000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 3,
+      "hargaJual": 19500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG011",
+      "namaBarang": "Barang 11",
+      "hargaModal": 15000,
+      "qty": 4,
+      "hargaJual": 20000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG012",
+      "namaBarang": "Barang 12",
+      "hargaModal": 15500,
+      "qty": 5,
+      "hargaJual": 20500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG013",
+      "namaBarang": "Barang 13",
+      "hargaModal": 16000,
+      "qty": 2,
+      "hargaJual": 21000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG014",
+      "namaBarang": "Barang 14",
+      "hargaModal": 16500,
+      "qty": 3,
+      "hargaJual": 21500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG015",
+      "namaBarang": "Barang 15",
+      "hargaModal": 17000,
+      "qty": 4,
+      "hargaJual": 22000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG016",
+      "namaBarang": "Barang 16",
+      "hargaModal": 17500,
+      "qty": 5,
+      "hargaJual": 22500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG017",
+      "namaBarang": "Barang 17",
+      "hargaModal": 18000,
+      "qty": 2,
+      "hargaJual": 23000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG018",
+      "namaBarang": "Barang 18",
+      "hargaModal": 18500,
+      "qty": 3,
+      "hargaJual": 23500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG019",
+      "namaBarang": "Barang 19",
+      "hargaModal": 19000,
+      "qty": 4,
+      "hargaJual": 24000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG020",
+      "namaBarang": "Barang 20",
+      "hargaModal": 19500,
+      "qty": 5,
+      "hargaJual": 24500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG021",
+      "namaBarang": "Barang 21",
+      "hargaModal": 20000,
+      "qty": 2,
+      "hargaJual": 25000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG022",
+      "namaBarang": "Barang 22",
+      "hargaModal": 20500,
+      "qty": 3,
+      "hargaJual": 25500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG023",
+      "namaBarang": "Barang 23",
+      "hargaModal": 21000,
+      "qty": 4,
+      "hargaJual": 26000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG024",
+      "namaBarang": "Barang 24",
+      "hargaModal": 21500,
+      "qty": 5,
+      "hargaJual": 26500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG025",
+      "namaBarang": "Barang 25",
+      "hargaModal": 22000,
+      "qty": 2,
+      "hargaJual": 27000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG026",
+      "namaBarang": "Barang 26",
+      "hargaModal": 22500,
+      "qty": 3,
+      "hargaJual": 27500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG027",
+      "namaBarang": "Barang 27",
+      "hargaModal": 23000,
+      "qty": 4,
+      "hargaJual": 28000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG028",
+      "namaBarang": "Barang 28",
+      "hargaModal": 23500,
+      "qty": 5,
+      "hargaJual": 28500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG029",
+      "namaBarang": "Barang 29",
+      "hargaModal": 24000,
+      "qty": 2,
+      "hargaJual": 29000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG030",
+      "namaBarang": "Barang 30",
+      "hargaModal": 24500,
+      "qty": 3,
+      "hargaJual": 29500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV30D",
+  "total": 2295500,
+  "totalModal": 1780500,
+  "totalPenjualan": 2295500,
+  "margin": 515000
+}
+  ✅ [DPL] 30 barang tersimpan
+  ✅ [DPL] 30 barang: invoice tersimpan di DB
+  ✅ [DPL] 30 barang: field pembayaran diinisialisasi
+  ✅ [DPL] 30 barang: kas masuk = total penjualan
+  ✅ [DPL] 30 barang: 30 riwayat stok keluar
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV1P",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "PT Mitra 1",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 10,
+      "stokAwal": 10,
+      "stokAkhir": 4,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV1P",
+  "total": 90000,
+  "totalModal": 60000,
+  "totalPenjualan": 90000,
+  "margin": 30000
+}
+  ✅ [Pasar] 1 barang tersimpan
+  ✅ [Pasar] 1 barang: invoice tersimpan di DB
+  ✅ [Pasar] 1 barang: field pembayaran diinisialisasi
+  ✅ [Pasar] 1 barang: kas masuk = total penjualan
+  ✅ [Pasar] 1 barang: 1 kirim + 1 kembali
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV2P",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "PT Mitra 2",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 10,
+      "stokAwal": 10,
+      "stokAkhir": 4,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 11,
+      "stokAwal": 11,
+      "stokAkhir": 5,
+      "hargaJual": 15500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV2P",
+  "total": 183000,
+  "totalModal": 123000,
+  "totalPenjualan": 183000,
+  "margin": 60000
+}
+  ✅ [Pasar] 2 barang tersimpan
+  ✅ [Pasar] 2 barang: invoice tersimpan di DB
+  ✅ [Pasar] 2 barang: field pembayaran diinisialisasi
+  ✅ [Pasar] 2 barang: kas masuk = total penjualan
+  ✅ [Pasar] 2 barang: 2 kirim + 2 kembali
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV5P",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "PT Mitra 5",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 10,
+      "stokAwal": 10,
+      "stokAkhir": 4,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 11,
+      "stokAwal": 11,
+      "stokAkhir": 5,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 12,
+      "stokAwal": 12,
+      "stokAkhir": 6,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 13,
+      "stokAwal": 13,
+      "stokAkhir": 7,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 14,
+      "stokAwal": 14,
+      "stokAkhir": 8,
+      "hargaJual": 17000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV5P",
+  "total": 480000,
+  "totalModal": 330000,
+  "totalPenjualan": 480000,
+  "margin": 150000
+}
+  ✅ [Pasar] 5 barang tersimpan
+  ✅ [Pasar] 5 barang: invoice tersimpan di DB
+  ✅ [Pasar] 5 barang: field pembayaran diinisialisasi
+  ✅ [Pasar] 5 barang: kas masuk = total penjualan
+  ✅ [Pasar] 5 barang: 5 kirim + 5 kembali
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV10P",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "PT Mitra 10",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 10,
+      "stokAwal": 10,
+      "stokAkhir": 4,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 11,
+      "stokAwal": 11,
+      "stokAkhir": 5,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 12,
+      "stokAwal": 12,
+      "stokAkhir": 6,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 13,
+      "stokAwal": 13,
+      "stokAkhir": 7,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 14,
+      "stokAwal": 14,
+      "stokAkhir": 8,
+      "hargaJual": 17000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 15,
+      "stokAwal": 15,
+      "stokAkhir": 9,
+      "hargaJual": 17500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 16,
+      "stokAwal": 16,
+      "stokAkhir": 10,
+      "hargaJual": 18000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 17,
+      "stokAwal": 17,
+      "stokAkhir": 11,
+      "hargaJual": 18500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 18,
+      "stokAwal": 18,
+      "stokAkhir": 12,
+      "hargaJual": 19000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 19,
+      "stokAwal": 19,
+      "stokAkhir": 13,
+      "hargaJual": 19500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV10P",
+  "total": 1035000,
+  "totalModal": 735000,
+  "totalPenjualan": 1035000,
+  "margin": 300000
+}
+  ✅ [Pasar] 10 barang tersimpan
+  ✅ [Pasar] 10 barang: invoice tersimpan di DB
+  ✅ [Pasar] 10 barang: field pembayaran diinisialisasi
+  ✅ [Pasar] 10 barang: kas masuk = total penjualan
+  ✅ [Pasar] 10 barang: 10 kirim + 10 kembali
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV30P",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "PT Mitra 30",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 10,
+      "stokAwal": 10,
+      "stokAkhir": 4,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 11,
+      "stokAwal": 11,
+      "stokAkhir": 5,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 12,
+      "stokAwal": 12,
+      "stokAkhir": 6,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 13,
+      "stokAwal": 13,
+      "stokAkhir": 7,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 14,
+      "stokAwal": 14,
+      "stokAkhir": 8,
+      "hargaJual": 17000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG006",
+      "namaBarang": "Barang 6",
+      "hargaModal": 12500,
+      "qty": 15,
+      "stokAwal": 15,
+      "stokAkhir": 9,
+      "hargaJual": 17500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG007",
+      "namaBarang": "Barang 7",
+      "hargaModal": 13000,
+      "qty": 16,
+      "stokAwal": 16,
+      "stokAkhir": 10,
+      "hargaJual": 18000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG008",
+      "namaBarang": "Barang 8",
+      "hargaModal": 13500,
+      "qty": 17,
+      "stokAwal": 17,
+      "stokAkhir": 11,
+      "hargaJual": 18500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG009",
+      "namaBarang": "Barang 9",
+      "hargaModal": 14000,
+      "qty": 18,
+      "stokAwal": 18,
+      "stokAkhir": 12,
+      "hargaJual": 19000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Barang 10",
+      "hargaModal": 14500,
+      "qty": 19,
+      "stokAwal": 19,
+      "stokAkhir": 13,
+      "hargaJual": 19500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG011",
+      "namaBarang": "Barang 11",
+      "hargaModal": 15000,
+      "qty": 20,
+      "stokAwal": 20,
+      "stokAkhir": 14,
+      "hargaJual": 20000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG012",
+      "namaBarang": "Barang 12",
+      "hargaModal": 15500,
+      "qty": 21,
+      "stokAwal": 21,
+      "stokAkhir": 15,
+      "hargaJual": 20500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG013",
+      "namaBarang": "Barang 13",
+      "hargaModal": 16000,
+      "qty": 22,
+      "stokAwal": 22,
+      "stokAkhir": 16,
+      "hargaJual": 21000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG014",
+      "namaBarang": "Barang 14",
+      "hargaModal": 16500,
+      "qty": 23,
+      "stokAwal": 23,
+      "stokAkhir": 17,
+      "hargaJual": 21500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG015",
+      "namaBarang": "Barang 15",
+      "hargaModal": 17000,
+      "qty": 24,
+      "stokAwal": 24,
+      "stokAkhir": 18,
+      "hargaJual": 22000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG016",
+      "namaBarang": "Barang 16",
+      "hargaModal": 17500,
+      "qty": 25,
+      "stokAwal": 25,
+      "stokAkhir": 19,
+      "hargaJual": 22500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG017",
+      "namaBarang": "Barang 17",
+      "hargaModal": 18000,
+      "qty": 26,
+      "stokAwal": 26,
+      "stokAkhir": 20,
+      "hargaJual": 23000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG018",
+      "namaBarang": "Barang 18",
+      "hargaModal": 18500,
+      "qty": 27,
+      "stokAwal": 27,
+      "stokAkhir": 21,
+      "hargaJual": 23500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG019",
+      "namaBarang": "Barang 19",
+      "hargaModal": 19000,
+      "qty": 28,
+      "stokAwal": 28,
+      "stokAkhir": 22,
+      "hargaJual": 24000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG020",
+      "namaBarang": "Barang 20",
+      "hargaModal": 19500,
+      "qty": 29,
+      "stokAwal": 29,
+      "stokAkhir": 23,
+      "hargaJual": 24500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG021",
+      "namaBarang": "Barang 21",
+      "hargaModal": 20000,
+      "qty": 30,
+      "stokAwal": 30,
+      "stokAkhir": 24,
+      "hargaJual": 25000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG022",
+      "namaBarang": "Barang 22",
+      "hargaModal": 20500,
+      "qty": 31,
+      "stokAwal": 31,
+      "stokAkhir": 25,
+      "hargaJual": 25500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG023",
+      "namaBarang": "Barang 23",
+      "hargaModal": 21000,
+      "qty": 32,
+      "stokAwal": 32,
+      "stokAkhir": 26,
+      "hargaJual": 26000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG024",
+      "namaBarang": "Barang 24",
+      "hargaModal": 21500,
+      "qty": 33,
+      "stokAwal": 33,
+      "stokAkhir": 27,
+      "hargaJual": 26500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG025",
+      "namaBarang": "Barang 25",
+      "hargaModal": 22000,
+      "qty": 34,
+      "stokAwal": 34,
+      "stokAkhir": 28,
+      "hargaJual": 27000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG026",
+      "namaBarang": "Barang 26",
+      "hargaModal": 22500,
+      "qty": 35,
+      "stokAwal": 35,
+      "stokAkhir": 29,
+      "hargaJual": 27500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG027",
+      "namaBarang": "Barang 27",
+      "hargaModal": 23000,
+      "qty": 36,
+      "stokAwal": 36,
+      "stokAkhir": 30,
+      "hargaJual": 28000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG028",
+      "namaBarang": "Barang 28",
+      "hargaModal": 23500,
+      "qty": 37,
+      "stokAwal": 37,
+      "stokAkhir": 31,
+      "hargaJual": 28500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG029",
+      "namaBarang": "Barang 29",
+      "hargaModal": 24000,
+      "qty": 38,
+      "stokAwal": 38,
+      "stokAkhir": 32,
+      "hargaJual": 29000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG030",
+      "namaBarang": "Barang 30",
+      "hargaModal": 24500,
+      "qty": 39,
+      "stokAwal": 39,
+      "stokAkhir": 33,
+      "hargaJual": 29500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV30P",
+  "total": 4005000,
+  "totalModal": 3105000,
+  "totalPenjualan": 4005000,
+  "margin": 900000
+}
+  ✅ [Pasar] 30 barang tersimpan
+  ✅ [Pasar] 30 barang: invoice tersimpan di DB
+  ✅ [Pasar] 30 barang: field pembayaran diinisialisasi
+  ✅ [Pasar] 30 barang: kas masuk = total penjualan
+  ✅ [Pasar] 30 barang: 30 kirim + 30 kembali
+
+  — Urutan idInvoice INV001..INV030 (unik, 1 barang per invoice) —
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV001",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 1",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV001",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV002",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 2",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV002",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV003",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 3",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV003",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV004",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 4",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV004",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV005",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 5",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV005",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV006",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 6",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV006",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV007",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 7",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV007",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV008",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 8",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV008",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV009",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 9",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV009",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV010",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 10",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV010",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV011",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 11",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV011",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV012",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 12",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV012",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV013",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 13",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV013",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV014",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 14",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV014",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV015",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 15",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV015",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV016",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 16",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV016",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV017",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 17",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV017",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV018",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 18",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV018",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV019",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 19",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV019",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV020",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 20",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV020",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV021",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 21",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV021",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV022",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 22",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV022",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV023",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 23",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV023",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV024",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 24",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV024",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV025",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 25",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV025",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV026",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 26",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV026",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV027",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 27",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV027",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV028",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 28",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV028",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV029",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 29",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV029",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV030",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller 30",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV030",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+  ✅ 30 invoice INV001..INV030 semua tersimpan
+  ✅ 30 entri kas unik
+
+  — Update invoice dengan idInvoice sama (upsert ON CONFLICT) —
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-UPD",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-UPD",
+  "total": 76500,
+  "totalModal": 51500,
+  "totalPenjualan": 76500,
+  "margin": 25000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-UPD",
+  "tanggal": "2026-08-07",
+  "tipe": "Reseller",
+  "namaPihak": "B",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Barang 3",
+      "hargaModal": 11000,
+      "qty": 4,
+      "hargaJual": 16000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG004",
+      "namaBarang": "Barang 4",
+      "hargaModal": 11500,
+      "qty": 5,
+      "hargaJual": 16500,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG005",
+      "namaBarang": "Barang 5",
+      "hargaModal": 12000,
+      "qty": 2,
+      "hargaJual": 17000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-UPD",
+  "total": 257000,
+  "totalModal": 177000,
+  "totalPenjualan": 257000,
+  "margin": 80000
+}
+  ✅ simpan ulang idInvoice sama tidak error
+  ✅ data invoice diperbarui (5 barang, pihak B)
+  ✅ tidak ada invoice duplikat
+
+  — Pasar MINUS: stok akhir > stok awal (barang pulang lebih banyak) —
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-PASAR-MINUS",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "Victoria",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG901",
+      "namaBarang": "Ikan Kembung",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "stokAwal": 5,
+      "stokAkhir": 8,
+      "qty": 5,
+      "subtotal": -45000
+    },
+    {
+      "kodeBarang": "BRG902",
+      "namaBarang": "Cumi",
+      "hargaModal": 20000,
+      "hargaJual": 30000,
+      "stokAwal": 3,
+      "stokAkhir": 3,
+      "qty": 3,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-PASAR-MINUS",
+  "total": -45000,
+  "totalModal": -30000,
+  "totalPenjualan": -45000,
+  "margin": -15000
+}
+  ✅ Pasar minus: invoice tersimpan (terjual -3 + 0)
+  ✅ Pasar minus: totalPenjualan -45.000, totalModal -30.000, margin -15.000
+  ✅ Pasar minus: kas masuk -45.000
+  ✅ Pasar minus: riwayat kirim -5/-3 & kembali +8/+3
+
+======================================================================
+BAGIAN 3 — Handler ASLI createInvoiceTetesan (Modal & Penjualan, 1–30)
+======================================================================
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET1M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Toko 1",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 5000,
+      "qty": 1,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET1M",
+  "total": 5000
+}
+  ✅ [Tetesan Modal] 1 barang tersimpan
+  ✅ [Tetesan Modal] 1 barang: tersimpan di DB
+  ✅ [Tetesan Modal] 1 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Modal] 1 barang: kas keluar = total
+  ✅ [Tetesan Modal] 1 barang: stok baku + & gudang −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET2M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Toko 2",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 5000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 5250,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET2M",
+  "total": 15500
+}
+  ✅ [Tetesan Modal] 2 barang tersimpan
+  ✅ [Tetesan Modal] 2 barang: tersimpan di DB
+  ✅ [Tetesan Modal] 2 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Modal] 2 barang: kas keluar = total
+  ✅ [Tetesan Modal] 2 barang: stok baku + & gudang −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET5M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Toko 5",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 5000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 5250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET003",
+      "namaBarang": "Produk 3",
+      "harga": 5500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET004",
+      "namaBarang": "Produk 4",
+      "harga": 5750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET005",
+      "namaBarang": "Produk 5",
+      "harga": 6000,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET5M",
+  "total": 49750
+}
+  ✅ [Tetesan Modal] 5 barang tersimpan
+  ✅ [Tetesan Modal] 5 barang: tersimpan di DB
+  ✅ [Tetesan Modal] 5 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Modal] 5 barang: kas keluar = total
+  ✅ [Tetesan Modal] 5 barang: stok baku + & gudang −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET10M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Toko 10",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 5000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 5250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET003",
+      "namaBarang": "Produk 3",
+      "harga": 5500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET004",
+      "namaBarang": "Produk 4",
+      "harga": 5750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET005",
+      "namaBarang": "Produk 5",
+      "harga": 6000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET006",
+      "namaBarang": "Produk 6",
+      "harga": 6250,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET007",
+      "namaBarang": "Produk 7",
+      "harga": 6500,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET008",
+      "namaBarang": "Produk 8",
+      "harga": 6750,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET009",
+      "namaBarang": "Produk 9",
+      "harga": 7000,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET010",
+      "namaBarang": "Produk 10",
+      "harga": 7250,
+      "qty": 1,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET10M",
+  "total": 116750
+}
+  ✅ [Tetesan Modal] 10 barang tersimpan
+  ✅ [Tetesan Modal] 10 barang: tersimpan di DB
+  ✅ [Tetesan Modal] 10 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Modal] 10 barang: kas keluar = total
+  ✅ [Tetesan Modal] 10 barang: stok baku + & gudang −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET30M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Toko 30",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 5000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 5250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET003",
+      "namaBarang": "Produk 3",
+      "harga": 5500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET004",
+      "namaBarang": "Produk 4",
+      "harga": 5750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET005",
+      "namaBarang": "Produk 5",
+      "harga": 6000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET006",
+      "namaBarang": "Produk 6",
+      "harga": 6250,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET007",
+      "namaBarang": "Produk 7",
+      "harga": 6500,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET008",
+      "namaBarang": "Produk 8",
+      "harga": 6750,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET009",
+      "namaBarang": "Produk 9",
+      "harga": 7000,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET010",
+      "namaBarang": "Produk 10",
+      "harga": 7250,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET011",
+      "namaBarang": "Produk 11",
+      "harga": 7500,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET012",
+      "namaBarang": "Produk 12",
+      "harga": 7750,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET013",
+      "namaBarang": "Produk 13",
+      "harga": 8000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET014",
+      "namaBarang": "Produk 14",
+      "harga": 8250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET015",
+      "namaBarang": "Produk 15",
+      "harga": 8500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET016",
+      "namaBarang": "Produk 16",
+      "harga": 8750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET017",
+      "namaBarang": "Produk 17",
+      "harga": 9000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET018",
+      "namaBarang": "Produk 18",
+      "harga": 9250,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET019",
+      "namaBarang": "Produk 19",
+      "harga": 9500,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET020",
+      "namaBarang": "Produk 20",
+      "harga": 9750,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET021",
+      "namaBarang": "Produk 21",
+      "harga": 10000,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET022",
+      "namaBarang": "Produk 22",
+      "harga": 10250,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET023",
+      "namaBarang": "Produk 23",
+      "harga": 10500,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET024",
+      "namaBarang": "Produk 24",
+      "harga": 10750,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET025",
+      "namaBarang": "Produk 25",
+      "harga": 11000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET026",
+      "namaBarang": "Produk 26",
+      "harga": 11250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET027",
+      "namaBarang": "Produk 27",
+      "harga": 11500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET028",
+      "namaBarang": "Produk 28",
+      "harga": 11750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET029",
+      "namaBarang": "Produk 29",
+      "harga": 12000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET030",
+      "namaBarang": "Produk 30",
+      "harga": 12250,
+      "qty": 3,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET30M",
+  "total": 522500
+}
+  ✅ [Tetesan Modal] 30 barang tersimpan
+  ✅ [Tetesan Modal] 30 barang: tersimpan di DB
+  ✅ [Tetesan Modal] 30 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Modal] 30 barang: kas keluar = total
+  ✅ [Tetesan Modal] 30 barang: stok baku + & gudang −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET1P",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko 1",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 8000,
+      "qty": 1,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET1P",
+  "total": 8000
+}
+  ✅ [Tetesan Penjualan] 1 barang tersimpan
+  ✅ [Tetesan Penjualan] 1 barang: tersimpan di DB
+  ✅ [Tetesan Penjualan] 1 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Penjualan] 1 barang: kas masuk = total
+  ✅ [Tetesan Penjualan] 1 barang: stok jadi −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET2P",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko 2",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 8000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 8250,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET2P",
+  "total": 24500
+}
+  ✅ [Tetesan Penjualan] 2 barang tersimpan
+  ✅ [Tetesan Penjualan] 2 barang: tersimpan di DB
+  ✅ [Tetesan Penjualan] 2 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Penjualan] 2 barang: kas masuk = total
+  ✅ [Tetesan Penjualan] 2 barang: stok jadi −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET5P",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko 5",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 8000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 8250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET003",
+      "namaBarang": "Produk 3",
+      "harga": 8500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET004",
+      "namaBarang": "Produk 4",
+      "harga": 8750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET005",
+      "namaBarang": "Produk 5",
+      "harga": 9000,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET5P",
+  "total": 76750
+}
+  ✅ [Tetesan Penjualan] 5 barang tersimpan
+  ✅ [Tetesan Penjualan] 5 barang: tersimpan di DB
+  ✅ [Tetesan Penjualan] 5 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Penjualan] 5 barang: kas masuk = total
+  ✅ [Tetesan Penjualan] 5 barang: stok jadi −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET10P",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko 10",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 8000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 8250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET003",
+      "namaBarang": "Produk 3",
+      "harga": 8500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET004",
+      "namaBarang": "Produk 4",
+      "harga": 8750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET005",
+      "namaBarang": "Produk 5",
+      "harga": 9000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET006",
+      "namaBarang": "Produk 6",
+      "harga": 9250,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET007",
+      "namaBarang": "Produk 7",
+      "harga": 9500,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET008",
+      "namaBarang": "Produk 8",
+      "harga": 9750,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET009",
+      "namaBarang": "Produk 9",
+      "harga": 10000,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET010",
+      "namaBarang": "Produk 10",
+      "harga": 10250,
+      "qty": 1,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET10P",
+  "total": 173750
+}
+  ✅ [Tetesan Penjualan] 10 barang tersimpan
+  ✅ [Tetesan Penjualan] 10 barang: tersimpan di DB
+  ✅ [Tetesan Penjualan] 10 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Penjualan] 10 barang: kas masuk = total
+  ✅ [Tetesan Penjualan] 10 barang: stok jadi −
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET30P",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko 30",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk 1",
+      "harga": 8000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET002",
+      "namaBarang": "Produk 2",
+      "harga": 8250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET003",
+      "namaBarang": "Produk 3",
+      "harga": 8500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET004",
+      "namaBarang": "Produk 4",
+      "harga": 8750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET005",
+      "namaBarang": "Produk 5",
+      "harga": 9000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET006",
+      "namaBarang": "Produk 6",
+      "harga": 9250,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET007",
+      "namaBarang": "Produk 7",
+      "harga": 9500,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET008",
+      "namaBarang": "Produk 8",
+      "harga": 9750,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET009",
+      "namaBarang": "Produk 9",
+      "harga": 10000,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET010",
+      "namaBarang": "Produk 10",
+      "harga": 10250,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET011",
+      "namaBarang": "Produk 11",
+      "harga": 10500,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET012",
+      "namaBarang": "Produk 12",
+      "harga": 10750,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET013",
+      "namaBarang": "Produk 13",
+      "harga": 11000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET014",
+      "namaBarang": "Produk 14",
+      "harga": 11250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET015",
+      "namaBarang": "Produk 15",
+      "harga": 11500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET016",
+      "namaBarang": "Produk 16",
+      "harga": 11750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET017",
+      "namaBarang": "Produk 17",
+      "harga": 12000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET018",
+      "namaBarang": "Produk 18",
+      "harga": 12250,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET019",
+      "namaBarang": "Produk 19",
+      "harga": 12500,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET020",
+      "namaBarang": "Produk 20",
+      "harga": 12750,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET021",
+      "namaBarang": "Produk 21",
+      "harga": 13000,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET022",
+      "namaBarang": "Produk 22",
+      "harga": 13250,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET023",
+      "namaBarang": "Produk 23",
+      "harga": 13500,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET024",
+      "namaBarang": "Produk 24",
+      "harga": 13750,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET025",
+      "namaBarang": "Produk 25",
+      "harga": 14000,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET026",
+      "namaBarang": "Produk 26",
+      "harga": 14250,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET027",
+      "namaBarang": "Produk 27",
+      "harga": 14500,
+      "qty": 3,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET028",
+      "namaBarang": "Produk 28",
+      "harga": 14750,
+      "qty": 1,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET029",
+      "namaBarang": "Produk 29",
+      "harga": 15000,
+      "qty": 2,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "TET030",
+      "namaBarang": "Produk 30",
+      "harga": 15250,
+      "qty": 3,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET30P",
+  "total": 702500
+}
+  ✅ [Tetesan Penjualan] 30 barang tersimpan
+  ✅ [Tetesan Penjualan] 30 barang: tersimpan di DB
+  ✅ [Tetesan Penjualan] 30 barang: field pembayaran diinisialisasi
+  ✅ [Tetesan Penjualan] 30 barang: kas masuk = total
+  ✅ [Tetesan Penjualan] 30 barang: stok jadi −
+
+  — Regresi: Penjualan Tetesan dengan STOK 0 harus tetap bisa disimpan —
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-NOSTOK",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko Baru",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Produk Tanpa Stok",
+      "harga": 10000,
+      "qty": 5,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-NOSTOK",
+  "total": 50000
+}
+  ✅ Invoice Penjualan dengan stok 0 TERSIMPAN (stok minus)
+  ✅ riwayat stok jadi tercatat −5
+  ✅ invoice tetesan tanpa barang ditolak
+
+======================================================================
+BAGIAN 4 — Regresi input DESIMAL (0,7) — parseNum & semua tipe invoice
+======================================================================
+  ✅ parseNum("0,7") = 0.7
+  ✅ parseNum("0.7") = 0.7
+  ✅ parseNum("1.500") = 1500
+  ✅ parseNum("1.500,75") = 1500.75
+  ✅ parseNum("Rp 25.000") = 25000
+  ✅ parseNum("") = 0
+  ✅ parseNum("abc") = 0
+  ✅ parseNum("-3") = -3
+  ✅ Reseller qty 0,7 diterima schema
+  ✅ Reseller 0,7 × 15000 = 10500
+  ✅ Pasar stok 1 → 0,3 diterima schema
+  ✅ Pasar terjual 0,7 × 15000 = 10500
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-DECS",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "Pihak Supplier",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 0.7,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-DECS",
+  "total": 7000,
+  "totalModal": 7000,
+  "totalPenjualan": 7000,
+  "margin": 0
+}
+  ✅ [Supplier] invoice qty desimal (0,7) TERSIMPAN
+  ✅ [Supplier] kas keluar = 7000
+  ✅ [Supplier] stok riwayat −0,7 tercatat
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-DECR",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Pihak Reseller",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 0.7,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-DECR",
+  "total": 10500,
+  "totalModal": 7000,
+  "totalPenjualan": 10500,
+  "margin": 3500
+}
+  ✅ [Reseller] invoice qty desimal (0,7) TERSIMPAN
+  ✅ [Reseller] kas masuk = 10500
+  ✅ [Reseller] stok riwayat −0,7 tercatat
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-DECD",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "Pihak DPL",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 0.7,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-DECD",
+  "total": 10500,
+  "totalModal": 7000,
+  "totalPenjualan": 10500,
+  "margin": 3500
+}
+  ✅ [DPL] invoice qty desimal (0,7) TERSIMPAN
+  ✅ [DPL] kas masuk = 10500
+  ✅ [DPL] stok riwayat −0,7 tercatat
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-DECP",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "Pihak Pasar",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 1,
+      "stokAwal": 1,
+      "stokAkhir": 0.3,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-DECP",
+  "total": 10500,
+  "totalModal": 7000,
+  "totalPenjualan": 10500,
+  "margin": 3500
+}
+  ✅ [Pasar] invoice qty desimal (0,7) TERSIMPAN
+  ✅ [Pasar] kas masuk = 10500
+  ✅ [Pasar] stok riwayat −0,7 tercatat
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-DEC",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Toko",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Tepung",
+      "harga": 10000,
+      "qty": 0.7,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-DEC",
+  "total": 7000
+}
+  ✅ [Tetesan Penjualan] qty 0,7 TERSIMPAN
+  ✅ [Tetesan Penjualan] total 7000 & stok −0,7
+
+======================================================================
+BAGIAN 5 — Aksi PEMBAYARAN invoice (bayar → sisa berkurang → Lunas)
+======================================================================
+  ✅ payment(10000, sudah 0, nominal 4000) → bayar 4000, sisa 6000, Pending
+  ✅ payment(10000, sudah 4000, nominal 6000) → bayar 10000, sisa 0, Lunas
+  ✅ payment(10000, sudah 0, nominal 20000) → bayar 10000, sisa 0, Lunas
+  ✅ payment(10000, sudah 9000, nominal 2000) → bayar 10000, sisa 0, Lunas
+  ✅ payment(10000, sudah 10000, nominal 1000) → bayar 10000, sisa 0, Lunas
+  ✅ payment(250000, sudah 0, nominal 25000) → bayar 25000, sisa 225000, Pending
+  ✅ payment(250000, sudah 225000, nominal 50000) → bayar 250000, sisa 0, Lunas
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Toko Bayar",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Barang 2",
+      "hargaModal": 10500,
+      "qty": 3,
+      "hargaJual": 15500,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "total": 76500,
+  "totalModal": 51500,
+  "totalPenjualan": 76500,
+  "margin": 25000
+}
+  ✅ invoice dibuat sebelum pembayaran
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "nominal": 30000,
+  "tanggal": "2026-08-07",
+  "keterangan": "DP"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "dibayar": 30000,
+  "sisa": 46500,
+  "status": "Pending",
+  "total": 76500
+}
+  ✅ bayar 30.000 tercatat
+  ✅ DB: dibayar 30.000, sisa 46.500, riwayat 1
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "nominal": 46500,
+  "tanggal": "2026-08-09",
+  "keterangan": "Pelunasan"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "dibayar": 76500,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 76500
+}
+  ✅ bayar pelunasan → LUNAS
+  ✅ DB: Lunas, sisa 0, riwayat 2
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAYAR",
+  "nominal": 999999
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAYAR",
+  "dibayar": 76500,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 76500
+}
+  ✅ bayar berlebih dibatasi (tercatat 0, tetap Lunas)
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-GAK-ADA",
+  "nominal": 1000
+}
+  ✅ invoice tidak ditemukan ditolak
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-GAK-ADA",
+  "nominal": 0
+}
+  ✅ nominal 0 ditolak
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-BAY-SUP",
+  "tanggal": "2026-08-06",
+  "tipe": "Supplier",
+  "namaPihak": "CV Pasok",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-BAY-SUP",
+  "total": 20000,
+  "totalModal": 20000,
+  "totalPenjualan": 20000,
+  "margin": 0
+}
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-BAY-SUP",
+  "nominal": 20000
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-BAY-SUP",
+  "dibayar": 20000,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 20000
+}
+  ✅ Supplier: bayar 20.000 → Lunas
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Kios",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "TET001",
+      "namaBarang": "Keripik",
+      "harga": 10000,
+      "qty": 5,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-BAYAR",
+  "total": 50000
+}
+[Dapur Laut] bayarInvoiceTetesan request: {
+  "idInvoice": "TET-BAYAR",
+  "nominal": 20000
+}
+[Dapur Laut] bayarInvoiceTetesan response: {
+  "idInvoice": "TET-BAYAR",
+  "dibayar": 20000,
+  "sisa": 30000,
+  "status": "Pending",
+  "total": 50000
+}
+  ✅ Tetesan: bayar 20.000 → sisa 30.000 Pending
+[Dapur Laut] bayarInvoiceTetesan request: {
+  "idInvoice": "TET-BAYAR",
+  "nominal": 30000
+}
+[Dapur Laut] bayarInvoiceTetesan response: {
+  "idInvoice": "TET-BAYAR",
+  "dibayar": 50000,
+  "sisa": 0,
+  "status": "Lunas",
+  "total": 50000
+}
+  ✅ Tetesan: pelunasan → LUNAS
+  ✅ Tetesan: DB Lunas, riwayat 2
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-REBAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-REBAYAR",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-REBAYAR",
+  "nominal": 10000,
+  "tanggal": "2026-08-08"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-REBAYAR",
+  "dibayar": 10000,
+  "sisa": 20000,
+  "status": "Pending",
+  "total": 30000
+}
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-REBAYAR",
+  "tanggal": "2026-08-10",
+  "tipe": "Reseller",
+  "namaPihak": "B",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Barang 1",
+      "hargaModal": 10000,
+      "qty": 2,
+      "hargaJual": 15000,
+      "subtotal": 0
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-REBAYAR",
+  "total": 30000,
+  "totalModal": 20000,
+  "totalPenjualan": 30000,
+  "margin": 10000
+}
+  ✅ re-save berhasil & pembayaran tidak hilang
+  ✅ re-save: sisa tetap konsisten (tidak negatif)
+
+======================================================================
+BAGIAN 6 — EDIT invoice yang sudah jadi (stok & kas dibatalkan lalu diterapkan)
+======================================================================
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-EDIT1",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 2,
+      "subtotal": 50000
+    },
+    {
+      "kodeBarang": "BRG002",
+      "namaBarang": "Teh",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "qty": 3,
+      "subtotal": 45000
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-EDIT1",
+  "total": 95000,
+  "totalModal": 70000,
+  "totalPenjualan": 95000,
+  "margin": 25000
+}
+  ✅ edit: create awal 2 riwayat stok keluar
+  ✅ edit: create awal kas masuk 95.000
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-EDIT1",
+  "tanggal": "2026-08-07",
+  "tipe": "Reseller",
+  "namaPihak": "Reseller B",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 5,
+      "subtotal": 125000
+    },
+    {
+      "kodeBarang": "BRG003",
+      "namaBarang": "Susu",
+      "hargaModal": 5000,
+      "hargaJual": 8000,
+      "qty": 10,
+      "subtotal": 80000
+    }
+  ]
+}
+[Dapur Laut] editInvoice response: {
+  "idInvoice": "INV-EDIT1",
+  "total": 205000,
+  "totalModal": 150000,
+  "totalPenjualan": 205000,
+  "margin": 55000
+}
+  ✅ edit: sukses & total baru 205.000
+  ✅ edit: riwayat stok lama dihapus — hanya 2 baris baru
+  ✅ edit: stok Kopi −5 & Susu −10
+  ✅ edit: kas tetap 1 entri dengan nilai baru 205.000
+  ✅ edit: pihak & tanggal ikut berubah
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "tanggal": "2026-08-06",
+  "tipe": "Pasar",
+  "namaPihak": "Victoria",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Ikan",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "stokAwal": 20,
+      "stokAkhir": 5,
+      "qty": 20,
+      "subtotal": 225000
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "total": 225000,
+  "totalModal": 150000,
+  "totalPenjualan": 225000,
+  "margin": 75000
+}
+  ✅ pasar edit: create awal 2 riwayat (kirim 20, kembali 5)
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "tanggal": "2026-08-08",
+  "tipe": "Pasar",
+  "namaPihak": "Tunas",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG010",
+      "namaBarang": "Ikan",
+      "hargaModal": 10000,
+      "hargaJual": 15000,
+      "stokAwal": 30,
+      "stokAkhir": 10,
+      "qty": 30,
+      "subtotal": 300000
+    }
+  ]
+}
+[Dapur Laut] editInvoice response: {
+  "idInvoice": "INV-EDIT-PASAR",
+  "total": 300000,
+  "totalModal": 200000,
+  "totalPenjualan": 300000,
+  "margin": 100000
+}
+  ✅ pasar edit: riwayat baru 2 (kirim 30, kembali 10)
+  ✅ pasar edit: total baru 300.000
+[Dapur Laut] createInvoice request: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "DPL A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 10,
+      "subtotal": 250000
+    }
+  ]
+}
+[Dapur Laut] createInvoice response: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "total": 250000,
+  "totalModal": 200000,
+  "totalPenjualan": 250000,
+  "margin": 50000
+}
+[Dapur Laut] bayarInvoice request: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "nominal": 100000,
+  "tanggal": "2026-08-08"
+}
+[Dapur Laut] bayarInvoice response: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "dibayar": 100000,
+  "sisa": 150000,
+  "status": "Pending",
+  "total": 250000
+}
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "tanggal": "2026-08-06",
+  "tipe": "DPL",
+  "namaPihak": "DPL A",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 20000,
+      "hargaJual": 25000,
+      "qty": 16,
+      "subtotal": 400000
+    }
+  ]
+}
+[Dapur Laut] editInvoice response: {
+  "idInvoice": "INV-EDIT-BAYAR",
+  "total": 400000,
+  "totalModal": 320000,
+  "totalPenjualan": 400000,
+  "margin": 80000
+}
+  ✅ edit: dibayar tetap 100.000 & riwayat tetap 1
+  ✅ edit: sisa dihitung ulang = 300.000
+[Dapur Laut] editInvoice request: {
+  "idInvoice": "INV-TIDAK-ADA",
+  "tanggal": "2026-08-06",
+  "tipe": "Reseller",
+  "namaPihak": "X",
+  "tenggat": "",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BRG001",
+      "namaBarang": "Kopi",
+      "hargaModal": 1000,
+      "hargaJual": 2000,
+      "qty": 1,
+      "subtotal": 2000
+    }
+  ]
+}
+  ✅ edit invoice tak ada → ditolak
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT1",
+  "tanggal": "2026-08-06",
+  "tipe": "Penjualan",
+  "namaPihak": "Kios A",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BJK001",
+      "namaBarang": "Keripik",
+      "harga": 10000,
+      "qty": 5,
+      "subtotal": 50000
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT1",
+  "total": 50000
+}
+[Dapur Laut] editInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT1",
+  "tanggal": "2026-08-07",
+  "tipe": "Penjualan",
+  "namaPihak": "Kios B",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BJK001",
+      "namaBarang": "Keripik",
+      "harga": 10000,
+      "qty": 8,
+      "subtotal": 80000
+    },
+    {
+      "kodeBarang": "BJK002",
+      "namaBarang": "Abon",
+      "harga": 20000,
+      "qty": 2,
+      "subtotal": 40000
+    }
+  ]
+}
+[Dapur Laut] editInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT1",
+  "total": 120000
+}
+  ✅ tetesan edit: sukses & total 120.000
+  ✅ tetesan edit: riwayat baru 2 (keluar 8 & 2)
+  ✅ tetesan edit: kas tetap 1 entri 120.000
+[Dapur Laut] createInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT-M",
+  "tanggal": "2026-08-06",
+  "tipe": "Modal",
+  "namaPihak": "Pemasok A",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BBK001",
+      "namaBarang": "Tepung",
+      "harga": 5000,
+      "qty": 10,
+      "subtotal": 50000
+    }
+  ]
+}
+[Dapur Laut] createInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT-M",
+  "total": 50000
+}
+  ✅ tetesan modal create: stok baku +10 & gudang −10
+[Dapur Laut] editInvoiceTetesan request: {
+  "idInvoice": "TET-EDIT-M",
+  "tanggal": "2026-08-07",
+  "tipe": "Modal",
+  "namaPihak": "Pemasok B",
+  "mataUang": "Rp",
+  "items": [
+    {
+      "kodeBarang": "BBK001",
+      "namaBarang": "Tepung",
+      "harga": 5000,
+      "qty": 15,
+      "subtotal": 75000
+    }
+  ]
+}
+[Dapur Laut] editInvoiceTetesan response: {
+  "idInvoice": "TET-EDIT-M",
+  "total": 75000
+}
+  ✅ tetesan modal edit: sukses & total 75.000
+  ✅ tetesan modal edit: stok baku 1 riwayat +15 & gudang 1 riwayat −15
+  ✅ tetesan modal edit: kas keluar 75.000 (1 entri)
+
+======================================================================
+HASIL: 278 lulus, 0 gagal — SEMUA LULUS ✅
+======================================================================

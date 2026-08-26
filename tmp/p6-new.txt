@@ -1,1 +1,54 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+export const formatHelpers = query({
+  args: {},
+  handler: async () => ({ formatDateDisplay, formatRupiah, today: todayStr() }),
+});
+
+// ============================================================================
+// INTERNAL QUERIES — hanya bisa dipanggil dari dalam action (ctx.runQuery),
+// tidak bisa dipanggil langsung oleh klien. Dipakai aksi notifikasi (notif.ts)
+// untuk membaca pengaturan VAPID, daftar langganan push, dan invoice tenggat.
+// ============================================================================
+
+/** Baca satu pengaturan (key-value). Akses dibatasi: fungsi INTERNAL. */
+export const internalGetAppSetting = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    return ((await (ctx.db.query("appSettings") as any)
+      .filter((q: any) => q.eq(q.field("key"), key))
+      .first()) ?? null) as { key: string; value: string } | null;
+  },
+});
+
+/** Daftar langganan push aktif (endpoint + kunci enkripsi). */
+export const internalListPushSubscriptions = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("pushSubscription").collect();
+    return rows.map((r) => ({
+      endpoint: r.endpoint,
+      keys: { p256dh: r.keys.p256dh, auth: r.keys.auth },
+    }));
+  },
+});
+
+/** Invoice aktif (bukan Sampah) ber-tenggat yang belum lunas — untuk pengingat push. */
+export const internalListInvoicesForNotif = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("invoice").collect();
+    return rows
+      .filter(
+        (r: any) =>
+          !r.deletedAt &&
+          !!r.tenggat &&
+          (r.statusPembayaran ?? "Pending") !== "Lunas",
+      )
+      .map((r) => ({
+        idInvoice: r.idInvoice,
+        tipe: r.tipe,
+        namaPihak: r.namaPihak,
+        tenggat: r.tenggat as string,
+        total: r.totalPenjualan || r.total || 0,
+      }));
+  },
+});

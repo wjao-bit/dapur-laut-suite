@@ -1,1 +1,370 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+import { useState } from "react";
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { Boxes, Plus, History, SlidersHorizontal, Printer, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
+import { DataTable, type Column } from "@/components/app/DataTable";
+import { PrintFrame } from "@/components/app/PrintFrame";
+import { BarangSearch } from "@/components/app/BarangSearch";
+import { NumInput } from "@/components/app/NumInput";
+import { formatDate, todayStr, parseNum, formatNum } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+const DEFAULT_STOK_MIN = 5;
+
+export default function GudangPage() {
+  const gudang = useSupabaseQuery("gudang", { orderBy: { column: "nama_barang", ascending: true } });
+  const history = useSupabaseQuery("stok_history", { orderBy: { column: "tanggal", ascending: false }, limit: 200 });
+  const barang = useSupabaseQuery("barang");
+
+  const [open, setOpen] = useState(false);
+  const [namaBarang, setNamaBarang] = useState("");
+  const [stokAwal, setStokAwal] = useState(0);
+  const [tanggalStokAwal, setTanggalStokAwal] = useState(todayStr());
+  const [keterangan, setKeterangan] = useState("");
+  const [stokMinBaru, setStokMinBaru] = useState(DEFAULT_STOK_MIN);
+
+  const [adjBarang, setAdjBarang] = useState<string | null>(null);
+  const [adjStok, setAdjStok] = useState(0);
+  const [adjStokMin, setAdjStokMin] = useState(DEFAULT_STOK_MIN);
+  const [adjKet, setAdjKet] = useState("");
+
+  const [histBarang, setHistBarang] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const histRows = (histBarang ? history?.filter((h: any) => h.namaBarang === histBarang) : []) ?? [];
+  const totalStok = (gudang ?? []).reduce((s: number, g: any) => s + Math.max(0, g.stokAkhir ?? 0), 0);
+  const stokMenipis = (gudang ?? []).filter((g: any) => (g.stokAkhir ?? 0) <= (g.stokMin ?? DEFAULT_STOK_MIN)).length;
+
+  const handleAdd = async () => {
+    setSaving(true);
+    try {
+      const id = `GDG-${Date.now().toString(36).toUpperCase()}`;
+      const { error } = await supabase.from("gudang").upsert({
+        id,
+        nama_barang: namaBarang,
+        stok_awal: parseNum(stokAwal),
+        tanggal_stok_awal: tanggalStokAwal,
+        keterangan,
+        stok_masuk: 0,
+        stok_keluar: 0,
+        stok_akhir: parseNum(stokAwal),
+        stok_min: parseNum(stokMinBaru),
+      });
+      if (error) throw error;
+      toast.success(`${namaBarang} ditambahkan ke gudang`);
+      setOpen(false);
+      setNamaBarang("");
+      setStokAwal(0);
+      setTanggalStokAwal(todayStr());
+      setKeterangan("");
+      setStokMinBaru(DEFAULT_STOK_MIN);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Gagal menambah");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdjust = async () => {
+    if (!adjBarang) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("gudang")
+        .update({ stok_akhir: parseNum(adjStok), stok_min: parseNum(adjStokMin) })
+        .eq("nama_barang", adjBarang);
+      if (error) throw error;
+
+      await supabase.from("stok_history").insert({
+        nama_barang: adjBarang,
+        perubahan: parseNum(adjStok),
+        keterangan: adjKet || "Stok opname",
+        tanggal: todayStr(),
+      });
+
+      toast.success(`Stok ${adjBarang} disesuaikan menjadi ${formatNum(adjStok)}`);
+      setAdjBarang(null);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Gagal menyesuaikan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const columns: Column<any>[] = [
+    {
+      key: "namaBarang",
+      label: "Nama Barang",
+      sortValue: (r) => r.nama_barang,
+      render: (r) => {
+        const low = (r.stok_akhir ?? 0) <= (r.stok_min ?? DEFAULT_STOK_MIN);
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-foreground">{r.nama_barang}</span>
+            {low && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                <AlertTriangle className="size-2.5" />
+                Menipis
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    { key: "stokAwal", label: "Stok Awal", align: "right", sortValue: (r) => r.stok_awal, render: (r) => <span className="tabular-nums">{formatNum(r.stok_awal ?? 0)}</span> },
+    { key: "stokMasuk", label: "Stok Masuk", align: "right", sortValue: (r) => r.stok_masuk, render: (r) => <span className="tabular-nums text-emerald-600">+{formatNum(r.stok_masuk ?? 0)}</span> },
+    { key: "stokKeluar", label: "Stok Keluar", align: "right", sortValue: (r) => r.stok_keluar, render: (r) => <span className="tabular-nums text-rose-600">-{formatNum(r.stok_keluar ?? 0)}</span> },
+    {
+      key: "stokMin",
+      label: "Batas Min",
+      align: "right",
+      sortValue: (r) => r.stok_min ?? DEFAULT_STOK_MIN,
+      render: (r) => <span className="tabular-nums text-muted-foreground">{formatNum(r.stok_min ?? DEFAULT_STOK_MIN)}</span>,
+    },
+    {
+      key: "stokAkhir",
+      label: "Stok Akhir",
+      align: "right",
+      sortValue: (r) => r.stok_akhir,
+      render: (r) => {
+        const low = (r.stok_akhir ?? 0) <= (r.stok_min ?? DEFAULT_STOK_MIN);
+        return (
+          <span className={cn("font-bold tabular-nums", (r.stok_akhir ?? 0) < 0 ? "text-rose-600" : low ? "text-amber-600" : (r.stok_akhir ?? 0) === 0 ? "text-muted-foreground" : "text-emerald-600")}>
+            {formatNum(r.stok_akhir ?? 0)}
+          </span>
+        );
+      },
+    },
+    {
+      key: "aksi",
+      label: "",
+      align: "right",
+      render: (r) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAdjBarang(r.nama_barang); setAdjStok(r.stok_akhir ?? 0); setAdjStokMin(r.stok_min ?? DEFAULT_STOK_MIN); setAdjKet(""); }}>
+            <SlidersHorizontal className="mr-1 size-3" />
+            Set Stok
+          </Button>
+          <Button variant="ghost" size="icon" className="size-7" title="Riwayat stok" onClick={() => setHistBarang(r.nama_barang)}>
+            <History className="size-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <PageHeader
+        title="Gudang & Stok"
+        description="Posisi stok dihitung dari riwayat perubahan. Stok boleh minus."
+        icon={Boxes}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setPrintOpen(true)}>
+              <Printer className="mr-2 size-4" />
+              Cetak PDF
+            </Button>
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="mr-2 size-4" />
+              Tambah ke Gudang
+            </Button>
+          </>
+        }
+      />
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <SectionCard title="Total Stok (unit)">
+          <p className="text-2xl font-bold text-emerald-600 tabular-nums">{formatNum(totalStok)}</p>
+        </SectionCard>
+        <SectionCard title="Stok Menipis">
+          <p className={cn("text-2xl font-bold tabular-nums", stokMenipis > 0 ? "text-amber-600" : "text-emerald-600")}>
+            {stokMenipis}
+          </p>
+        </SectionCard>
+        <SectionCard title="Jenis Barang">
+          <p className="text-2xl font-bold tabular-nums">{gudang?.length ?? "—"}</p>
+        </SectionCard>
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={(gudang ?? []).map((g: any) => ({ ...g, namaBarang: g.nama_barang }))}
+        loading={gudang === undefined}
+        keyField={(r) => r.nama_barang}
+        emptyTitle="Gudang kosong"
+        emptyDescription="Tambahkan barang atau buat invoice — stok akan tercatat otomatis."
+      />
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Tambah Barang ke Gudang</DialogTitle>
+            <DialogDescription>Barang yang belum ada di database tetap bisa masuk (stok boleh minus).</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-medium">Nama Barang *</Label>
+              <BarangSearch className="mt-1.5" barang={(barang ?? []) as any} value={namaBarang} onChange={setNamaBarang} onPick={(b: any) => setNamaBarang(b.nama)} placeholder="Ketik nama barang…" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-medium">Stok Awal</Label>
+                <NumInput className="mt-1.5" value={stokAwal} onValue={setStokAwal} />
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Tgl Stok Awal</Label>
+                <Input type="date" className="mt-1.5" value={tanggalStokAwal} onChange={(e) => setTanggalStokAwal(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Batas Stok Min</Label>
+              <NumInput className="mt-1.5" value={stokMinBaru} onValue={setStokMinBaru} />
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Keterangan</Label>
+              <Input className="mt-1.5" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button onClick={handleAdd} disabled={saving || !namaBarang}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!adjBarang} onOpenChange={(o) => !o && setAdjBarang(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Stok: {adjBarang}</DialogTitle>
+            <DialogDescription>Menyesuaikan stok saat ini dan batas minimum peringatan menipis.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-medium">Stok Baru *</Label>
+              <NumInput className="mt-1.5 text-lg font-semibold" value={adjStok} onValue={setAdjStok} />
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Batas Stok Min</Label>
+              <NumInput className="mt-1.5" value={adjStokMin} onValue={setAdjStokMin} />
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Keterangan</Label>
+              <Input className="mt-1.5" value={adjKet} onChange={(e) => setAdjKet(e.target.value)} placeholder="Stok opname" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjBarang(null)}>Batal</Button>
+            <Button onClick={handleAdjust} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={!!histBarang} onOpenChange={(o) => !o && setHistBarang(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Riwayat Stok: {histBarang}</SheetTitle>
+            <SheetDescription>Asal perubahan stok di gudang.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-2">
+            {histRows.length === 0 && <p className="text-sm text-muted-foreground">Belum ada riwayat.</p>}
+            {histRows.map((h: any) => (
+              <div key={h.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <BadgeStatus status={h.tipe ?? ""} />
+                    <span className={cn("font-semibold tabular-nums", (h.perubahan ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                      {(h.perubahan ?? 0) >= 0 ? `+${formatNum(h.perubahan)}` : formatNum(h.perubahan)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{h.keterangan || "—"}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">{formatDate(h.tanggal)}</span>
+              </div>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <PrintFrame open={printOpen} onClose={() => setPrintOpen(false)} title="Laporan Stok Gudang — Dapur Laut">
+        <GudangPrintDoc rows={(gudang ?? []).map((g: any) => ({ ...g, namaBarang: g.nama_barang }))} />
+      </PrintFrame>
+    </div>
+  );
+}
+
+export function GudangPrintDoc({ rows }: { rows: any[] }) {
+  const total = rows.reduce((s: number, r: any) => s + Math.max(0, r.stok_akhir ?? 0), 0);
+  const td = "border border-slate-200 px-2 py-1.5 text-[13px]";
+  const tdr = "border border-slate-200 px-2 py-1.5 text-right text-[13px] tabular-nums";
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between text-sm">
+        <div>
+          <p className="text-xs text-slate-500">Laporan Stok</p>
+          <p className="text-lg font-bold text-slate-900">Laporan Stok Gudang</p>
+        </div>
+        <div className="text-right text-xs text-slate-500">
+          <p>Tgl Cetak: {formatDate(todayStr())}</p>
+          <p className="mt-0.5 font-semibold text-slate-700">Total Stok: {formatNum(total)} unit</p>
+        </div>
+      </div>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
+            <th className="border border-slate-200 px-2 py-2">Nama Barang</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Stok Awal</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Masuk</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Keluar</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Batas Min</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Stok Akhir</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any) => {
+            const low = (r.stok_akhir ?? 0) <= (r.stok_min ?? DEFAULT_STOK_MIN);
+            return (
+              <tr key={r.namaBarang ?? r.nama_barang}>
+                <td className={td + " font-medium"}>
+                  {r.namaBarang ?? r.nama_barang}
+                  {low && <span className="ml-1.5 text-[10px] font-bold text-amber-700">(MENIPIS)</span>}
+                </td>
+                <td className={tdr}>{formatNum(r.stok_awal ?? 0)}</td>
+                <td className={tdr + " text-emerald-700"}>{formatNum(r.stok_masuk ?? 0)}</td>
+                <td className={tdr + " text-rose-700"}>{formatNum(r.stok_keluar ?? 0)}</td>
+                <td className={tdr}>{formatNum(r.stok_min ?? DEFAULT_STOK_MIN)}</td>
+                <td className={tdr + " font-bold"}>{formatNum(r.stok_akhir ?? 0)}</td>
+              </tr>
+            );
+          })}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={6} className={td + " text-center text-muted-foreground"}>Gudang kosong.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}

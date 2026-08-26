@@ -106,6 +106,152 @@ export default function PengeluaranPage() {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-            
+              <AlertDialogTitle>Hapus pengeluaran?</AlertDialogTitle>
+              <AlertDialogDescription>Kas keluar terkait juga akan dihapus.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={async () => {
+                try {
+                  await deletePengeluaran({ table: "pengeluaran", id: r.id });
+                  toast.success("Pengeluaran dihapus");
+                } catch (e: any) {
+                  toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus");
+                }
+              }}>
+                Hapus
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ),
+    },
+  ];
 
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 4.354 characters. Read it separately or use code_search for the relevant section.
+  return (
+    <div>
+      <PageHeader
+        title="Pengeluaran"
+        description="Pengeluaran operasional & lainnya. Jenis 'Utang Karyawan' otomatis menambah record utang karyawan."
+        icon={ReceiptText}
+        actions={
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="mr-2 size-4" />
+            Catat Pengeluaran
+          </Button>
+        }
+      />
+
+      <div className="mb-4 grid gap-3 lg:grid-cols-4">
+        <SectionCard title="Total (filter)" className="border-rose-200">
+          <p className="text-2xl font-bold text-rose-600 tabular-nums">{formatRupiah(total)}</p>
+        </SectionCard>
+        <div className="lg:col-span-3 grid gap-2 sm:grid-cols-3">
+          <div>
+            <Label className="text-xs font-medium">Filter Jenis</Label>
+            {/* Nilai "__all" hanyalah penanda; diubah jadi "" agar menampilkan SEMUA jenis (fix bug tabel kosong). */}
+            <Select value={filterJenis} onValueChange={(v) => setFilterJenis(v === "__all" ? "" : v)}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Semua jenis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Semua jenis</SelectItem>
+                {PENGELUARAN_JENISES.map((j) => (
+                  <SelectItem key={j} value={j}>{j}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs font-medium">Dari</Label>
+            <Input type="date" className="mt-1.5" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs font-medium">Sampai</Label>
+            <Input type="date" className="mt-1.5" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={filtered as any}
+        loading={pengeluaran === undefined}
+        keyField={(r) => r.id}
+        emptyTitle="Belum ada pengeluaran"
+        emptyDescription="Catat pengeluaran operasional perusahaan."
+      />
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Catat Pengeluaran</DialogTitle>
+            <DialogDescription>
+              {jenis === "Utang Karyawan" && idKaryawan
+                ? "Pengeluaran ini otomatis menjadi record utang karyawan."
+                : "Kas keluar tercatat otomatis."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-medium">ID *</Label>
+                <Input className="mt-1.5" value={id} onChange={(e) => setId(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Tanggal *</Label>
+                <Input type="date" className="mt-1.5" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Jenis *</Label>
+              <Select value={jenis} onValueChange={setJenis}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PENGELUARAN_JENISES.map((j) => (
+                    <SelectItem key={j} value={j}>{j}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {jenis === "Utang Karyawan" && (
+              <div>
+                <Label className="text-xs font-medium">Karyawan (untuk utang) *</Label>
+                <Select value={idKaryawan} onValueChange={setIdKaryawan}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Pilih karyawan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(karyawan ?? []).map((k: any) => (
+                      <SelectItem key={k.id} value={k.id}>{k.nama}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label className="text-xs font-medium">Nominal (Rp) *</Label>
+              <NumInput
+                className="mt-1.5"
+                value={nominal}
+                onValue={setNominal}
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Keterangan</Label>
+              <Input className="mt-1.5" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Keterangan pengeluaran" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button onClick={handleSave} disabled={saving || parseNum(nominal) <= 0 || (jenis === "Utang Karyawan" && !idKaryawan)}>
+              {saving ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

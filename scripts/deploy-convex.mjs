@@ -1,1 +1,11 @@
-[FILE_TOO_LARGE]: The combined read_files output exceeded the 100.000 character hard limit. This file was truncated after 0 characters. Read it separately or use code_search for the relevant section.
+#!/usr/bin/env node
+// Wrapper to fix Convex CLI in WebContainer where import() silently fails
+process.argv = process.argv.slice(2); // Remove 'node scripts/deploy-convex.mjs'
+process.argv.unshift(process.execPath, 'convex');
+
+try {
+  require('../node_modules/convex/dist/cli.bundle.cjs');
+} catch (e) {
+  console.error('Convex CLI error:', e.message || e);
+  process.exit(1);
+}
