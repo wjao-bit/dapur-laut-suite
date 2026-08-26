@@ -221,7 +221,8 @@ function Root() {
   }
 
   return (
-    <ConvexProvider client={client}>
+    <ConvexErrorBoundary>
+<ConvexProvider client={client}>
       <BrowserRouter>
         <RouteSyncer />
         <Suspense fallback={<RouteLoading />}>
@@ -271,6 +272,7 @@ function Root() {
       </BrowserRouter>
       <Toaster />
     </ConvexProvider>
+</ConvexErrorBoundary>
   );
 }
 
