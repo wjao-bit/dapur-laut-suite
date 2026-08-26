@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-// ConvexErrorBoundary removed
+import { ConvexErrorBoundary } from "@/components/ConvexErrorBoundary";
 import React, { StrictMode, useEffect, lazy, Suspense, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation, Navigate } from "react-router";
