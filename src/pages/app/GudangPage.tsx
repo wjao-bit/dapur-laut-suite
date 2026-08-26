@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Boxes, Plus, History, SlidersHorizontal, Printer, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,12 +33,9 @@ import { cn } from "@/lib/utils";
 const DEFAULT_STOK_MIN = 5;
 
 export default function GudangPage() {
-  const gudang = useQuery(api.queries.listGudang);
-  const history = useQuery(api.queries.listStokHistory, {});
-  const barang = useQuery(api.queries.listBarang);
-  const upsertGudang = useMutation(api.business.upsertGudang);
-  const adjustStok = useMutation(api.business.adjustStok);
-  const setStokMin = useMutation(api.gudang.setStokMin);
+  const gudangRaw = useSupabaseQuery("stok_history", { orderBy: { column: "tanggal", ascending: false }, limit: 200 });
+  const history = useSupabaseQuery("stok_history", { orderBy: { column: "tanggal", ascending: false }, limit: 200 });
+  const barang = useSupabaseQuery("barang");
 
   const [open, setOpen] = useState(false);
   const [namaBarang, setNamaBarang] = useState("");

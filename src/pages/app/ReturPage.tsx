@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Undo2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,13 +29,11 @@ import { formatDate, todayStr, genId, parseNum, formatNum } from "@/lib/format";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ReturPage() {
-  const retur = useQuery(api.queries.listRetur, {});
-  const resellers = useQuery(api.queries.listReseller);
-  const dpls = useQuery(api.queries.listDpl);
-  const pasars = useQuery(api.queries.listPasar);
-  const barang = useQuery(api.queries.listBarang);
-  const upsertRetur = useMutation(api.business.upsertRetur);
-  const deleteRetur = useMutation(api.business.deleteMaster as any);
+  const retur = useSupabaseQuery("retur", { orderBy: { column: "tanggal", ascending: false }, limit: 100 });
+  const resellers = useSupabaseQuery("reseller");
+  const dpls = useSupabaseQuery("dpl");
+  const pasars = useSupabaseQuery("pasar");
+  const barang = useSupabaseQuery("barang");
 
   const [open, setOpen] = useState(false);
   const [tipe, setTipe] = useState("Reseller");
@@ -63,7 +61,9 @@ export default function ReturPage() {
     setSaving(true);
     try {
       const qtyNum = Math.max(0, parseNum(qty));
-      await upsertRetur({ doc: { id, tanggal, tipe, namaPihak, namaBarang, qty: qtyNum, keterangan } });
+      const existing = retur?.find((r) => r.id === id);
+      const doc = { id, tanggal, tipe_pihak: tipe, nama_pihak: namaPihak, nama_barang: namaBarang, qty: qtyNum, keterangan };
+      if (existing) { const { error } = await supabase!.from("retur").update(doc).eq("id", id); if (error) throw new Error(error.message); } else { const { error } = await supabase!.from("retur").insert(doc); if (error) throw new Error(error.message); }
       toast.success(`Retur ${formatNum(qtyNum)} × ${namaBarang} dicatat — stok gudang bertambah`);
       setOpen(false);
       resetForm();
@@ -101,7 +101,7 @@ export default function ReturPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Batal</AlertDialogCancel>
               <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={async () => {
-                await deleteRetur({ table: "retur", id: r.id });
+                const { error } = await supabase!.from("retur").delete().eq("id", r.id); if (error) throw new Error(error.message);
                 toast.success("Retur dihapus");
               }}>
                 Hapus
