@@ -1,3 +1,7 @@
+node_modules/
+dist/
+self-hosted/.env
+
 # Build artifacts — jangan pernah commit APK / keystore ke git
 twa/android.keystore
 twa/app-release-signed.apk
