@@ -162,7 +162,7 @@ class RootErrorBoundary extends React.Component<
  * diketahui rusak/kosong; selain itu selalu pakai deployment dev yang berisi
  * seluruh fungsi.
  */
-const FALLBACK_CONVEX_URL = "https://enchanted-sparrow-757.convex.cloud";
+const FALLBACK_CONVEX_URL = "https://capable-boar-593.convex.cloud";
 
 // Deployment yang DIBUKTIKAN rusak/kosong (tidak berisi fungsi backend) atau
 // deployment lama yang sudah tidak dipakai — jangan pernah dipakai, selalu
