@@ -26,7 +26,6 @@ import type * as http from "../http.js";
 import type * as katalog from "../katalog.js";
 import type * as lib from "../lib.js";
 import type * as monitor from "../monitor.js";
-import type * as notif from "../notif.js";
 import type * as payment from "../payment.js";
 import type * as piutang from "../piutang.js";
 import type * as queries from "../queries.js";
@@ -58,7 +57,6 @@ declare const fullApi: ApiFromModules<{
   katalog: typeof katalog;
   lib: typeof lib;
   monitor: typeof monitor;
-  notif: typeof notif;
   payment: typeof payment;
   piutang: typeof piutang;
   queries: typeof queries;
