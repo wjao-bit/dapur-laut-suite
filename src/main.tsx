@@ -172,11 +172,7 @@ const BROKEN_CONVEX_URLS = [
   "https://happy-otter-123.convex.cloud",
 ];
 
-const envConvexUrl: string | undefined = (import.meta.env.VITE_CONVEX_URL as string | undefined)?.trim();
-const convexUrl: string =
-  envConvexUrl && !BROKEN_CONVEX_URLS.includes(envConvexUrl)
-    ? envConvexUrl
-    : FALLBACK_CONVEX_URL;
+const convexUrl: string = FALLBACK_CONVEX_URL;
 
 function ConvexConfigScreen() {
   return (
