@@ -24,6 +24,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as gudang from "../gudang.js";
 import type * as http from "../http.js";
 import type * as katalog from "../katalog.js";
+import type * as keepAlive from "../keepAlive.js";
 import type * as lib from "../lib.js";
 import type * as monitor from "../monitor.js";
 import type * as payment from "../payment.js";
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   gudang: typeof gudang;
   http: typeof http;
   katalog: typeof katalog;
+  keepAlive: typeof keepAlive;
   lib: typeof lib;
   monitor: typeof monitor;
   payment: typeof payment;
