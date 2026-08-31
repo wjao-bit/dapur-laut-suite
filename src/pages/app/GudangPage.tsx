@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSupabaseQuery } from "@/hooks/use-supabase-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -31,10 +31,40 @@ import { cn } from "@/lib/utils";
 
 const DEFAULT_STOK_MIN = 5;
 
+/** Compute stok fields from gudang + stok_history */
+function useComputedGudang(
+  gudangRows: any[] | undefined,
+  historyRows: any[] | undefined,
+) {
+  return useMemo(() => {
+    if (!gudangRows) return undefined;
+    const histMap: Record<string, { masuk: number; keluar: number }> = {};
+    for (const h of historyRows ?? []) {
+      const name = h.nama_barang as string;
+      if (!histMap[name]) histMap[name] = { masuk: 0, keluar: 0 };
+      const val = Number(h.perubahan) || 0;
+      if (val > 0) histMap[name].masuk += val;
+      else histMap[name].keluar += Math.abs(val);
+    }
+    return gudangRows.map((g: any) => {
+      const h = histMap[g.nama_barang] ?? { masuk: 0, keluar: 0 };
+      const stokAwal = Number(g.stok_awal) || 0;
+      return {
+        ...g,
+        stok_masuk: h.masuk,
+        stok_keluar: h.keluar,
+        stok_akhir: stokAwal + h.masuk - h.keluar,
+      };
+    });
+  }, [gudangRows, historyRows]);
+}
+
 export default function GudangPage() {
-  const gudang = useSupabaseQuery("gudang", { orderBy: { column: "nama_barang", ascending: true } });
-  const history = useSupabaseQuery("stok_history", { orderBy: { column: "tanggal", ascending: false }, limit: 200 });
+  const gudangRaw = useSupabaseQuery("gudang", { orderBy: { column: "nama_barang", ascending: true } });
+  const history = useSupabaseQuery("stok_history", { orderBy: { column: "tanggal", ascending: false }, limit: 500 });
   const barang = useSupabaseQuery("barang");
+
+  const gudang = useComputedGudang(gudangRaw, history);
 
   const [open, setOpen] = useState(false);
   const [namaBarang, setNamaBarang] = useState("");
@@ -52,26 +82,31 @@ export default function GudangPage() {
   const [printOpen, setPrintOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const histRows = (histBarang ? history?.filter((h: any) => h.namaBarang === histBarang) : []) ?? [];
-  const totalStok = (gudang ?? []).reduce((s: number, g: any) => s + Math.max(0, g.stokAkhir ?? 0), 0);
-  const stokMenipis = (gudang ?? []).filter((g: any) => (g.stokAkhir ?? 0) <= (g.stokMin ?? DEFAULT_STOK_MIN)).length;
+  const histRows = (histBarang ? history?.filter((h: any) => h.nama_barang === histBarang) : []) ?? [];
+  const totalStok = (gudang ?? []).reduce((s: number, g: any) => s + Math.max(0, g.stok_akhir ?? 0), 0);
+  const stokMenipis = (gudang ?? []).filter((g: any) => (g.stok_akhir ?? 0) <= (g.stok_min ?? DEFAULT_STOK_MIN)).length;
 
   const handleAdd = async () => {
     setSaving(true);
     try {
-      const id = `GDG-${Date.now().toString(36).toUpperCase()}`;
       const { error } = await supabase.from("gudang").upsert({
-        id,
         nama_barang: namaBarang,
         stok_awal: parseNum(stokAwal),
-        tanggal_stok_awal: tanggalStokAwal,
-        keterangan,
-        stok_masuk: 0,
-        stok_keluar: 0,
-        stok_akhir: parseNum(stokAwal),
         stok_min: parseNum(stokMinBaru),
-      });
+        keterangan,
+      }, { onConflict: "nama_barang" });
       if (error) throw error;
+
+      // Insert initial stok_history entry
+      if (parseNum(stokAwal) > 0) {
+        await supabase.from("stok_history").insert({
+          nama_barang: namaBarang,
+          perubahan: parseNum(stokAwal),
+          keterangan: keterangan || "Stok awal",
+          tanggal: tanggalStokAwal,
+        });
+      }
+
       toast.success(`${namaBarang} ditambahkan ke gudang`);
       setOpen(false);
       setNamaBarang("");
@@ -92,7 +127,7 @@ export default function GudangPage() {
     try {
       const { error } = await supabase
         .from("gudang")
-        .update({ stok_akhir: parseNum(adjStok), stok_min: parseNum(adjStokMin) })
+        .update({ stok_min: parseNum(adjStokMin) })
         .eq("nama_barang", adjBarang);
       if (error) throw error;
 
@@ -162,11 +197,11 @@ export default function GudangPage() {
       align: "right",
       render: (r) => (
         <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAdjBarang(r.nama_barang); setAdjStok(r.stok_akhir ?? 0); setAdjStokMin(r.stok_min ?? DEFAULT_STOK_MIN); setAdjKet(""); }}>
+          <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={() => { setAdjBarang(r.nama_barang); setAdjStok(r.stok_akhir ?? 0); setAdjStokMin(r.stok_min ?? DEFAULT_STOK_MIN); setAdjKet(""); }}>
             <SlidersHorizontal className="mr-1 size-3" />
             Set Stok
           </Button>
-          <Button variant="ghost" size="icon" className="size-7" title="Riwayat stok" onClick={() => setHistBarang(r.nama_barang)}>
+          <Button variant="ghost" size="icon" className="size-7 cursor-pointer" title="Riwayat stok" onClick={() => setHistBarang(r.nama_barang)}>
             <History className="size-3.5" />
           </Button>
         </div>
@@ -182,11 +217,11 @@ export default function GudangPage() {
         icon={Boxes}
         actions={
           <>
-            <Button variant="outline" onClick={() => setPrintOpen(true)}>
+            <Button variant="outline" className="cursor-pointer" onClick={() => setPrintOpen(true)}>
               <Printer className="mr-2 size-4" />
               Cetak PDF
             </Button>
-            <Button onClick={() => setOpen(true)}>
+            <Button className="cursor-pointer" onClick={() => setOpen(true)}>
               <Plus className="mr-2 size-4" />
               Tambah ke Gudang
             </Button>
@@ -248,8 +283,8 @@ export default function GudangPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleAdd} disabled={saving || !namaBarang}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+            <Button variant="outline" className="cursor-pointer" onClick={() => setOpen(false)}>Batal</Button>
+            <Button className="cursor-pointer" onClick={handleAdd} disabled={saving || !namaBarang}>{saving ? "Menyimpan..." : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -275,8 +310,8 @@ export default function GudangPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdjBarang(null)}>Batal</Button>
-            <Button onClick={handleAdjust} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+            <Button variant="outline" className="cursor-pointer" onClick={() => setAdjBarang(null)}>Batal</Button>
+            <Button className="cursor-pointer" onClick={handleAdjust} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
