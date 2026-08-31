@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseReady } from "@/lib/supabase";
 
 type SupabaseTable =
   | "barang"
@@ -44,9 +44,14 @@ export function useSupabaseQuery<T = Record<string, unknown>>(
 ): T[] | undefined {
   const [data, setData] = useState<T[] | undefined>(undefined);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const mountedRef = useRef(true);
   const optionsKey = JSON.stringify(options);
 
   const fetchData = useCallback(async () => {
+    if (!isSupabaseReady()) {
+      setData([]);
+      return;
+    }
     try {
       let query = supabase.from(table).select(options?.select ?? "*");
 
@@ -65,33 +70,50 @@ export function useSupabaseQuery<T = Record<string, unknown>>(
       }
 
       const { data: rows, error } = await query;
+      if (!mountedRef.current) return;
       if (error) {
-        console.error(`[Supabase Query] ${table}:`, error.message);
+        // Table might not exist yet — just return empty, don't spam console
+        console.warn(`[Supabase] ${table}:`, error.message);
         setData([]);
       } else {
         setData((rows as T[]) ?? []);
       }
     } catch (err) {
-      console.error(`[Supabase Query] ${table} fetch error:`, err);
+      if (!mountedRef.current) return;
+      console.warn(`[Supabase] ${table} fetch error:`, err);
       setData([]);
     }
   }, [table, optionsKey]);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchData();
 
-    const channel = supabase
-      .channel(`realtime:${table}`)
-      .on("postgres_changes", { event: "*", schema: "public", table }, () => {
-        fetchData();
-      })
-      .subscribe();
+    // Only subscribe to realtime if Supabase is configured
+    if (isSupabaseReady()) {
+      try {
+        const channel = supabase
+          .channel(`realtime:${table}`)
+          .on("postgres_changes", { event: "*", schema: "public", table }, () => {
+            fetchData();
+          })
+          .subscribe((status) => {
+            // Silently ignore subscription errors (table might not have realtime enabled)
+            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+              // Do nothing — just use polling fallback
+            }
+          });
 
-    channelRef.current = channel;
+        channelRef.current = channel;
+      } catch {
+        // Realtime not available — fine, we still have initial fetch
+      }
+    }
 
     return () => {
+      mountedRef.current = false;
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        supabase.removeChannel(channelRef.current).catch(() => {});
         channelRef.current = null;
       }
     };
