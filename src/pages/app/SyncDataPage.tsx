@@ -1,17 +1,16 @@
 /**
- * Halaman Migrasi Data: Convex → Supabase
+ * Halaman Sinkronisasi Data: Convex → Supabase
  *
  * Fetch data dari Convex (via useQuery) → map ke format Supabase → insert.
- * Buka dari menu Admin → "Migrasi Data".
  */
 import { useState, useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseReady } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SectionCard } from "@/components/app/ui";
-import { Database, ArrowRight, Check, Loader2, AlertTriangle } from "lucide-react";
+import { Database, ArrowRight, Check, Loader2, AlertTriangle, X } from "lucide-react";
 
 // ============================================================================
 // Mapping: Convex camelCase → Supabase snake_case
@@ -26,45 +25,21 @@ function mapBarang(rows: any[]) {
     kategori: r.kategori || "",
   }));
 }
-
 function mapSupplier(rows: any[]) {
-  return rows.map((r) => ({
-    nama: r.nama,
-    alamat: r.alamat || "",
-    telepon: r.telepon || "",
-  }));
+  return rows.map((r) => ({ nama: r.nama, alamat: r.alamat || "", telepon: r.telepon || "" }));
 }
-
 function mapReseller(rows: any[]) {
-  return rows.map((r) => ({
-    nama: r.nama,
-    alamat: r.alamat || "",
-    telepon: r.telepon || "",
-  }));
+  return rows.map((r) => ({ nama: r.nama, alamat: r.alamat || "", telepon: r.telepon || "" }));
 }
-
 function mapDpl(rows: any[]) {
-  return rows.map((r) => ({
-    nama_pasar: r.namaPasar,
-    alamat: r.alamat || "",
-  }));
+  return rows.map((r) => ({ nama_pasar: r.namaPasar, alamat: r.alamat || "" }));
 }
-
 function mapPasar(rows: any[]) {
-  return rows.map((r) => ({
-    nama_pasar: r.namaPasar,
-    alamat: r.alamat || "",
-  }));
+  return rows.map((r) => ({ nama_pasar: r.namaPasar, alamat: r.alamat || "" }));
 }
-
 function mapKaryawan(rows: any[]) {
-  return rows.map((r) => ({
-    nama: r.nama,
-    jabatan: r.jabatan || "",
-    gaji: r.gaji ?? 0,
-  }));
+  return rows.map((r) => ({ nama: r.nama, jabatan: r.jabatan || "", gaji: r.gaji ?? 0 }));
 }
-
 function mapGudang(rows: any[]) {
   return rows.map((r) => ({
     nama_barang: r.namaBarang,
@@ -73,7 +48,6 @@ function mapGudang(rows: any[]) {
     keterangan: r.keterangan || "",
   }));
 }
-
 function mapInvoice(rows: any[]) {
   return rows.map((r) => ({
     id_invoice: r.idInvoice,
@@ -85,89 +59,73 @@ function mapInvoice(rows: any[]) {
     total_penjualan: r.totalPenjualan ?? 0,
     margin: r.margin ?? 0,
     status_pembayaran: r.statusPembayaran || "Pending",
-    catatan: r.catatan || "",
   }));
 }
-
 function mapKas(rows: any[]) {
   return rows.map((r) => ({
+    id_kas: r.idKas || "",
     tanggal: r.tanggal,
+    keterangan: r.keterangan || "",
     kas_masuk: r.kasMasuk ?? 0,
     kas_keluar: r.kasKeluar ?? 0,
-    keterangan: r.keterangan || "",
+    saldo_awal: r.saldoAwal ?? 0,
+    saldo_akhir: r.saldoAkhir ?? 0,
+    sumber: r.sumber || "Manual",
   }));
 }
-
 function mapPengeluaran(rows: any[]) {
   return rows.map((r) => ({
+    id_pengeluaran: r.idPengeluaran || "",
     tanggal: r.tanggal,
+    jenis: r.jenis || "Operasional",
+    nominal: r.nominal ?? 0,
     keterangan: r.keterangan || "",
-    jumlah: r.jumlah ?? 0,
-    kategori: r.kategori || "",
   }));
 }
-
 function mapStokHistory(rows: any[]) {
   return rows.map((r) => ({
     nama_barang: r.namaBarang,
     perubahan: r.perubahan ?? 0,
     keterangan: r.keterangan || "",
     tanggal: r.tanggal,
-    tipe: r.tipe || "",
+    asal: r.asal || "",
   }));
 }
-
 function mapRetur(rows: any[]) {
   return rows.map((r) => ({
-    id_invoice: r.idInvoice || "",
+    id_retur: r.idRetur || "",
     tanggal: r.tanggal,
+    tipe: r.tipe || "",
     nama_pihak: r.namaPihak || "",
     items: r.items ?? [],
     total: r.total ?? 0,
-    keterangan: r.keterangan || "",
   }));
 }
-
 function mapAbsensi(rows: any[]) {
   return rows.map((r) => ({
-    nama: r.nama,
+    id_karyawan: r.idKaryawan || "",
     tanggal: r.tanggal,
     status: r.status || "Hadir",
     jam_masuk: r.jamMasuk || "",
-    jam_pulang: r.jamPulang || "",
-    keterangan: r.keterangan || "",
+    jam_keluar: r.jamKeluar || "",
   }));
 }
-
 function mapBatchMasuk(rows: any[]) {
   return rows.map((r) => ({
+    id_batch: r.idBatch || "",
     tanggal: r.tanggal,
     nama_supplier: r.namaSupplier || "",
     items: r.items ?? [],
-    total: r.total ?? 0,
-    keterangan: r.keterangan || "",
+    total_modal: r.totalModal ?? 0,
   }));
 }
-
 function mapUtang(rows: any[]) {
   return rows.map((r) => ({
-    nama_pihak: r.namaPihak || "",
-    jumlah: r.jumlah ?? 0,
+    id_karyawan: r.idKaryawan || "",
     tanggal: r.tanggal,
+    nominal: r.nominal ?? 0,
     keterangan: r.keterangan || "",
-    lunas: r.lunas ?? false,
-  }));
-}
-
-function mapSlipGaji(rows: any[]) {
-  return rows.map((r) => ({
-    nama: r.nama,
-    bulan: r.bulan || "",
-    gaji_pokok: r.gajiPokok ?? 0,
-    bonus: r.bonus ?? 0,
-    potongan: r.potongan ?? 0,
-    total: r.total ?? 0,
-    keterangan: r.keterangan || "",
+    status: r.status || "Belum Lunas",
   }));
 }
 
@@ -181,7 +139,6 @@ async function batchInsert(
   onProgress: (msg: string) => void,
 ): Promise<{ ok: number; fail: number; error?: string }> {
   if (rows.length === 0) return { ok: 0, fail: 0 };
-
   let ok = 0;
   let fail = 0;
   let lastError = "";
@@ -193,17 +150,15 @@ async function batchInsert(
     if (error) {
       lastError = error.message;
       fail += batch.length;
-      console.warn(`[Migration] ${table} batch error:`, error.message);
     } else {
       ok += batch.length;
     }
   }
-
   return { ok, fail, error: lastError };
 }
 
 // ============================================================================
-// Table configuration — order matters (foreign key dependencies)
+// Component
 // ============================================================================
 
 type TableConfig = {
@@ -213,16 +168,12 @@ type TableConfig = {
   mapFn: (rows: any[]) => any[];
 };
 
-// ============================================================================
-// Component
-// ============================================================================
-
-export default function MigrationPage() {
+export default function SyncDataPage() {
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState<Record<string, { ok: number; fail: number; error?: string }>>({});
   const [progress, setProgress] = useState("");
 
-  // Fetch ALL data from Convex
+  // Fetch data from Convex
   const barang = useQuery(api.queries.listBarang);
   const supplier = useQuery(api.queries.listSupplier);
   const reseller = useQuery(api.queries.listReseller);
@@ -238,7 +189,6 @@ export default function MigrationPage() {
   const absensi = useQuery(api.queries.listAbsensi);
   const batchMasuk = useQuery(api.queries.listBatchMasuk);
   const utang = useQuery(api.queries.listUtang);
-  const slipGaji = useQuery(api.queries.listSlipGaji, {});
 
   const allLoaded =
     barang !== undefined &&
@@ -255,8 +205,7 @@ export default function MigrationPage() {
     retur !== undefined &&
     absensi !== undefined &&
     batchMasuk !== undefined &&
-    utang !== undefined &&
-    slipGaji !== undefined;
+    utang !== undefined;
 
   const totalRecords =
     (barang?.length ?? 0) +
@@ -273,18 +222,21 @@ export default function MigrationPage() {
     (retur?.length ?? 0) +
     (absensi?.length ?? 0) +
     (batchMasuk?.length ?? 0) +
-    (utang?.length ?? 0) +
-    (slipGaji?.length ?? 0);
+    (utang?.length ?? 0);
 
-  const runMigration = useCallback(async () => {
+  const runSync = useCallback(async () => {
     if (!allLoaded) {
       toast.error("Data Convex belum selesai dimuat. Tunggu sebentar...");
+      return;
+    }
+    if (!isSupabaseReady()) {
+      toast.error("Supabase belum terkonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di menu Keys.");
       return;
     }
 
     setRunning(true);
     setDone({});
-    setProgress("Memulai migrasi...");
+    setProgress("Memulai sinkronisasi...");
 
     const tables: TableConfig[] = [
       { supabaseTable: "barang", label: "Barang", getData: () => barang, mapFn: mapBarang },
@@ -302,7 +254,6 @@ export default function MigrationPage() {
       { supabaseTable: "absensi", label: "Absensi", getData: () => absensi, mapFn: mapAbsensi },
       { supabaseTable: "batch_masuk", label: "Batch Masuk", getData: () => batchMasuk, mapFn: mapBatchMasuk },
       { supabaseTable: "utang", label: "Utang", getData: () => utang, mapFn: mapUtang },
-      { supabaseTable: "slipgaji", label: "Slip Gaji", getData: () => slipGaji, mapFn: mapSlipGaji },
     ];
 
     const results: Record<string, { ok: number; fail: number; error?: string }> = {};
@@ -319,36 +270,43 @@ export default function MigrationPage() {
       setDone({ ...results });
     }
 
-    setProgress("Migrasi selesai!");
+    setProgress("Sinkronisasi selesai!");
     setRunning(false);
-    toast.success("Migrasi selesai! Refresh halaman untuk melihat data.");
-  }, [allLoaded, barang, supplier, reseller, dpl, pasar, karyawan, gudang, invoices, kas, pengeluaran, stokHistory, retur, absensi, batchMasuk, utang, slipGaji]);
+    toast.success("Sinkronisasi selesai! 🎉");
+  }, [
+    allLoaded, barang, supplier, reseller, dpl, pasar, karyawan, gudang,
+    invoices, kas, pengeluaran, stokHistory, retur, absensi, batchMasuk, utang,
+  ]);
 
   return (
     <div>
       <PageHeader
-        title="Migrasi Data"
-        description="Pindahkan data dari Convex (server lama) ke Supabase (server baru)."
+        title="Sinkronisasi Data"
+        description="Salin data dari Convex → Supabase. Jalankan sekali setelah tabel Supabase dibuat."
         icon={Database}
       />
 
-      {/* Summary cards */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {!isSupabaseReady() && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
+          <AlertTriangle className="size-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Supabase belum terkonfigurasi</p>
+            <p className="mt-1 text-xs text-amber-800">
+              Tambah <code className="rounded bg-amber-100 px-1">VITE_SUPABASE_URL</code> dan{" "}
+              <code className="rounded bg-amber-100 px-1">VITE_SUPABASE_ANON_KEY</code> di menu Keys/API keys.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SectionCard title="Convex Source">
-          <p className="text-sm text-muted-foreground">capable-boar-593</p>
-          <p className="text-lg font-bold">{allLoaded ? totalRecords : "..."}</p>
+          <p className="text-2xl font-bold tabular-nums">{allLoaded ? totalRecords : "..."}</p>
           <p className="text-xs text-muted-foreground">total records</p>
         </SectionCard>
         <SectionCard title="Supabase Target">
-          <p className="text-sm text-muted-foreground">eggcsogywefwdbsqynkyz</p>
-          <p className="text-lg font-bold text-blue-600">Ready</p>
-        </SectionCard>
-        <SectionCard title="Status">
-          <p className={`text-lg font-bold ${Object.keys(done).length > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
-            {Object.keys(done).length > 0
-              ? `${Object.values(done).reduce((s, d) => s + d.ok, 0)} OK`
-              : "Belum dijalankan"}
-          </p>
+          <p className="text-2xl font-bold text-blue-600">Ready</p>
+          <p className="text-xs text-muted-foreground">eggcsogywefwdbsqynkyz</p>
         </SectionCard>
         <SectionCard title="Progress">
           <p className="text-xs text-muted-foreground break-words">{progress || "Siap"}</p>
@@ -383,7 +341,6 @@ export default function MigrationPage() {
                 ["absensi", absensi],
                 ["batch_masuk", batchMasuk],
                 ["utang", utang],
-                ["slipgaji", slipGaji],
               ].map(([name, data]) => {
                 const count = (data as any[])?.length ?? 0;
                 const status = done[name as string];
@@ -410,22 +367,21 @@ export default function MigrationPage() {
         </div>
       )}
 
-      {/* Action button */}
       <div className="flex items-center gap-3">
         <Button
           className="cursor-pointer"
-          onClick={runMigration}
-          disabled={running || !allLoaded}
+          onClick={runSync}
+          disabled={running || !allLoaded || !isSupabaseReady()}
         >
           {running ? (
             <>
               <Loader2 className="mr-2 size-4 animate-spin" />
-              Migrasi berjalan...
+              Sinkronisasi berjalan...
             </>
           ) : (
             <>
               <ArrowRight className="mr-2 size-4" />
-              Mulai Migrasi Convex → Supabase
+              Sinkronkan Semua
             </>
           )}
         </Button>
