@@ -114,6 +114,13 @@ export default function MigrationPage() {
     (kas?.length ?? 0) + (pengeluaran?.length ?? 0) + (stokHistory?.length ?? 0) + (retur?.length ?? 0) +
     (absensi?.length ?? 0) + (utang?.length ?? 0) + (slipGaji?.length ?? 0);
 
+  const tableRows: [string, any[] | undefined][] = [
+    ["barang", barang], ["supplier", supplier], ["reseller", reseller], ["dpl", dpl],
+    ["pasar", pasar], ["karyawan", karyawan], ["gudang", gudang], ["invoice", invoices],
+    ["kas", kas], ["pengeluaran", pengeluaran], ["stok_history", stokHistory],
+    ["retur", retur], ["absensi", absensi], ["utang", utang], ["slipgaji", slipGaji],
+  ];
+
   const runMigration = useCallback(async () => {
     if (!allLoaded) { toast.error("Data Convex belum selesai dimuat."); return; }
     setRunning(true); setDone({}); setProgress("Memulai migrasi...");
@@ -179,17 +186,12 @@ export default function MigrationPage() {
               </tr>
             </thead>
             <tbody>
-              {[
-                ["barang", barang], ["supplier", supplier], ["reseller", reseller], ["dpl", dpl],
-                ["pasar", pasar], ["karyawan", karyawan], ["gudang", gudang], ["invoice", invoices],
-                ["kas", kas], ["pengeluaran", pengeluaran], ["stok_history", stokHistory],
-                ["retur", retur], ["absensi", absensi], ["utang", utang], ["slipgaji", slipGaji],
-              ].map(([name, data]) => {
-                const count = (data as any[])?.length ?? 0;
-                const status = done[name as string];
+              {tableRows.map(([name, data]) => {
+                const count = data?.length ?? 0;
+                const status = done[name];
                 return (
                   <tr key={name} className="border-b border-border/40">
-                    <td className="py-2 pr-4 font-mono text-xs">{String(name)}</td>
+                    <td className="py-2 pr-4 font-mono text-xs">{name}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">{count}</td>
                     <td className="py-2 pr-4 text-center">
                       {status ? (

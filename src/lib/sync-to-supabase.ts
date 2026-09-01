@@ -96,7 +96,6 @@ const FIELD_MAP: Record<string, string> = {
   catatan: "catatan",
   namaTujuan: "nama_tujuan",
   tujuan: "tujuan",
-  hargaJual: "harga_jual",
   
   // Tetesan
   tanggalStokAwal: "tanggal_stok_awal",
@@ -116,9 +115,7 @@ function toSnakeCase(doc: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   
   for (const [key, value] of Object.entries(doc)) {
-    // Skip internal Convex fields
     if (key === "_id" || key === "_creationTime") continue;
-    
     const snakeKey = FIELD_MAP[key] || key;
     result[snakeKey] = value;
   }
@@ -143,14 +140,11 @@ export async function syncTable(
   for (const doc of data) {
     try {
       const row = toSnakeCase(doc);
-      
-      // Upsert by unique key (id, kode, id_invoice, etc.)
       const { error } = await supabase
         .from(table)
         .upsert(row, { onConflict: "id" });
       
       if (error) {
-        // Try without onConflict if it fails (some tables use different PK)
         const { error: insertError } = await supabase
           .from(table)
           .insert(row);
@@ -173,7 +167,6 @@ export async function syncTable(
 
 /**
  * Sync all main tables from Convex to Supabase
- * Pass the data as an object with table names as keys
  */
 export async function syncAllTables(
   tablesData: Record<string, Record<string, unknown>[]>,
