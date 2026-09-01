@@ -1,7 +1,5 @@
 /**
  * Halaman Sinkronisasi Data: Convex → Supabase
- *
- * Fetch data dari Convex (via useQuery) → map ke format Supabase → insert.
  */
 import { useState, useCallback } from "react";
 import { useQuery } from "convex/react";
@@ -10,11 +8,7 @@ import { supabase, isSupabaseReady } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SectionCard } from "@/components/app/ui";
-import { Database, ArrowRight, Check, Loader2, AlertTriangle, X } from "lucide-react";
-
-// ============================================================================
-// Mapping: Convex camelCase → Supabase snake_case
-// ============================================================================
+import { Database, ArrowRight, Check, Loader2, AlertTriangle } from "lucide-react";
 
 function mapBarang(rows: any[]) {
   return rows.map((r) => ({
@@ -110,15 +104,6 @@ function mapAbsensi(rows: any[]) {
     jam_keluar: r.jamKeluar || "",
   }));
 }
-function mapBatchMasuk(rows: any[]) {
-  return rows.map((r) => ({
-    id_batch: r.idBatch || "",
-    tanggal: r.tanggal,
-    nama_supplier: r.namaSupplier || "",
-    items: r.items ?? [],
-    total_modal: r.totalModal ?? 0,
-  }));
-}
 function mapUtang(rows: any[]) {
   return rows.map((r) => ({
     id_karyawan: r.idKaryawan || "",
@@ -129,10 +114,6 @@ function mapUtang(rows: any[]) {
   }));
 }
 
-// ============================================================================
-// Insert helper — batch upsert, handle errors per-table
-// ============================================================================
-
 async function batchInsert(
   table: string,
   rows: any[],
@@ -142,7 +123,6 @@ async function batchInsert(
   let ok = 0;
   let fail = 0;
   let lastError = "";
-
   for (let i = 0; i < rows.length; i += 50) {
     const batch = rows.slice(i, i + 50);
     onProgress(`${table}: insert ${i + 1}–${Math.min(i + 50, rows.length)} dari ${rows.length}`);
@@ -157,10 +137,6 @@ async function batchInsert(
   return { ok, fail, error: lastError };
 }
 
-// ============================================================================
-// Component
-// ============================================================================
-
 type TableConfig = {
   supabaseTable: string;
   label: string;
@@ -173,7 +149,6 @@ export default function SyncDataPage() {
   const [done, setDone] = useState<Record<string, { ok: number; fail: number; error?: string }>>({});
   const [progress, setProgress] = useState("");
 
-  // Fetch data from Convex
   const barang = useQuery(api.queries.listBarang);
   const supplier = useQuery(api.queries.listSupplier);
   const reseller = useQuery(api.queries.listReseller);
@@ -182,13 +157,12 @@ export default function SyncDataPage() {
   const karyawan = useQuery(api.queries.listKaryawan);
   const gudang = useQuery(api.queries.listGudang);
   const invoices = useQuery(api.queries.listInvoice, {});
-  const kas = useQuery(api.queries.listKas);
-  const pengeluaran = useQuery(api.queries.listPengeluaran);
-  const stokHistory = useQuery(api.queries.listStokHistory);
-  const retur = useQuery(api.queries.listRetur);
-  const absensi = useQuery(api.queries.listAbsensi);
-  const batchMasuk = useQuery(api.queries.listBatchMasuk);
-  const utang = useQuery(api.queries.listUtang);
+  const kas = useQuery(api.queries.listKas, {});
+  const pengeluaran = useQuery(api.queries.listPengeluaran, {});
+  const stokHistory = useQuery(api.queries.listStokHistory, {});
+  const retur = useQuery(api.queries.listRetur, {});
+  const absensi = useQuery(api.queries.listAbsensi, {});
+  const utang = useQuery(api.queries.listUtang, {});
 
   const allLoaded =
     barang !== undefined &&
@@ -204,7 +178,6 @@ export default function SyncDataPage() {
     stokHistory !== undefined &&
     retur !== undefined &&
     absensi !== undefined &&
-    batchMasuk !== undefined &&
     utang !== undefined;
 
   const totalRecords =
@@ -221,23 +194,20 @@ export default function SyncDataPage() {
     (stokHistory?.length ?? 0) +
     (retur?.length ?? 0) +
     (absensi?.length ?? 0) +
-    (batchMasuk?.length ?? 0) +
     (utang?.length ?? 0);
 
   const runSync = useCallback(async () => {
     if (!allLoaded) {
-      toast.error("Data Convex belum selesai dimuat. Tunggu sebentar...");
+      toast.error("Data Convex belum selesai dimuat.");
       return;
     }
     if (!isSupabaseReady()) {
-      toast.error("Supabase belum terkonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di menu Keys.");
+      toast.error("Supabase belum terkonfigurasi.");
       return;
     }
-
     setRunning(true);
     setDone({});
     setProgress("Memulai sinkronisasi...");
-
     const tables: TableConfig[] = [
       { supabaseTable: "barang", label: "Barang", getData: () => barang, mapFn: mapBarang },
       { supabaseTable: "supplier", label: "Supplier", getData: () => supplier, mapFn: mapSupplier },
@@ -252,40 +222,29 @@ export default function SyncDataPage() {
       { supabaseTable: "stok_history", label: "Stok History", getData: () => stokHistory, mapFn: mapStokHistory },
       { supabaseTable: "retur", label: "Retur", getData: () => retur, mapFn: mapRetur },
       { supabaseTable: "absensi", label: "Absensi", getData: () => absensi, mapFn: mapAbsensi },
-      { supabaseTable: "batch_masuk", label: "Batch Masuk", getData: () => batchMasuk, mapFn: mapBatchMasuk },
       { supabaseTable: "utang", label: "Utang", getData: () => utang, mapFn: mapUtang },
     ];
-
     const results: Record<string, { ok: number; fail: number; error?: string }> = {};
-
     for (const t of tables) {
       const raw = t.getData();
-      if (!raw || raw.length === 0) {
-        results[t.supabaseTable] = { ok: 0, fail: 0 };
-        continue;
-      }
+      if (!raw || raw.length === 0) { results[t.supabaseTable] = { ok: 0, fail: 0 }; continue; }
       const mapped = t.mapFn(raw);
       const result = await batchInsert(t.supabaseTable, mapped, (msg) => setProgress(msg));
       results[t.supabaseTable] = result;
       setDone({ ...results });
     }
-
     setProgress("Sinkronisasi selesai!");
     setRunning(false);
     toast.success("Sinkronisasi selesai! 🎉");
-  }, [
-    allLoaded, barang, supplier, reseller, dpl, pasar, karyawan, gudang,
-    invoices, kas, pengeluaran, stokHistory, retur, absensi, batchMasuk, utang,
-  ]);
+  }, [allLoaded, barang, supplier, reseller, dpl, pasar, karyawan, gudang, invoices, kas, pengeluaran, stokHistory, retur, absensi, utang]);
 
   return (
     <div>
       <PageHeader
         title="Sinkronisasi Data"
-        description="Salin data dari Convex → Supabase. Jalankan sekali setelah tabel Supabase dibuat."
+        description="Salin data dari Convex → Supabase."
         icon={Database}
       />
-
       {!isSupabaseReady() && (
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
           <AlertTriangle className="size-5 shrink-0 text-amber-600" />
@@ -298,7 +257,6 @@ export default function SyncDataPage() {
           </div>
         </div>
       )}
-
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SectionCard title="Convex Source">
           <p className="text-2xl font-bold tabular-nums">{allLoaded ? totalRecords : "..."}</p>
@@ -312,8 +270,6 @@ export default function SyncDataPage() {
           <p className="text-xs text-muted-foreground break-words">{progress || "Siap"}</p>
         </SectionCard>
       </div>
-
-      {/* Data preview */}
       {allLoaded && (
         <div className="mb-6 overflow-x-auto">
           <table className="w-full text-sm">
@@ -339,7 +295,6 @@ export default function SyncDataPage() {
                 ["stok_history", stokHistory],
                 ["retur", retur],
                 ["absensi", absensi],
-                ["batch_masuk", batchMasuk],
                 ["utang", utang],
               ].map(([name, data]) => {
                 const count = (data as any[])?.length ?? 0;
@@ -366,7 +321,6 @@ export default function SyncDataPage() {
           </table>
         </div>
       )}
-
       <div className="flex items-center gap-3">
         <Button
           className="cursor-pointer"
@@ -374,21 +328,14 @@ export default function SyncDataPage() {
           disabled={running || !allLoaded || !isSupabaseReady()}
         >
           {running ? (
-            <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Sinkronisasi berjalan...
-            </>
+            <><Loader2 className="mr-2 size-4 animate-spin" /> Sinkronisasi berjalan...</>
           ) : (
-            <>
-              <ArrowRight className="mr-2 size-4" />
-              Sinkronkan Semua
-            </>
+            <><ArrowRight className="mr-2 size-4" /> Sinkronkan Semua</>
           )}
         </Button>
         {!allLoaded && (
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <AlertTriangle className="size-3" />
-            Menunggu data Convex dimuat...
+            <AlertTriangle className="size-3" /> Menunggu data Convex dimuat...
           </p>
         )}
       </div>
