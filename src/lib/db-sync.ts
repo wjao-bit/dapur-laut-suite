@@ -127,7 +127,6 @@ export async function migrateConvexToSupabase(
   let totalErrors = 0;
 
   // Map Convex camelCase IDs → Supabase UUID IDs
-  // Convex uses string IDs like "k123abc", Supabase uses UUIDs
   const idMap: Record<string, string> = {};
 
   // Table mapping: Convex table name → Supabase table name + conflict column
@@ -158,14 +157,13 @@ export async function migrateConvexToSupabase(
       for (const [key, value] of Object.entries(row)) {
         // Skip Convex internal fields
         if (key === "_id" || key === "_creationTime") continue;
-        // Convert camelCase to snake_case where needed
         supaRow[key] = value;
       }
       return supaRow;
     });
 
     const result = await upsertBatch(mapping.supabase, rows, mapping.conflict);
-    results[convexTable] = result;
+    results[convexTable] = { count: result.inserted, errors: result.errors };
     totalSynced += result.inserted;
     totalErrors += result.errors.length;
   }
