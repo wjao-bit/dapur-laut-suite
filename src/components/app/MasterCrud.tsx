@@ -32,6 +32,7 @@ import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { NumInput } from "@/components/app/NumInput";
 import { genId, parseNum } from "@/lib/format";
+import { upsertToSupabase, deleteFromSupabase } from "@/lib/dual-write";
 
 export interface FieldDef {
   key: string;
@@ -99,7 +100,7 @@ export function MasterCrud({
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, any>>(({});
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -128,6 +129,8 @@ export function MasterCrud({
     setSaving(true);
     try {
       await upsert({ doc: values });
+      // Dual-write: sync ke Supabase secara real-time
+      upsertToSupabase(table, values).catch(() => {});
       toast.success(editing ? `${title} diperbarui` : `${title} berhasil ditambahkan`);
       setOpen(false);
     } catch (e: any) {
@@ -141,6 +144,9 @@ export function MasterCrud({
   const handleDelete = async (row: any) => {
     try {
       await remove({ table, id: String(row[keyField]) });
+      // Dual-write: hapus dari Supabase juga
+      const supaKeyCol = table === "barang" || table === "bahan_baku" || table === "barang_jadi" ? "kode" : table === "gudang" ? "nama_barang" : "id";
+      deleteFromSupabase(table, supaKeyCol, String(row[keyField])).catch(() => {});
       toast.success(`${title} dihapus`);
     } catch (e: any) {
       toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus");
