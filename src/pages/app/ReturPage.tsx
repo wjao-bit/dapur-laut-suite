@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useSupabaseQuery } from "@/hooks/use-supabase-query";
-import { supabase } from "@/lib/supabase";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { Undo2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,13 @@ import { formatDate, todayStr, genId, parseNum, formatNum } from "@/lib/format";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ReturPage() {
-  const retur = useSupabaseQuery("retur", { orderBy: { column: "tanggal", ascending: false }, limit: 100 });
-  const resellers = useSupabaseQuery("reseller");
-  const dpls = useSupabaseQuery("dpl");
-  const pasars = useSupabaseQuery("pasar");
-  const barang = useSupabaseQuery("barang");
+  const retur = useQuery(api.queries.listRetur, {});
+  const resellers = useQuery(api.queries.listReseller);
+  const dpls = useQuery(api.queries.listDpl);
+  const pasars = useQuery(api.queries.listPasar);
+  const barang = useQuery(api.queries.listBarang);
+  const upsertRetur = useMutation(api.business.upsertRetur);
+  const deleteRetur = useMutation(api.business.deleteMaster as any);
 
   const [open, setOpen] = useState(false);
   const [tipe, setTipe] = useState("Reseller");
@@ -45,7 +47,19 @@ export default function ReturPage() {
   const [keterangan, setKeterangan] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const pihakOptions = tipe === "Reseller" ? resellers?.map((r: any) => r.nama) ?? [] : tipe === "DPL" ? dpls?.map((d: any) => d.namaPasar) ?? [] : pasars?.map((p: any) => p.namaPasar) ?? [];
+  const pihakOptions =
+    tipe === "Reseller"
+      ? resellers?.map((r: any) => r.nama) ?? []
+      : tipe === "DPL"
+        ? dpls?.map((d: any) => d.namaPasar) ?? []
+        : pasars?.map((p: any) => p.namaPasar) ?? [];
+
+  const barangOptions = (barang ?? []).map((b: any) => ({
+    kode: b.kode,
+    nama: b.nama,
+    harga: b.harga,
+    kategori: b.kategori ?? "",
+  }));
 
   const resetForm = () => {
     setTipe("Reseller");
@@ -61,9 +75,8 @@ export default function ReturPage() {
     setSaving(true);
     try {
       const qtyNum = Math.max(0, parseNum(qty));
-      const existing = retur?.find((r) => r.id === id);
-      const doc = { id, tanggal, tipe_pihak: tipe, nama_pihak: namaPihak, nama_barang: namaBarang, qty: qtyNum, keterangan };
-      if (existing) { const { error } = await supabase!.from("retur").update(doc).eq("id", id); if (error) throw new Error(error.message); } else { const { error } = await supabase!.from("retur").insert(doc); if (error) throw new Error(error.message); }
+      // Convex upsertRetur otomatis menambah riwayat stok (+qty) di gudang.
+      await upsertRetur({ doc: { id, tanggal, tipe, namaPihak, namaBarang, qty: qtyNum, keterangan } });
       toast.success(`Retur ${formatNum(qtyNum)} × ${namaBarang} dicatat — stok gudang bertambah`);
       setOpen(false);
       resetForm();
@@ -71,6 +84,15 @@ export default function ReturPage() {
       toast.error(e?.data?.error ?? e?.message ?? "Gagal menyimpan retur");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (row: any) => {
+    try {
+      await deleteRetur({ table: "retur", id: String(row.id) });
+      toast.success("Retur dihapus");
+    } catch (e: any) {
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus retur");
     }
   };
 
@@ -100,10 +122,7 @@ export default function ReturPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Batal</AlertDialogCancel>
-              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={async () => {
-                const { error } = await supabase!.from("retur").delete().eq("id", r.id); if (error) throw new Error(error.message);
-                toast.success("Retur dihapus");
-              }}>
+              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={() => handleDelete(r)}>
                 Hapus
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -178,7 +197,7 @@ export default function ReturPage() {
                 <Label className="text-xs font-medium">Barang *</Label>
                 <BarangSearch
                   className="mt-1.5"
-                  barang={(barang ?? []).map((b: any) => ({ kode: b.kode, nama: b.nama, harga: b.harga, kategori: b.kategori ?? "" })) as any}
+                  barang={barangOptions as any}
                   value={namaBarang}
                   onChange={setNamaBarang}
                   onPick={(b) => setNamaBarang(b.nama)}

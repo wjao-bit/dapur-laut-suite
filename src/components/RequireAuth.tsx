@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ShieldX, Hourglass } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
+import { BackupWorker } from "@/components/app/BackupWorker";
 
 function GateScreen({
   icon,
@@ -45,9 +46,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
 
-  // Akun disetujui → akses penuh
+  // Akun disetujui → akses penuh (+ worker cadangan otomatis berjalan di latar)
   if (isAuthenticated) {
-    return children;
+    return (
+      <>
+        <BackupWorker />
+        {children}
+      </>
+    );
   }
 
   // Ada sesi tapi akun belum/tidak disetujui

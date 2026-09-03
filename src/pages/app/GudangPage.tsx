@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useSupabaseQuery } from "@/hooks/use-supabase-query";
-import { supabase } from "@/lib/supabase";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { Boxes, Plus, History, SlidersHorizontal, Printer, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,96 +26,72 @@ import { DataTable, type Column } from "@/components/app/DataTable";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { NumInput } from "@/components/app/NumInput";
-import { formatDate, todayStr, parseNum, formatNum } from "@/lib/format";
+import { formatDate, todayStr, parseNum, formatNum, genId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_STOK_MIN = 5;
 
-/** Compute stok fields from gudang + stok_history */
-function useComputedGudang(
-  gudangRows: any[] | undefined,
-  historyRows: any[] | undefined,
-) {
-  return useMemo(() => {
-    if (!gudangRows) return undefined;
-    const histMap: Record<string, { masuk: number; keluar: number }> = {};
-    for (const h of historyRows ?? []) {
-      const name = h.nama_barang as string;
-      if (!histMap[name]) histMap[name] = { masuk: 0, keluar: 0 };
-      const val = Number(h.perubahan) || 0;
-      if (val > 0) histMap[name].masuk += val;
-      else histMap[name].keluar += Math.abs(val);
-    }
-    return gudangRows.map((g: any) => {
-      const h = histMap[g.nama_barang] ?? { masuk: 0, keluar: 0 };
-      const stokAwal = Number(g.stok_awal) || 0;
-      return {
-        ...g,
-        stok_masuk: h.masuk,
-        stok_keluar: h.keluar,
-        stok_akhir: stokAwal + h.masuk - h.keluar,
-      };
-    });
-  }, [gudangRows, historyRows]);
-}
-
 export default function GudangPage() {
-  const gudangRaw = useSupabaseQuery("gudang", { orderBy: { column: "nama_barang", ascending: true } });
-  const history = useSupabaseQuery("stok_history", { orderBy: { column: "tanggal", ascending: false }, limit: 500 });
-  const barang = useSupabaseQuery("barang");
+  // Sumber kebenaran: Convex. Baris sudah berisi stokAwal/masuk/keluar/akhir (computed).
+  const gudangRows = useQuery(api.queries.listGudang);
+  const history = useQuery(api.queries.listStokHistory, {});
+  const barang = useQuery(api.queries.listBarang);
+  const upsertGudang = useMutation(api.business.upsertGudang);
+  const adjustStok = useMutation(api.business.adjustStok);
 
-  const gudang = useComputedGudang(gudangRaw, history);
+  // Bentuk baris yang dipakai tabel/cetak (snake_case seperti sebelumnya).
+  const gudang = useMemo(
+    () =>
+      (gudangRows ?? []).map((g: any) => ({
+        nama_barang: g.namaBarang,
+        stok_awal: g.stokAwal,
+        stok_masuk: g.stokMasuk,
+        stok_keluar: g.stokKeluar,
+        stok_akhir: g.stokAkhir,
+        keterangan: g.keterangan ?? "",
+        stok_min: DEFAULT_STOK_MIN,
+      })),
+    [gudangRows],
+  );
 
   const [open, setOpen] = useState(false);
   const [namaBarang, setNamaBarang] = useState("");
   const [stokAwal, setStokAwal] = useState(0);
   const [tanggalStokAwal, setTanggalStokAwal] = useState(todayStr());
   const [keterangan, setKeterangan] = useState("");
-  const [stokMinBaru, setStokMinBaru] = useState(DEFAULT_STOK_MIN);
 
   const [adjBarang, setAdjBarang] = useState<string | null>(null);
   const [adjStok, setAdjStok] = useState(0);
-  const [adjStokMin, setAdjStokMin] = useState(DEFAULT_STOK_MIN);
   const [adjKet, setAdjKet] = useState("");
 
   const [histBarang, setHistBarang] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const histRows = (histBarang ? history?.filter((h: any) => h.nama_barang === histBarang) : []) ?? [];
+  const histRows = (histBarang ? history?.filter((h: any) => h.namaBarang === histBarang) : []) ?? [];
   const totalStok = (gudang ?? []).reduce((s: number, g: any) => s + Math.max(0, g.stok_akhir ?? 0), 0);
-  const stokMenipis = (gudang ?? []).filter((g: any) => (g.stok_akhir ?? 0) <= (g.stok_min ?? DEFAULT_STOK_MIN)).length;
+  const stokMenipis = (gudang ?? []).filter((g: any) => (g.stok_akhir ?? 0) <= DEFAULT_STOK_MIN).length;
 
   const handleAdd = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.from("gudang").upsert({
-        nama_barang: namaBarang,
-        stok_awal: parseNum(stokAwal),
-        stok_min: parseNum(stokMinBaru),
-        keterangan,
-      }, { onConflict: "nama_barang" });
-      if (error) throw error;
-
-      // Insert initial stok_history entry
-      if (parseNum(stokAwal) > 0) {
-        await supabase.from("stok_history").insert({
-          nama_barang: namaBarang,
-          perubahan: parseNum(stokAwal),
-          keterangan: keterangan || "Stok awal",
-          tanggal: tanggalStokAwal,
-        });
-      }
-
+      await upsertGudang({
+        doc: {
+          id: genId("GDG"),
+          namaBarang,
+          stokAwal: parseNum(stokAwal),
+          tanggalStokAwal,
+          keterangan,
+        },
+      });
       toast.success(`${namaBarang} ditambahkan ke gudang`);
       setOpen(false);
       setNamaBarang("");
       setStokAwal(0);
       setTanggalStokAwal(todayStr());
       setKeterangan("");
-      setStokMinBaru(DEFAULT_STOK_MIN);
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal menambah");
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menambah");
     } finally {
       setSaving(false);
     }
@@ -125,23 +101,12 @@ export default function GudangPage() {
     if (!adjBarang) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("gudang")
-        .update({ stok_min: parseNum(adjStokMin) })
-        .eq("nama_barang", adjBarang);
-      if (error) throw error;
-
-      await supabase.from("stok_history").insert({
-        nama_barang: adjBarang,
-        perubahan: parseNum(adjStok),
-        keterangan: adjKet || "Stok opname",
-        tanggal: todayStr(),
-      });
-
+      // Stok Baru = posisi absolut; Convex menghitung selisihnya & mencatat riwayat "Manual".
+      await adjustStok({ namaBarang: adjBarang, stokBaru: parseNum(adjStok), keterangan: adjKet || "Stok opname" });
       toast.success(`Stok ${adjBarang} disesuaikan menjadi ${formatNum(adjStok)}`);
       setAdjBarang(null);
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal menyesuaikan");
+      toast.error(e?.data?.error ?? e?.message ?? "Gagal menyesuaikan");
     } finally {
       setSaving(false);
     }
@@ -197,7 +162,7 @@ export default function GudangPage() {
       align: "right",
       render: (r) => (
         <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={() => { setAdjBarang(r.nama_barang); setAdjStok(r.stok_akhir ?? 0); setAdjStokMin(r.stok_min ?? DEFAULT_STOK_MIN); setAdjKet(""); }}>
+          <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={() => { setAdjBarang(r.nama_barang); setAdjStok(r.stok_akhir ?? 0); setAdjKet(""); }}>
             <SlidersHorizontal className="mr-1 size-3" />
             Set Stok
           </Button>
@@ -245,8 +210,8 @@ export default function GudangPage() {
 
       <DataTable
         columns={columns}
-        rows={(gudang ?? []).map((g: any) => ({ ...g, namaBarang: g.nama_barang }))}
-        loading={gudang === undefined}
+        rows={gudang as any}
+        loading={gudangRows === undefined}
         keyField={(r) => r.nama_barang}
         emptyTitle="Gudang kosong"
         emptyDescription="Tambahkan barang atau buat invoice — stok akan tercatat otomatis."
@@ -274,10 +239,6 @@ export default function GudangPage() {
               </div>
             </div>
             <div>
-              <Label className="text-xs font-medium">Batas Stok Min</Label>
-              <NumInput className="mt-1.5" value={stokMinBaru} onValue={setStokMinBaru} />
-            </div>
-            <div>
               <Label className="text-xs font-medium">Keterangan</Label>
               <Input className="mt-1.5" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
             </div>
@@ -293,16 +254,12 @@ export default function GudangPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Set Stok: {adjBarang}</DialogTitle>
-            <DialogDescription>Menyesuaikan stok saat ini dan batas minimum peringatan menipis.</DialogDescription>
+            <DialogDescription>Menyesuaikan stok saat ini. Perubahan dicatat sebagai riwayat stok.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label className="text-xs font-medium">Stok Baru *</Label>
               <NumInput className="mt-1.5 text-lg font-semibold" value={adjStok} onValue={setAdjStok} />
-            </div>
-            <div>
-              <Label className="text-xs font-medium">Batas Stok Min</Label>
-              <NumInput className="mt-1.5" value={adjStokMin} onValue={setAdjStokMin} />
             </div>
             <div>
               <Label className="text-xs font-medium">Keterangan</Label>
@@ -324,8 +281,8 @@ export default function GudangPage() {
           </SheetHeader>
           <div className="mt-4 space-y-2">
             {histRows.length === 0 && <p className="text-sm text-muted-foreground">Belum ada riwayat.</p>}
-            {histRows.map((h: any) => (
-              <div key={h.id} className="flex items-center justify-between rounded-lg border p-3">
+            {histRows.map((h: any, idx: number) => (
+              <div key={h.id ?? `${h.tanggal}-${h.perubahan}-${idx}`} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <BadgeStatus status={h.tipe ?? ""} />
@@ -343,7 +300,7 @@ export default function GudangPage() {
       </Sheet>
 
       <PrintFrame open={printOpen} onClose={() => setPrintOpen(false)} title="Laporan Stok Gudang — Dapur Laut">
-        <GudangPrintDoc rows={(gudang ?? []).map((g: any) => ({ ...g, namaBarang: g.nama_barang }))} />
+        <GudangPrintDoc rows={(gudang ?? []) as any} />
       </PrintFrame>
     </div>
   );
@@ -380,9 +337,9 @@ export function GudangPrintDoc({ rows }: { rows: any[] }) {
           {rows.map((r: any) => {
             const low = (r.stok_akhir ?? 0) <= (r.stok_min ?? DEFAULT_STOK_MIN);
             return (
-              <tr key={r.namaBarang ?? r.nama_barang}>
+              <tr key={r.nama_barang ?? r.namaBarang}>
                 <td className={td + " font-medium"}>
-                  {r.namaBarang ?? r.nama_barang}
+                  {r.nama_barang ?? r.namaBarang}
                   {low && <span className="ml-1.5 text-[10px] font-bold text-amber-700">(MENIPIS)</span>}
                 </td>
                 <td className={tdr}>{formatNum(r.stok_awal ?? 0)}</td>
