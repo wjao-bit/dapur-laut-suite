@@ -1,16 +1,24 @@
 import { useEffect, useRef } from "react";
 import { useConvex } from "convex/react";
-import { runBackupSnapshot, isBackupReady, BACKUP_INTERVAL_MS } from "@/lib/backup";
+import {
+  runBackupSnapshot,
+  readBackupStatus,
+  isBackupReady,
+  BACKUP_INTERVAL_MS,
+} from "@/lib/backup";
 
 /**
- * Worker cadangan otomatis (Mode B).
+ * Worker cadangan otomatis (Mode B) — hemat kuota Convex.
  *
- * Selama aplikasi terbuka:
- *  - 12 detik setelah halaman dimuat → snapshot pertama (Convex → Supabase)
- *  - lalu otomatis setiap 5 menit
+ * - Snapshot pertama 12 detik setelah halaman dimuat (saat tab terlihat)
+ * - Lalu otomatis setiap 10 menit (BACKUP_INTERVAL_MS) — HANYA saat tab
+ *   aktif/terlihat. Kalau tab di-minimize/dipindah, tidak ada query Convex
+ *   yang dijalankan (backup sendiri tidak boleh membebani limit Convex).
+ * - Begitu tab kembali terlihat dan sudah lewat 10 menit sejak cadangan
+ *   terakhir → langsung dijalankan sekali.
  *
- * Tidak merender apa pun — hanya komponen penjaga (guard). Status setiap
- * tabel tersimpan di localStorage (baca lewat readBackupStatus()).
+ * Tidak merender apa pun — hanya komponen penjaga (guard). Status per tabel
+ * tersimpan di localStorage (baca lewat readBackupStatus()).
  */
 export function BackupWorker() {
   const client = useConvex();
@@ -21,7 +29,7 @@ export function BackupWorker() {
     let alive = true;
 
     const doRun = async () => {
-      if (!alive) return;
+      if (!alive || document.visibilityState === "hidden") return;
       try {
         await runBackupSnapshot(client);
       } catch (e: any) {
@@ -37,10 +45,20 @@ export function BackupWorker() {
       void doRun();
     }, BACKUP_INTERVAL_MS);
 
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const st = readBackupStatus();
+      const last = st.lastRun ? new Date(st.lastRun).getTime() : 0;
+      // Tab kembali dibuka & sudah lewat interval sejak cadangan terakhir → jalankan.
+      if (Date.now() - last >= BACKUP_INTERVAL_MS) void doRun();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       alive = false;
       clearTimeout(first);
       if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [client]);
 

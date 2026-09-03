@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { useMemo, useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import {
   PackagePlus,
@@ -46,6 +46,10 @@ function todayStr() {
 
 function formatRp(n: number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Math.round(n || 0))}`;
+}
+
+function errMsg(e: any): string {
+  return e?.data?.error ?? e?.data?.message ?? e?.message ?? "Terjadi kesalahan";
 }
 
 // ===== Parsing catatan suara (speech-to-text) =====
@@ -108,61 +112,52 @@ export function parseVoiceNote(text: string): { supplier: string; items: BatchIt
 }
 
 export default function BarangMasukPage() {
-  // Supabase queries
-  const batchRows = useSupabaseQuery("batch_masuk", { orderBy: { column: "created_at", ascending: false } });
-  const alokasiRows = useSupabaseQuery("batch_alokasi");
-  const suppliers = useSupabaseQuery("supplier");
-  const barangs = useSupabaseQuery("barang");
-  const resellers = useSupabaseQuery("reseller");
-  const dpls = useSupabaseQuery("dpl");
-  const pasars = useSupabaseQuery("pasar");
+  // Sumber kebenaran: Convex (batch.ts) — data supplier/barang juga dari master Convex.
+  const batchRows = useQuery(api.batch.listBatchMasuk);
+  const suppliers = useQuery(api.queries.listSupplier);
+  const barangs = useQuery(api.queries.listBarang);
+  const resellers = useQuery(api.queries.listReseller);
+  const dpls = useQuery(api.queries.listDpl);
+  const pasars = useQuery(api.queries.listPasar);
+  const createBatchMasuk = useMutation(api.batch.createBatchMasuk);
+  const splitBatch = useMutation(api.batch.splitBatch);
+  const confirmAlokasi = useMutation(api.batch.confirmAlokasi);
+  const deleteAlokasi = useMutation(api.batch.deleteAlokasi);
+  const deleteBatchMasuk = useMutation(api.batch.deleteBatchMasuk);
 
-  // Build batch objects with computed fields
+  // Convex listBatchMasuk sudah menghitung alokasi & sisa per barang.
   const batches = useMemo(() => {
     if (!batchRows) return undefined;
-    return batchRows.map((b: any) => {
-      const batchAlokasi = (alokasiRows ?? []).filter((a: any) => a.id_batch === b.id_batch);
-      const items: any[] = Array.isArray(b.items) ? b.items : [];
-      let totalQty = 0;
-      let sisaTotal = 0;
-      const sisaPerBarang = items.map((it: any) => {
-        const nama = it.namaBarang ?? it.nama ?? "";
-        const qty = Number(it.qty) || 0;
-        const hargaModal = Number(it.hargaModal ?? it.harga_modal) || 0;
-        const teralokasi = batchAlokasi.reduce((sum: number, a: any) => {
-          const aItems: any[] = Array.isArray(a.items) ? a.items : [];
-          return sum + aItems.filter((ai: any) => (ai.namaBarang ?? ai.nama) === nama).reduce((s2: number, ai: any) => s2 + (Number(ai.qty) || 0), 0);
-        }, 0);
-        totalQty += qty;
-        const sisa = qty - teralokasi;
-        sisaTotal += sisa;
-        return { namaBarang: nama, qty, hargaModal, teralokasi, sisa };
-      });
-      return {
-        _id: b.id,
-        id: b.id_batch,
-        tanggal: b.tanggal,
-        namaSupplier: b.nama_supplier,
-        petugas: b.petugas ?? "",
-        catatan: b.catatan ?? "",
-        totalModal: Number(b.total_modal) || 0,
-        totalQty,
-        sisaTotal,
-        sisaPerBarang,
-        alokasi: batchAlokasi.map((a: any) => ({
-          _id: a.id,
-          id: a.id,
-          namaBarang: Array.isArray(a.items) && a.items[0] ? (a.items[0].namaBarang ?? a.items[0].nama) : "",
-          tujuan: a.tipe_pihak,
-          namaTujuan: a.nama_pihak,
-          qty: Array.isArray(a.items) ? a.items.reduce((s: number, ai: any) => s + (Number(ai.qty) || 0), 0) : 0,
-          hargaJual: Array.isArray(a.items) && a.items[0] ? (Number(a.items[0].hargaJual ?? a.items[0].harga_jual) || 0) : 0,
-          status: a.status ?? "Pending",
-          idInvoice: a.id_invoice ?? "",
-        })),
-      };
-    });
-  }, [batchRows, alokasiRows]);
+    return (batchRows ?? []).map((b: any) => ({
+      _id: b._id,
+      id: b.id,
+      tanggal: b.tanggal,
+      namaSupplier: b.namaSupplier,
+      petugas: b.petugas ?? "",
+      catatan: b.catatan ?? "",
+      totalModal: Number(b.totalModal) || 0,
+      totalQty: Number(b.totalQty) || 0,
+      sisaTotal: Number(b.sisaTotal) || 0,
+      sisaPerBarang: (b.sisaPerBarang ?? []).map((x: any) => ({
+        namaBarang: x.namaBarang,
+        qty: Number(x.qty) || 0,
+        hargaModal: Number(x.hargaModal) || 0,
+        teralokasi: Number(x.teralokasi) || 0,
+        sisa: Number(x.sisa) || 0,
+      })),
+      alokasi: (b.alokasi ?? []).map((a: any) => ({
+        _id: a._id ?? a.id,
+        id: a.id,
+        namaBarang: a.namaBarang,
+        tujuan: a.tujuan,
+        namaTujuan: a.namaTujuan,
+        qty: Number(a.qty) || 0,
+        hargaJual: Number(a.hargaJual) || 0,
+        status: a.status ?? "Dikirim",
+        idInvoice: a.idInvoice ?? "",
+      })),
+    }));
+  }, [batchRows]);
 
   // State
   const [createOpen, setCreateOpen] = useState(false);
@@ -196,12 +191,12 @@ export default function BarangMasukPage() {
       const parsed = parseVoiceNote(transcript);
       if (parsed.items.length > 0) {
         const corrected = parsed.items.map((it) => {
-          const m = findBestMatch(it.namaBarang, barangs);
+          const m = findBestMatch(it.namaBarang, barangs as any);
           return { ...it, namaBarang: m ? (m.nama ?? it.namaBarang) : it.namaBarang, hargaModal: m?.harga ?? it.hargaModal };
         });
         setItems(corrected);
         if (parsed.supplier) {
-          const sm = findBestMatch(parsed.supplier, suppliers);
+          const sm = findBestMatch(parsed.supplier, suppliers as any);
           setNamaSupplier(sm ? (sm.nama ?? parsed.supplier) : parsed.supplier);
         }
         toast.success(`🎤 Terbaca: ${corrected.map((x) => `${x.namaBarang} ${x.qty}`).join(", ")}`);
@@ -225,8 +220,8 @@ export default function BarangMasukPage() {
 
   const pihakOptions = useMemo(() => {
     if (tujuan === "Reseller") return (resellers ?? []).map((r: any) => r.nama);
-    if (tujuan === "DPL") return (dpls ?? []).map((d: any) => d.nama_pasar ?? d.nama);
-    return (pasars ?? []).map((p: any) => p.nama_pasar ?? p.nama);
+    if (tujuan === "DPL") return (dpls ?? []).map((d: any) => d.namaPasar);
+    return (pasars ?? []).map((p: any) => p.namaPasar);
   }, [tujuan, resellers, dpls, pasars]);
 
   const resetCreateForm = () => {
@@ -236,35 +231,25 @@ export default function BarangMasukPage() {
   const handleCreate = async () => {
     if (!namaSupplier.trim()) { toast.error("Nama supplier wajib diisi"); return; }
     if (!items.some((it) => it.namaBarang.trim() && it.qty > 0)) { toast.error("Minimal satu barang dengan qty lebih dari 0"); return; }
-    const sm = findBestMatch(namaSupplier.trim(), suppliers);
-    const finalSupplier = sm?.nama ?? namaSupplier.trim();
-    const correctedItems = items.filter((it) => it.namaBarang.trim() && it.qty > 0).map((it) => {
-      const m = findBestMatch(it.namaBarang.trim(), barangs);
-      return { ...it, namaBarang: m ? (m.nama ?? it.namaBarang.trim()) : it.namaBarang.trim() };
-    });
-    if (!sm) { toast.error("Supplier tidak ada di database — pilih dari daftar"); return; }
-    const unknown = correctedItems.filter((it) => !findBestMatch(it.namaBarang, barangs)).map((it) => it.namaBarang);
-    if (unknown.length > 0) { toast.error(`Barang belum terdaftar: ${unknown.join(", ")}`); return; }
 
     setSaving(true);
     try {
-      const idBatch = `BM-${Date.now().toString(36).toUpperCase()}`;
-      const totalModal = correctedItems.reduce((s, it) => s + it.qty * it.hargaModal, 0);
-      const { error } = await supabase.from("batch_masuk").insert({
-        id_batch: idBatch,
+      // Validasi supplier & barang dilakukan di server (Convex) — nama otomatis
+      // disamakan dengan nama resmi di database master.
+      const res = await createBatchMasuk({
         tanggal,
-        nama_supplier: finalSupplier,
-        items: correctedItems.map((it) => ({ namaBarang: it.namaBarang, qty: it.qty, hargaModal: it.hargaModal })),
-        total_modal: totalModal,
+        namaSupplier: namaSupplier.trim(),
         petugas,
         catatan,
+        items: items
+          .filter((it) => it.namaBarang.trim() && it.qty > 0)
+          .map((it) => ({ namaBarang: it.namaBarang.trim(), qty: it.qty, hargaModal: it.hargaModal })),
       });
-      if (error) throw error;
-      toast.success("Barang masuk tercatat 📦");
+      toast.success(`Barang masuk tercatat 📦 (${(res as any)?.id ?? ""})`);
       resetCreateForm();
       setCreateOpen(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal menyimpan");
+      toast.error(errMsg(e));
     } finally {
       setSaving(false);
     }
@@ -283,74 +268,47 @@ export default function BarangMasukPage() {
     if (!namaTujuan.trim()) { toast.error("Pilih / isi nama tujuan"); return; }
     if (!(qtySplit > 0)) { toast.error("Qty harus lebih dari 0"); return; }
 
-    const modalPerKg = splitFor.sisaPerBarang?.find((x: any) => x.namaBarang === splitBarang)?.hargaModal ?? 0;
-    const idAlokasi = `ALO-${Date.now().toString(36).toUpperCase()}`;
-    const idInvoice = `INV-${Date.now().toString(36).toUpperCase()}`;
-
     try {
-      // Insert batch_alokasi
-      const { error: aloErr } = await supabase.from("batch_alokasi").insert({
-        id_batch: splitFor.id,
-        nama_pihak: namaTujuan.trim(),
-        tipe_pihak: tujuan,
-        items: [{ namaBarang: splitBarang, qty: qtySplit, hargaJual, hargaModal: modalPerKg }],
-        total: qtySplit * hargaJual,
-        id_invoice: idInvoice,
-        status: "Pending",
+      // Convex membuat invoice otomatis + efek kas/stok + catatan alokasi.
+      const res: any = await splitBatch({
+        batchId: splitFor.id,
+        namaBarang: splitBarang,
+        tujuan,
+        namaTujuan: namaTujuan.trim(),
+        qty: qtySplit,
+        hargaJual,
       });
-      if (aloErr) throw aloErr;
-
-      // Insert invoice
-      const { error: invErr } = await supabase.from("invoice").insert({
-        id_invoice: idInvoice,
-        tanggal: todayStr(),
-        tipe: tujuan,
-        nama_pihak: namaTujuan.trim(),
-        items: [{ namaBarang: splitBarang, qty: qtySplit, hargaJual, hargaModal: modalPerKg }],
-        total: qtySplit * hargaJual,
-        total_penjualan: qtySplit * hargaJual,
-        margin: (hargaJual - modalPerKg) * qtySplit,
-        status_pembayaran: "Pending",
-      });
-      if (invErr) throw invErr;
-
-      toast.success(`Invoice ${idInvoice} otomatis dibuat ✅`);
+      toast.success(`Invoice ${res?.idInvoice ?? ""} otomatis dibuat ✅`);
       setSplitFor(null);
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal memecah barang");
+      toast.error(errMsg(e));
     }
   };
 
   const handleDeleteBatch = async (batchId: string) => {
     try {
-      // Delete alokasi first
-      await supabase.from("batch_alokasi").delete().eq("id_batch", batchId);
-      // Delete batch
-      const { error } = await supabase.from("batch_masuk").delete().eq("id_batch", batchId);
-      if (error) throw error;
+      await deleteBatchMasuk({ batchId });
       toast.success("Batch dihapus");
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal menghapus");
+      toast.error(errMsg(e));
     }
   };
 
   const handleConfirmAlokasi = async (alokasiId: string) => {
     try {
-      const { error } = await supabase.from("batch_alokasi").update({ status: "Diterima" }).eq("id", alokasiId);
-      if (error) throw error;
+      await confirmAlokasi({ alokasiId });
       toast.success("Alokasi ditandai diterima");
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal");
+      toast.error(errMsg(e));
     }
   };
 
   const handleDeleteAlokasi = async (alokasiId: string) => {
     try {
-      const { error } = await supabase.from("batch_alokasi").delete().eq("id", alokasiId);
-      if (error) throw error;
-      toast.success("Alokasi dibatalkan");
+      await deleteAlokasi({ alokasiId });
+      toast.success("Alokasi dibatalkan (invoice ikut dibatalkan bila belum dibayar)");
     } catch (e: any) {
-      toast.error(e?.message ?? "Gagal");
+      toast.error(errMsg(e));
     }
   };
 
@@ -490,7 +448,7 @@ export default function BarangMasukPage() {
               <div>
                 <Label>Nama Supplier *</Label>
                 <Input placeholder="cth. Aga" list="supplier-options" value={namaSupplier} onChange={(e) => setNamaSupplier(e.target.value)} className="mt-1" />
-                <datalist id="supplier-options">{(suppliers ?? []).map((s: any) => <option key={s.id} value={s.nama} />)}</datalist>
+                <datalist id="supplier-options">{(suppliers ?? []).map((s: any, i: number) => <option key={`${s.nama}-${i}`} value={s.nama} />)}</datalist>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -524,7 +482,7 @@ export default function BarangMasukPage() {
                   </Button>
                 </div>
               ))}
-              <datalist id="barang-master-options">{(barangs ?? []).map((b: any) => <option key={b.id} value={b.nama} />)}</datalist>
+              <datalist id="barang-master-options">{(barangs ?? []).map((b: any) => <option key={b.kode} value={b.nama} />)}</datalist>
               <Button type="button" variant="outline" size="sm" className="cursor-pointer gap-1.5" onClick={() => setItems((prev) => [...prev, emptyItem()])}>
                 <Plus className="size-3.5" /> Tambah barang
               </Button>
@@ -571,7 +529,7 @@ export default function BarangMasukPage() {
             <div>
               <Label>Nama Tujuan</Label>
               <Input list="pihak-options" placeholder={`cth. ${tujuan === "Pasar" ? "Victoria" : tujuan === "DPL" ? "Pasar Grosir" : "Budi"}`} value={namaTujuan} onChange={(e) => setNamaTujuan(e.target.value)} className="mt-1" />
-              <datalist id="pihak-options">{pihakOptions.map((n: string) => <option key={n} value={n} />)}</datalist>
+              <datalist id="pihak-options">{pihakOptions.map((n: string, i: number) => <option key={`${n}-${i}`} value={n} />)}</datalist>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

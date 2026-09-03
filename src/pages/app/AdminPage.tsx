@@ -21,8 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, SectionCard } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { BackupStatusPanel } from "@/components/app/BackupStatusPanel";
 import { formatDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 type Akun = {
   id: string;
@@ -283,6 +283,9 @@ export default function AdminPage() {
 
       {/* Ganti password — semua user */}
       <GantiPasswordCard />
+
+      {/* Status cadangan Supabase (Mode B) — semua user bisa memantau */}
+      <BackupStatusPanel />
 
       {!isMaster ? (
         <div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-5 sm:flex-row sm:items-center">
