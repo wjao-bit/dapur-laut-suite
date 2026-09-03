@@ -100,7 +100,7 @@ export function MasterCrud({
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [values, setValues] = useState<Record<string, any>>(({});
+  const [values, setValues] = useState<Record<string, any>>({});
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
