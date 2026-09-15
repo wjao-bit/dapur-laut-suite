@@ -1,0 +1,46 @@
+# Ganti domain di bawah ini sesuai milik Anda,
+# lalu salin ke server VPS sebagai /etc/caddy/Caddyfile.
+# Pastikan DNS sudah mengarah ke IP VPS untuk ketiga domain/subdomain ini.
+
+(convex_headers) {
+  header_up Host {host}
+  header_up X-Real-IP {remote}
+  header_up X-Forwarded-For {remote}
+  header_up X-Forwarded-Proto {scheme}
+}
+
+# 1. Frontend web app (Vite build statis)
+app.domain-anda.com {
+  encode gzip zstd
+  root * /var/www/dapurlaut/dist
+  file_server
+  try_files {path} /index.html
+
+  # Digital Asset Links untuk TWA fullscreen
+  handle /.well-known/assetlinks.json {
+    header Content-Type application/json
+    respond `[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.dapurlaut.bisnis","sha256_cert_fingerprints":["GANTI_DENGAN_SHA256_FINGERPRINT"]}}]` 200
+  }
+
+  header {
+    # Cross-origin agar web app bisa memanggil backend Convex di subdomain lain
+    Access-Control-Allow-Origin "https://app.domain-anda.com"
+    Access-Control-Allow-Credentials "true"
+  }
+}
+
+# 2. Convex backend API (queries/mutations)
+convex.domain-anda.com {
+  encode gzip zstd
+  reverse_proxy 127.0.0.1:3210 {
+    import convex_headers
+  }
+}
+
+# 3. Convex HTTP actions & auth (Convex Auth callbacks)
+convex-site.domain-anda.com {
+  encode gzip zstd
+  reverse_proxy 127.0.0.1:3211 {
+    import convex_headers
+  }
+}
