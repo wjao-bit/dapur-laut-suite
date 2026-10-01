@@ -464,4 +464,3 @@ export function daysUntil(tanggal: string, from: string = todayStr()): number {
   const b = new Date(y2, m2 - 1, d2);
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
-
