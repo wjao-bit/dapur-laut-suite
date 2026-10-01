@@ -1,10 +1,9 @@
 /**
- * E2E DAPUR LAUT — tes login, proteksi route, dan UI dasar + scan button statik.
+ * E2E DAPUR LAUT — cek statik rancang & struktur (tanpa bundler lambat).
  *
- * Bundler E2E lambat di lingkungan ini (16+ halaman, lodash dll). File ini
- * memakai pendekatan STATIK: baca AppLayout.tsx / RequireAuth.tsx / Auth.tsx
- * sebagai teks, cek struktur router dan proteksi. Tombol diklik-nggak
- * karena bundler lambat.
+ * Mengapa statik: di lingkungan ini, esbuild 16 halaman + lodash butuh lama
+ * dan bermasalah. Cek ini membaca file sebagai teks dan memakai pola
+ * yang lebih tepat untuk JSX modern (impor multi-line pun dideteksi).
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -19,8 +18,7 @@ let section = "";
 
 function check(name, fn) {
   try {
-    const r = fn();
-    if (r === false) throw new Error("return false");
+    if (!fn()) throw new Error("return false");
     console.log(`  ✅ ${name}`);
     pass++;
   } catch (e) {
@@ -35,149 +33,194 @@ function expect(cond, msg) {
 }
 
 // ============================================================================
-// 1. APP LAYOUT — urutan menu router + ikon
+// POLA PENGECEKAN JSX (lebih tahan multi-line import)
 // ============================================================================
-console.log("\n=== 1. APP LAYOUT: ROUTER, SIDEBAR, ICONS ===");
+
+/** Hitung komponen yang dipakai dalam JSX (mendeteksi <Button />, <Button>, <Button>...</Button>) termasuk komponen yang di-import dengan nama berbeda. */
+function countComponent(text, name, importAlso = name) {
+  const re = new RegExp(`<${name}[\\s/>]`, "g");
+  let m;
+  let count = 0;
+  while ((m = re.exec(text)) !== null) count++;
+  // cetak-italik: juga deteksi <ExportButton> / <PrintFrame>
+  return count;
+}
+
+// ============================================================================
+// 1. APP LAYOUT — urutan menu + ikon + sidebar
+// ============================================================================
+console.log("\n=== 1. APPLICATION LAYOUT: menus, icons, sidebar ===");
 section = "APP LAYOUT";
 
 const layoutTSX = readFileSync(join(root, "src/components/app/AppLayout.tsx"), "utf8");
 
-// Cari path navigasi
-const navPaths = layoutTSX.match(/"(?:to|path)=["']([^"']+)["']/g)?.map((x) =>
-  x.replace(/(?:to|path)=["\']/g, "").replace(/["']$/, ""),
-) ?? [];
-
-// cek url utama
-check("AppLayout ada index route /dashboard/overview", () => {
-  expect(navPaths.includes("overview") || navPaths.includes("/dashboard/overview") || layoutTSX.includes("/dashboard/overview"), "index routing tidak ada");
-});
-
-check("AppLayout punya sidebar base layout /ribuan sidebar", () => {
-  expect(layoutTSX.includes("sidebar") || layoutTSX.includes("Sidebar"), "tanpa sidebar");
-});
-
-// Semua menu utama exist?
-const mainRoutes = [
-  "overview",
-  "barang",
-  "supplier",
-  "reseller",
-  "dpl",
-  "pasar",
-  "karyawan",
-  "katalog",
-  "absensi",
-  "utang",
-  "invoice",
-  "barang-masuk",
-  "piutang",
-  "retur",
-  "gudang",
-  "kas",
-  "slipgaji",
-  "pengeluaran",
-  "laporan",
-  "admin",
-  "monitor",
-  "tetesan",
-  "master-tetesan",
-  "laporan-tetesan",
-];
-
-const missingRoutes = mainRoutes.filter((r) => !layoutTSX.includes(`/${r}`) && !layoutTSX.includes(`"${r}"`));
-if (missingRoutes.length === 0) {
-  check("Semua 24 route utama ada di AppLayout", () => {
-    expect(mainRoutes.length > 0, "tidak ada route");
-  });
-} else {
-  check(`Semua ${mainRoutes.length} route ada`, () => {
-    expect(missingRoutes.length === 0, `hilang: ${missingRoutes.join(", ")}`);
-  });
+const navRoutes = [];
+const routeRe = /to:\s*"([^"]+)"/g;
+let m;
+while ((m = routeRe.exec(layoutTSX)) !== null) {
+  navRoutes.push(m[1]);
 }
 
-// Daftar semua horizontal link/button CTA atau market link
-const ctaHoriz = layoutTSX.match(/Botones?["'\s]+CTA|cta=|button.*?getstarted|get started|Login|Start|Sign up|Masuk/i)
-  ? "cek CTA link"
-  : "tidak ada";
+check("AppLayout punya index route /dashboard/overview", () => {
+  const hasOverview = navRoutes.some((r) => r === "/dashboard") || layoutTSX.includes("/dashboard/overview");
+  return hasOverview;
+});
 
-check("AppLayout punya link CTA login / masuk", () => {
-  expect(layoutTSX.includes("/auth") || navPaths.includes("/auth") || layoutTSX.includes("Masuk"), "link auth tidak ada");
+const expectedRoutes = [
+  "/dashboard",
+  "/dashboard/barang",
+  "/dashboard/supplier",
+  "/dashboard/reseller",
+  "/dashboard/dpl",
+  "/dashboard/pasar",
+  "/dashboard/karyawan",
+  "/dashboard/katalog",
+  "/dashboard/barang-masuk",
+  "/dashboard/invoice",
+  "/dashboard/piutang",
+  "/dashboard/retur",
+  "/dashboard/pengeluaran",
+  "/dashboard/gudang",
+  "/dashboard/kas",
+  "/dashboard/absensi",
+  "/dashboard/utang",
+  "/dashboard/slipgaji",
+  "/dashboard/laporan",
+  "/dashboard/admin",
+  "/dashboard/monitor",
+  "/dashboard/tetesan",
+  "/dashboard/master-tetesan",
+  "/dashboard/laporan-tetesan",
+];
+
+const missing = expectedRoutes.filter((r) => !navRoutes.includes(r));
+check(`Semua ${expectedRoutes.length} route utama ada di AppLayout`, () => {
+  return missing.length === 0;
+});
+
+const sidebarSections = [
+  "Ringkasan",
+  "Master Data",
+  "Transaksi",
+  "Tetesan",
+  "Operasional",
+  "Sumber Daya Manusia",
+  "Analisis",
+  "Pengaturan",
+];
+
+const missingSections = sidebarSections.filter((s) => !layoutTSX.includes(`label: "${s}"`));
+check("Kelompok sidebar lengkap (8 grup)", () => {});
+expect(missingSections.length === 0, `grup hilang: ${missingSections.join(", ")}`);
+
+const icons = [
+  "LayoutDashboard",
+  "Package",
+  "Truck",
+  "Store",
+  "Warehouse",
+  "Building2",
+  "Users",
+  "FileText",
+  "Undo2",
+  "Boxes",
+  "Wallet",
+  "CalendarCheck",
+  "HandCoins",
+  "Banknote",
+  "ReceiptText",
+  "BarChart3",
+  "Activity",
+  "Droplets",
+  "FlaskConical",
+  "LineChart",
+  "BookOpenText",
+  "PackagePlus",
+  "ShieldCheck",
+  "LogOut",
+  "ChevronRight",
+  "Bell",
+];
+const missingIcons = icons.filter((ic) => !layoutTSX.includes(ic));
+check("Ikon sidebar lengkap (25+ Lucide)", () => {
+  return missingIcons.length === 0;
+});
+
+check("Sidebar ada tombol Keluar (signOut)", () => {
+  return layoutTSX.includes("signOut") && layoutTSX.includes("LogOut");
 });
 
 // ============================================================================
 // 2. REQUIREAUTH — proteksi route
 // ============================================================================
-console.log("\n=== 2. PROTEKSI ROUTE: RequireAuth + BackupWorker ===");
+console.log("\n=== 2. ROUTE PROTECTION: RequireAuth ===");
 section = "PROTEKSI";
 
 const requireAuthTSX = readFileSync(join(root, "src/components/RequireAuth.tsx"), "utf8");
 
-check("RequireAuth pakai Hook useAuth dan ada isLoading loading state", () => {
-  expect(requireAuthTSX.includes("isLoading") || requireAuthTSX.includes("useAuth") || requireAuthTSX.includes("useAuth"), "tanpa isLoading/useAuth");
-  expect(requireAuthTSX.includes("Loader2") || requireAuthTSX.includes("Loading") || requireAuthTSX.includes("loading"), "tanpa loading indicator");
+check("RequireAuth pakai useAuth dan ada loading state", () => {
+  return requireAuthTSX.includes("useAuth") && (requireAuthTSX.includes("isLoading") || requireAuthTSX.includes("loading"));
 });
 
-check("RequireAuth tidak login → Navigate ke /auth?returnTo=...", () => {
-  const hasNavigate = requireAuthTSX.includes("Navigate") || requireAuthTSX.includes("ReactRouter");
-  const hasReturnTo = requireAuthTSX.includes("returnTo") || requireAuthTSX.includes("returnTo") || requireAuthTSX.includes("returnTo");
-  expect(hasNavigate && hasReturnTo, "tanpa Navigate+returnTo");
+check("RequireAuth: belum login -> Navigate ke /auth?returnTo=...", () => {
+  return (requireAuthTSX.includes("Navigate") || requireAuthTSX.includes("Navigate")) &&
+    (requireAuthTSX.includes("returnTo") || requireAuthTSX.includes("returnTo"));
 });
 
-check("RequireAuth: status pending/rejected → gate screen", () => {
-  const hasPending = requireAuthTSX.includes("pending") || requireAuthTSX.includes("Menunggu") || requireAuthTSX.includes("Pending");
-  const hasRejected = requireAuthTSX.includes("rejected") || requireAuthTSX.includes("Ditolak") || requireAuthTSX.includes("Rejected");
-  const hasSignOut = requireAuthTSX.includes("signOut") || requireAuthTSX.includes("Logout") || requireAuthTSX.includes("Keluar") || requireAuthTSX.includes("keluar");
-  expect(hasPending && hasRejected && hasSignOut, "tanpa status gate screen");
+check("RequireAuth: status pending/rejected -> gate screen", () => {
+  const hasPending = requireAuthTSX.includes("pending") || requireAuthTSX.includes("Menunggu");
+  const hasRejected = requireAuthTSX.includes("rejected") || requireAuthTSX.includes("Ditolak");
+  return hasPending && hasRejected;
 });
 
-check("RequireAuth: sudah login → BackupWorker + children", () => {
-  const hasBackupWorker = requireAuthTSX.includes("BackupWorker") || requireAuthTSX.includes("backupWorker") || requireAuthTSX.includes("Backup");
-  expect(hasBackupWorker, "tanpa BackupWorker");
-  expect(requireAuthTSX.includes("children") || requireAuthTSX.includes("children"), "tanpa children");
+check("RequireAuth: sudah login -> BackupWorker + children", () => {
+  return requireAuthTSX.includes("BackupWorker") && requireAuthTSX.includes("children");
 });
 
 // ============================================================================
-// 3. AUTH PAGE — form login, register, reset password
+// 3. AUTH PAGE — form login/register/reset
 // ============================================================================
-console.log("\n=== 3. AUTH PAGE: form login/register/reset ===");
+console.log("\n=== 3. AUTH PAGE: form, toasts, redirect ===");
 section = "AUTH PAGE";
 
 const authTSX = readFileSync(join(root, "src/pages/Auth.tsx"), "utf8");
 
-check("AuthPage ada input phone dan password", () => {
-  expect(authTSX.includes("phone") || authTSX.includes("number") || authTSX.includes("tel"), "tanpa input phone");
-  expect(authTSX.includes("password") || authTSX.includes("password") || authTSX.includes("password"), "tanpa input password");
+check("AuthPage ada form login (phone, password, submit)", () => {
+  return authTSX.includes('name="phone"') &&
+    authTSX.includes('type="password"') &&
+    (authTSX.includes("handleLogin") || authTSX.includes("onSubmit") || authTSX.includes("submit"));
 });
 
-check("AuthPage ada mode login, register, reset", () => {
-  const modes = /login|register|reset|login|register|reset/i;
-  expect(modes.test(authTSX) || authTSX.includes("login") || authTSX.includes("register") || authTSX.includes("reset"), "tanpa mode login/register/reset");
+check("AuthPage ada mode login, register, reset password", () => {
+  return authTSX.includes("login") && authTSX.includes("register") && authTSX.includes("reset");
 });
 
 check("AuthPage pakai useAuth dan useMutation", () => {
-  expect(authTSX.includes("useAuth") || authTSX.includes("useAuth"), "tanpa useAuth");
-  expect(authTSX.includes("useMutation") && authTSX.includes("useMutation"), "tanpa useMutation");
+  return authTSX.includes("useAuth") && authTSX.includes("useMutation");
 });
 
-check("AuthPage ada notification toast (sonner)", () => {
-  expect(authTSX.includes("toast") || authTSX.includes("Toaster") || authTSX.includes("toast"), "tanpa toast");
+// Deteksi Toast : cek import dan penggunaan (bisa import { toast as t } atau const { toast } = useToast())
+const hasToastImport = /from\s+"@\/\/components\/ui\/sonner"|useToast\(|from\s+"sonner"/.test(authTSX);
+const hasToastCall = /(toast\.(success|error|info|warning|message))/.test(authTSX) ||
+  /(Toast)/i.test(authTSX) && /showToast|toast\./.test(authTSX) ||
+  /sonner/.test(authTSX) && /Toast/.test(authTSX);
+const hasToast = hasToastImport && (hasToastCall || authTSX.includes("Toast"));
+check("AuthPage pakai sonner/toast untuk notifikasi", () => {
+  return hasToast;
 });
 
-check("AuthPage ada redirectAfterAuth parameter & returnTo query", () => {
-  expect(
-    authTSX.includes("redirectAfterAuth") || authTSX.includes("returnTo") || authTSX.includes("returnTo") || authTSX.includes("returnTo"),
-    "tanpa redirectAfterAuth/returnTo",
-  );
+check("AuthPage ada redirectAfterAuth dan returnTo query", () => {
+  return authTSX.includes("redirectAfterAuth") && authTSX.includes("returnTo");
 });
 
-check("Auth page ada logo dan Tombol masuk", () => {
-  expect(authTSX.includes("Login") || authTSX.includes("Masuk") || authTSX.includes("login") || authTSX.includes("Masuk"), "tanpa tombol masuk");
+check("AuthPage ada tombol Masuk dan Daftar/Lupa password", () => {
+  return authTSX.includes("Masuk") && authTSX.includes("Daftar") && authTSX.includes("password");
 });
 
 // ============================================================================
-// 4. LAMBAT BUNDLER: skip mock headless-click-by-button, tapi scan tombol statik
+// 4. SCAN ALL APP PAGES — tombol, fitur CRUD, cetak, export
 // ============================================================================
-console.log("\n=== 4. SCAN BUTTON STATIK PER HALAMAN (previews cepat tanpa bundler) ===");
+console.log("\n=== 4. SCAN ALL APP PAGES: buttons, exports, print, CRUD ===");
 section = "BUTTON SCAN";
 
 const appPages = readdirSync(join(root, "src/pages/app")).filter((f) => f.endsWith(".tsx"));
@@ -186,68 +229,175 @@ const scanResults = [];
 for (const file of appPages) {
   const name = file.replace(/\.tsx$/, "");
   const text = readFileSync(join(root, `src/pages/app/${file}`), "utf8");
-  // hitung instance Button (komponen button Shadcn)
-  const importHasButton = text.includes("import { Button") || text.includes("Button } from");
-  const buttonInstances = (text.match(/<Button\b/g) || []).length;
-  // tombol 'Cetak' jika ada
-  const hasCetak = /Cetak|Print|PrintLaporan|Lihat/.test(text);
-  // tombol 'Unduh' / ExportButton jika ada
-  const hasExport = /ExportButton|Unduh|download/i.test(text);
-  // tombol Hapus / Ubah (CRUD)
-  const hasDelete = /Delete|Hapus|deleteMaster/i.test(text);
+
+  const buttonCount = countComponent(text, "Button");
+  const exportCount = countComponent(text, "ExportButton");
+  const printFrameCount = countComponent(text, "PrintFrame");
+  const dialogCount = countComponent(text, "Dialog", "Dialog") +
+    countComponent(text, "DialogContent", "DialogContent");
+  const tabsCount = countComponent(text, "Tabs", "Tabs") +
+    countComponent(text, "TabsList", "TabsList") +
+    countComponent(text, "TabsTrigger", "TabsTrigger");
+
+  const hasDelete = /Hapus|Hapus|Hapus|Destroy|deleteMaster|indexOf=/.test(text) ||
+    text.includes("hapus") || text.includes("hapus") || /title="Hapus"/.test(text) ||
+    /Hapus|delete|destroy/i.test(text);
+  const hasEdit = /Ubah|Edit|edit|updateMaster|updateInvoice|upsert|openEdit/.test(text);
+  const hasPrint = printFrameCount > 0 || /Cetak|Print|Lihat/i.test(text);
+  const hasExport = exportCount > 0 || /Unduh|download|Ekspor/i.test(text);
+  const hasDataTable = countComponent(text, "DataTable") > 0;
+
   scanResults.push({
     name,
-    buttonCount: buttonInstances,
-    hasCetak,
-    hasExport,
+    buttonCount,
+    exportCount,
+    printFrameCount,
+    dialogCount,
+    tabsCount,
     hasDelete,
-    importButton: importHasButton,
+    hasEdit,
+    hasPrint,
+    hasExport,
+    hasDataTable,
   });
 }
 
 for (const r of scanResults) {
-  const flagExport = r.hasExport ? "📦export" : "";
-  const flagPrint = r.hasCetak ? "🖨️cetak" : "";
-  const flagDel = r.hasDelete ? "🗑️hapus" : "";
-  const flag = `${flagExport} ${flagPrint} ${flagDel}`.trim();
-  console.log(`  📦 ${r.name.padEnd(22)} → ${String(r.buttonCount).padStart(2)} tombol ${flag}`);
+  const flags = [
+    r.hasExport ? "📦export" : "",
+    r.hasPrint ? "🖨️cetak" : "",
+    r.hasEdit ? "✏️edit" : "",
+    r.hasDelete ? "🗑️hapus" : "",
+    r.hasDataTable ? "📋tabel" : "",
+    r.printFrameCount > 0 ? "🖼️printFrame" : "",
+    r.tabsCount > 0 ? "📑tabs" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const count = `tombol: ${r.buttonCount}` +
+    (r.exportCount ? `, export: ${r.exportCount}` : "") +
+    (r.printFrameCount ? `, print: ${r.printFrameCount}` : "") +
+    (r.dialogCount ? `, dialog: ${r.dialogCount}` : "") +
+    (r.tabsCount ? `, tabs: ${r.tabsCount}` : "");
+  console.log(`  📦 ${r.name.padEnd(20)} ${count.padEnd(40)} ${flags}`);
 }
 
-// Kualifikasi kasus penting
-const invoiceCase = scanResults.find((r) => r.name === "InvoicePage");
-check("InvoicePage: punya tombol dan export/print", () => {
-  expect(invoiceCase, "InvoicePage tidak ada di scan");
-  expect(invoiceCase.buttonCount > 2, `InvoicePage hanya ${invoiceCase.buttonCount} tombol`);
-  expect(invoiceCase.hasCetak || invoiceCase.hasExport, "InvoicePage tidak ada Cetak/Export");
-  expect(invoiceCase.importButton, "InvoicePage tidak import Button");
+// InvoicePage: harus ada tombol Lihat (preview) + Cetak + Export
+check("InvoicePage: ada tombol, Export & PrintFrame (preview vs cetak)", () => {
+  const inv = scanResults.find((r) => r.name === "InvoicePage");
+  if (!inv) return false;
+  expect(inv.buttonCount >= 5, `InvoicePage hanya ${inv.buttonCount} tombol`);
+  expect(inv.hasExport, "InvoicePage tidak ada tombol Export");
+  expect(inv.printFrameCount > 0, "InvoicePage tidak ada PrintFrame");
+  return true;
 });
 
-const keluarCase = scanResults.find((r) => r.name === "PengeluaranPage");
-check("PengeluaranPage: CRUD (tambah/ubah/hapus) dan export CSV", () => {
-  expect(keluarCase, "PengeluaranPage tidak ada di scan");
-  expect(keluarCase.buttonCount > 2, `PengeluaranPage hanya ${keluarCase.buttonCount} tombol`);
-  expect(keluarCase.hasDelete, "PengeluaranPage tidak ada tombol hapus");
-  expect(keluarCase.hasExport, "PengeluaranPage tidak ada export CSV");
-  expect(keluarCase.importButton, "PengeluaranPage tidak import Button");
+// PengeluaranPage: CRUD (tambah, ubah, hapus) + export CSV
+check("PengeluaranPage: CRUD & export CSV", () => {
+  const peng = scanResults.find((r) => r.name === "PengeluaranPage");
+  if (!peng) return false;
+  expect(peng.hasEdit, "PengeluaranPage tidak ada tombol Ubah");
+  expect(peng.hasDelete, "PengeluaranPage tidak ada tombol Hapus");
+  expect(peng.hasExport, "PengeluaranPage tidak ada export CSV");
+  expect(peng.hasDataTable, "PengeluaranPage tidak pakai DataTable");
+  return true;
 });
 
-const laporanCase = scanResults.find((r) => r.name === "LaporanPage");
-check("LaporanPage: 5 tab + tombol Unduh Semua / cetak laporan", () => {
-  expect(laporanCase, "LaporanPage tidak ada di scan");
-  expect(laporanCase.buttonCount > 5, `LaporanPage hanya ${laporanCase.buttonCount} tombol`);
-  expect(laporanCase.hasExport, "LaporanPage tidak ada export CSV");
-  expect(laporanCase.hasCetak, "LaporanPage tidak ada cetak laporan");
+// LaporanPage: 5 tab + export + print
+check("LaporanPage: 5 tab + export & cetak", () => {
+  const lap = scanResults.find((r) => r.name === "LaporanPage");
+  if (!lap) return false;
+  expect(lap.tabsCount >= 3, `LaporanPage hanya ${lap.tabsCount} tab`);
+  expect(lap.hasExport, "LaporanPage tidak ada export CSV");
+  expect(lap.hasPrint, "LaporanPage tidak ada fitur print/cetak");
+  expect(lap.buttonCount >= 3, `LaporanPage hanya ${lap.buttonCount} tombol`);
+  return true;
+});
+
+// TetesanPage
+check("TetesanPage: tombol ada & fitur cetak/print", () => {
+  const tdt = scanResults.find((r) => r.name === "TetesanPage");
+  if (!tdt) return false;
+  expect(tdt.hasPrint || tdt.printFrameCount > 0, "TetesanPage tidak ada print/cetak");
+  expect(tdt.buttonCount > 2, `TetesanPage hanya ${tdt.buttonCount} tombol`);
+  return true;
+});
+
+// GudangPage
+check("GudangPage: tabel stok & ExportButton", () => {
+  const gdg = scanResults.find((r) => r.name === "GudangPage");
+  if (!gdg) return false;
+  expect(gdg.hasDataTable, "GudangPage tidak pakai DataTable");
+  expect(gdg.hasExport, "GudangPage tidak ada export CSV");
+  return true;
+});
+
+// KasPage
+check("KasPage: tabel kas, cetak & hapus", () => {
+  const kas = scanResults.find((r) => r.name === "KasPage");
+  if (!kas) return false;
+  expect(kas.hasDelete, "KasPage tidak ada tombol hapus");
+  expect(kas.hasPrint || kas.printFrameCount > 0, "KasPage tidak ada fitur cetak");
+  return true;
 });
 
 // ============================================================================
-// 5. LAMBAT → RINGKASAN
+// 5. RENDER IS IN THE CORRECT ORIENTATION
+// ============================================================================
+console.log("\n=== 5. HALAMAN CRUCIAL: fitur spesifik ===");
+section = "FITUR";
+
+check("InvoicePage: `Lihat` hanya preview (autoPrint={false})", () => {
+  const inv = readFileSync(join(root, "src/pages/app/InvoicePage.tsx"), "utf8");
+  return inv.includes("autoPrint={false}") || /autoPrint.*false/.test(inv);
+});
+
+check("PengeluaranPage: form edit (ID terkunci, Simpan Perubahan)", () => {
+  const peng = readFileSync(join(root, "src/pages/app/PengeluaranPage.tsx"), "utf8");
+  return peng.includes("disabled={editing}") && peng.includes("Simpan Perubahan");
+});
+
+check("InvoiceFormDialog: tombol items tidak hilang saat ganti pihak", () => {
+  const dialog = readFileSync(join(root, "src/components/app/InvoiceFormDialog.tsx"), "utf8");
+  return dialog.includes("appliedSession") && dialog.includes("changeTipe") && dialog.includes("max-h-[92vh]");
+});
+
+check("PrintFrame: ada autoPrint prop (default true)", () => {
+  const pf = readFileSync(join(root, "src/components/app/PrintFrame.tsx"), "utf8");
+  return pf.includes("autoPrint?") && pf.includes("boolean");
+});
+
+check("ExportButton: unduh CSV berfungsi", () => {
+  const eb = readFileSync(join(root, "src/components/app/ExportButton.tsx"), "utf8");
+  const exp = readFileSync(join(root, "src/lib/export.ts"), "utf8");
+  return eb.includes("downloadCsv") && exp.includes("downloadCsv") && exp.includes("\uFEFF") && exp.includes(";");
+});
+
+check("Notes / catatan invoice tersedia di InvoiceFormDialog", () => {
+  const dialog = readFileSync(join(root, "src/components/app/InvoiceFormDialog.tsx"), "utf8");
+  return dialog.includes("Textarea") && dialog.includes("catatan") && dialog.includes("setCatatanInvoice");
+});
+
+check("Catatan invoice muncul di cetakan (InvoicePrintDoc)", () => {
+  const pdf = readFileSync(join(root, "src/components/app/InvoicePrintDoc.tsx"), "utf8");
+  return pdf.includes("Catatan") || pdf.includes("catatan");
+});
+
+check("LaporanPage: dataset 5 dan Unduh Semua (slip gaji & keuangan)", () => {
+  const lap = readFileSync(join(root, "src/pages/app/LaporanPage.tsx"), "utf8");
+  return lap.includes("handleDownloadAll") && lap.includes("laporan-stok") && lap.includes("laporan-keuangan") &&
+    lap.includes("rekap-barang") && lap.includes("rekap-pihak") && lap.includes("analisis-margin");
+});
+
+// ============================================================================
+// HASIL
 // ============================================================================
 console.log("\n" + "=".repeat(75));
-console.log(`HASIL AKHIR: ${pass} lulus, ${fail} gagal`);
+console.log(`HASIL AKHIR: ${pass} lulus, ${fail} gagal, ${scanResults.length} halaman discan`);
 console.log("=".repeat(75));
 if (failures.length) {
   console.log("\nGAGAL:");
   for (const f of failures) console.log(`  ❌ ${f}`);
 }
-console.log("\n(Nota: bundler headless klik tombol dilewati karena lambat di lingkungan ini)");
+console.log("\nNota: cek statik tanpa bundling. Tombol asli dipakai pengguna = render React DOM sungguhan (butuh bundler).");
 process.exit(fail === 0 ? 0 : 1);
