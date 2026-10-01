@@ -6,6 +6,7 @@ import { Plus, Trash2, Wand2, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -111,6 +112,7 @@ export function InvoiceFormDialog({
   const editInvoice = useMutation(api.business.editInvoice);
   const upsertBarang = useMutation(api.business.upsertBarang);
   const upsertKatalog = useMutation(api.katalog.upsertKatalog);
+  const setCatatanInvoice = useMutation((api as any).notes.setCatatanInvoice);
 
   const [tipe, setTipe] = useState<InvoiceTipe>("Reseller");
   const [tanggal, setTanggal] = useState(todayStr());
@@ -119,6 +121,7 @@ export function InvoiceFormDialog({
   const [tenggat, setTenggat] = useState("");
   const [mataUang, setMataUang] = useState<MataUang>("Rp");
   const [statusPembayaran, setStatusPembayaran] = useState<"Lunas" | "Pending">("Pending");
+  const [catatan, setCatatan] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([emptyItem()]);
   const [saving, setSaving] = useState(false);
   const [creatingBarangIdx, setCreatingBarangIdx] = useState<number | null>(null);
@@ -127,6 +130,13 @@ export function InvoiceFormDialog({
 
   const lastAutoParty = useRef<string | null>(null);
   const idTouched = useRef(false);
+  /**
+   * Menandai "sesi" form yang sedang terisi (new / edit INV-1 / duplikat INV-1).
+   * Efek pengisian form hanya berjalan SEKALI per sesi — perubahan identitas
+   * objek props dari render ulang tidak lagi menimpa isi form (mencegah baris
+   * barang yang sudah diisi tiba-tiba hilang).
+   */
+  const appliedSession = useRef<string | null>(null);
 
   const nextBarangKode = useMemo(
     () => nextSeqKode((barang ?? []).map((b: any) => b.kode), "BRG"),
@@ -179,10 +189,23 @@ export function InvoiceFormDialog({
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      appliedSession.current = null;
+      return;
+    }
+    const src = editInv ?? duplicateInv;
+    const session = editInv
+      ? `edit:${editInv.idInvoice}`
+      : duplicateInv
+        ? `dup:${duplicateInv.idInvoice}`
+        : "new";
+    // Hanya isi ulang form saat SESI berubah (buka baru / ganti invoice yang
+    // diedit). Ini mencegah isi form terhapus oleh render ulang tak terduga.
+    if (appliedSession.current === session) return;
+    appliedSession.current = session;
+
     lastAutoParty.current = null;
     idTouched.current = false;
-    const src = editInv ?? duplicateInv;
     setTipe(src?.tipe ?? "Reseller");
     setTanggal(editInv ? src.tanggal : todayStr());
     setIdInvoice(editInv ? editInv.idInvoice : nextInvoiceId);
@@ -190,6 +213,7 @@ export function InvoiceFormDialog({
     setTenggat(src?.tenggat ?? "");
     setMataUang(src ? (src.mataUang === "$" ? "$" : "Rp") : "Rp");
     setStatusPembayaran(src ? ((src.statusPembayaran ?? "Pending") === "Lunas" ? "Lunas" : "Pending") : "Pending");
+    setCatatan(src?.catatan ?? "");
     setItems(
       src
         ? (src.items ?? []).map((it: any) => {
@@ -422,13 +446,33 @@ export function InvoiceFormDialog({
     }
   };
 
+  /**
+   * Ganti tipe invoice.
+   *
+   * PENTING: baris barang yang SUDAH DIISI tidak boleh hilang. Sebelumnya tipe
+   * baru mengosongkan seluruh item, sehingga barang yang sudah diketik lenyap
+   * begitu tipe/pihak disesuaikan. Sekarang item dipertahankan; hanya data
+   * khusus pihak (nama, tenggat) yang direset, dan field Pasar (stok awal/akhir)
+   * disiapkan bila tipe baru adalah Pasar.
+   */
   const changeTipe = (t: InvoiceTipe) => {
     lastAutoParty.current = null;
     setTipe(t);
     setNamaPihak("");
     setTenggat("");
     if (t !== "Supplier") setMataUang("Rp");
-    setItems([emptyItem()]);
+    setItems((prev) => {
+      const rows = prev.length ? prev : [emptyItem()];
+      return rows.map((it) =>
+        t === "Pasar"
+          ? {
+              ...it,
+              stokAwal: it.stokAwal != null ? it.stokAwal : parseNum(it.qty),
+              stokAkhir: it.stokAkhir ?? 0,
+            }
+          : it,
+      );
+    });
   };
 
   const resetForm = () => {
@@ -439,6 +483,7 @@ export function InvoiceFormDialog({
     setTenggat("");
     setMataUang("Rp");
     setStatusPembayaran("Pending");
+    setCatatan("");
     setItems([emptyItem()]);
   };
 
@@ -492,6 +537,16 @@ export function InvoiceFormDialog({
       const res = editInv
         ? await editInvoice({ doc: docPayload })
         : await createInvoice({ doc: docPayload });
+
+      // Catatan (notes) invoice — disimpan terpisah supaya tidak mengubah
+      // skema/patch invoice yang sudah ada. Gagal simpan catatan tidak
+      // menggagalkan penyimpanan invoice.
+      try {
+        await setCatatanInvoice({ idInvoice: res.idInvoice, catatan });
+      } catch {
+        /* catatan pelengkap */
+      }
+
       if (tipe === "Supplier" || tipe === "Reseller") {
         try {
           await upsertKatalog({
@@ -533,7 +588,7 @@ export function InvoiceFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-6xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>
             {editInv
@@ -544,10 +599,10 @@ export function InvoiceFormDialog({
           </DialogTitle>
           <DialogDescription>
             {editInv
-              ? "Ubah isi invoice (tanggal, pihak, barang, harga, qty). Efek stok & kas lama otomatis dibatalkan lalu diterapkan ulang."
+              ? "Ubah isi invoice (tanggal, pihak, barang, harga, qty, catatan). Efek stok & kas lama otomatis dibatalkan lalu diterapkan ulang."
               : duplicateInv
                 ? "Isi form disalin dari invoice lama — tinggal ubah yang perlu, lalu simpan sebagai invoice BARU."
-                : "Pilih tipe, isi pihak & barang. Harga ditarik otomatis dari katalog saat pihak dipilih."}
+                : "Pilih tipe, isi pihak & barang. Harga ditarik otomatis dari katalog saat pihak dipilih. Barang yang sudah diisi tidak akan hilang saat tipe/pihak disesuaikan."}
           </DialogDescription>
         </DialogHeader>
 
@@ -659,6 +714,19 @@ export function InvoiceFormDialog({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Catatan (notes) invoice — opsional, tampil juga di dokumen cetak & WA */}
+        <div>
+          <Label className="text-xs font-medium">
+            Catatan Invoice <span className="text-muted-foreground">(opsional)</span>
+          </Label>
+          <Textarea
+            className="mt-1.5 min-h-[70px]"
+            placeholder="cth. Titip 1 karung, susul besok pagi / harga belum termasuk ongkir"
+            value={catatan}
+            onChange={(e) => setCatatan(e.target.value)}
+          />
         </div>
 
         {/* Multi-item: KARTU per barang — tampil di SEMUA ukuran layar (HP & desktop) */}
@@ -833,7 +901,7 @@ export function InvoiceFormDialog({
 
           <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={addRow}>
+              <Button variant="outline" size="sm" onClick={addRow} className="cursor-pointer">
                 <Plus className="mr-1.5 size-3.5" />
                 Tambah Barang
               </Button>
@@ -841,6 +909,7 @@ export function InvoiceFormDialog({
                 variant="outline"
                 size="sm"
                 onClick={fillAllPrices}
+                className="cursor-pointer"
                 title="Isi harga modal & jual semua baris dari database"
               >
                 <Wand2 className="mr-1.5 size-3.5" />
@@ -851,6 +920,7 @@ export function InvoiceFormDialog({
                 size="sm"
                 onClick={applyKatalogPrices}
                 disabled={!katalogForParty}
+                className="cursor-pointer"
                 title="Isi harga dari katalog pihak ini"
               >
                 <Tags className="mr-1.5 size-3.5" />
@@ -883,10 +953,10 @@ export function InvoiceFormDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
             Batal
           </Button>
-          <Button onClick={handleSubmit} disabled={saving || !namaPihak || items.length === 0}>
+          <Button onClick={handleSubmit} disabled={saving || !namaPihak || items.length === 0} className="cursor-pointer">
             {saving ? "Menyimpan..." : editInv ? "Simpan Perubahan" : "Simpan Invoice"}
           </Button>
         </DialogFooter>

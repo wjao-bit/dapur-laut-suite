@@ -27,13 +27,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { ExportButton } from "@/components/app/ExportButton";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { PaymentDialog } from "@/components/app/PaymentDialog";
 import { OcrInvoiceDialog } from "@/components/app/OcrInvoiceDialog";
 import { InvoiceFormDialog } from "@/components/app/InvoiceFormDialog";
 import { InvoicePrintDoc } from "@/components/app/InvoicePrintDoc";
 import { InvoiceTrashDialog } from "@/components/app/InvoiceTrashDialog";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseNum } from "@/lib/format";
+import { datedFilename } from "@/lib/export";
 import { daysUntil, formatCurrency, INVOICE_TIPES, type MataUang } from "@/lib/business";
 import { invoiceTotal, invoiceDibayar, invoiceSisa, buildInvoiceWaText } from "@/lib/invoice";
 
@@ -73,6 +75,16 @@ function DueBadge({ tenggat }: { tenggat?: string }) {
       H-{d}
     </span>
   );
+}
+
+/** Ringkas daftar barang invoice jadi satu teks (untuk ekspor CSV). */
+function itemsText(inv: any): string {
+  return (inv.items ?? [])
+    .map((it: any) => {
+      const qty = inv.tipe === "Pasar" ? parseNum(it.stokAwal) - parseNum(it.stokAkhir) : parseNum(it.qty);
+      return `${it.namaBarang || it.kodeBarang} x ${qty}`;
+    })
+    .join(" | ");
 }
 
 export default function InvoicePage() {
@@ -412,11 +424,30 @@ export default function InvoicePage() {
         icon={FileText}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setOcrOpen(true)}>
+            <ExportButton
+              rows={filtered as any}
+              filename={datedFilename("invoice")}
+              columns={[
+                { key: "idInvoice", label: "No. Invoice" },
+                { key: "tanggal", label: "Tanggal" },
+                { key: "tipe", label: "Tipe" },
+                { key: "namaPihak", label: "Pihak" },
+                { key: "tenggat", label: "Tenggat" },
+                { key: "statusPembayaran", label: "Status" },
+                { key: "total", label: "Total", value: (r: any) => r.totalPenjualan || r.total || 0 },
+                { key: "dibayar", label: "Dibayar", value: (r: any) => invoiceDibayar(r) },
+                { key: "sisa", label: "Sisa", value: (r: any) => invoiceSisa(r) },
+                { key: "margin", label: "Margin" },
+                { key: "mataUang", label: "Mata Uang" },
+                { key: "barang", label: "Barang", value: (r: any) => itemsText(r) },
+                { key: "catatan", label: "Catatan" },
+              ]}
+            />
+            <Button variant="outline" onClick={() => setOcrOpen(true)} className="cursor-pointer">
               <ScanLine className="mr-2 size-4" />
               Scan Invoice (OCR)
             </Button>
-            <Button variant="outline" onClick={() => setTrashOpen(true)} title="Invoice yang dihapus — bisa dipulihkan">
+            <Button variant="outline" onClick={() => setTrashOpen(true)} title="Invoice yang dihapus — bisa dipulihkan" className="cursor-pointer">
               <Trash2 className="mr-2 size-4" />
               Sampah
               {(trash?.length ?? 0) > 0 && (
@@ -425,7 +456,7 @@ export default function InvoicePage() {
                 </span>
               )}
             </Button>
-            <Button onClick={openCreate}>
+            <Button onClick={openCreate} className="cursor-pointer">
               <Plus className="mr-2 size-4" />
               Buat Invoice
             </Button>
@@ -536,12 +567,14 @@ export default function InvoicePage() {
         onSaved={(inv) => setPrintInv(inv)}
       />
 
-      {/* Print dokumen invoice */}
+      {/* Print dokumen invoice — autoPrint=false: klik "Lihat" hanya PRATINJAU,
+          dialog cetak browser baru terbuka saat tombol Cetak/Simpan PDF ditekan. */}
       <PrintFrame
         open={!!printInv}
         onClose={() => setPrintInv(null)}
         title={`Invoice ${printInv?.idInvoice ?? ""}`}
         waText={printInv ? buildInvoiceWaText(printInv) : undefined}
+        autoPrint={false}
       >
         {printInv && <InvoicePrintDoc invoice={printInv} />}
       </PrintFrame>

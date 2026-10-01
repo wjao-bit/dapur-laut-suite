@@ -296,39 +296,52 @@ export interface StokRow {
  * Hitung stok gudang dari riwayat perubahan stok.
  * StokAkhir = StokAwal + Σ masuk - Σ keluar (boleh minus).
  * Hasil dibulatkan supaya tidak ada noise float (mis. 18.6 + 2.9).
+ *
+ * Nama barang diambil dari GABUNGAN tabel gudang + riwayat stok: barang yang
+ * belum punya baris di tabel gudang (mis. baru muncul dari invoice/retur) tetap
+ * tampil dengan stok awal 0 — daftar gudang tidak lagi "kosong" padahal riwayat
+ * perubahannya ada.
  */
 export function computeGudangRows(
   base: { id: string; namaBarang: string; stokAwal: number; keterangan?: string }[],
   history: { namaBarang: string; perubahan: number }[],
 ): StokRow[] {
-  const map = new Map<string, number>();
+  const netMap = new Map<string, number>();
+  const masukMap = new Map<string, number>();
+  const keluarMap = new Map<string, number>();
+  const historyNames: string[] = [];
+  const seen = new Set<string>();
   for (const h of history) {
-    map.set(h.namaBarang, roundNum((map.get(h.namaBarang) ?? 0) + h.perubahan));
+    if (!h.namaBarang) continue;
+    netMap.set(h.namaBarang, roundNum((netMap.get(h.namaBarang) ?? 0) + h.perubahan));
+    if (h.perubahan > 0) {
+      masukMap.set(h.namaBarang, roundNum((masukMap.get(h.namaBarang) ?? 0) + h.perubahan));
+    } else if (h.perubahan < 0) {
+      keluarMap.set(h.namaBarang, roundNum((keluarMap.get(h.namaBarang) ?? 0) + Math.abs(h.perubahan)));
+    }
+    if (!seen.has(h.namaBarang)) {
+      seen.add(h.namaBarang);
+      historyNames.push(h.namaBarang);
+    }
   }
-  return base.map((b) => {
-    const net = map.get(b.namaBarang) ?? 0;
-    const masuk = roundNum(
-      history
-        .filter((h) => h.namaBarang === b.namaBarang && h.perubahan > 0)
-        .reduce((s, h) => s + h.perubahan, 0),
-    );
-    const keluar = roundNum(
-      Math.abs(
-        history
-          .filter((h) => h.namaBarang === b.namaBarang && h.perubahan < 0)
-          .reduce((s, h) => s + h.perubahan, 0),
-      ),
-    );
-    return {
-      id: b.id,
-      namaBarang: b.namaBarang,
-      stokAwal: b.stokAwal,
-      stokMasuk: masuk,
-      stokKeluar: keluar,
-      stokAkhir: roundNum(b.stokAwal + net),
-      keterangan: b.keterangan,
-    };
+
+  const build = (namaBarang: string, stokAwal: number, id: string, keterangan?: string): StokRow => ({
+    id,
+    namaBarang,
+    stokAwal,
+    stokMasuk: masukMap.get(namaBarang) ?? 0,
+    stokKeluar: keluarMap.get(namaBarang) ?? 0,
+    stokAkhir: roundNum(stokAwal + (netMap.get(namaBarang) ?? 0)),
+    keterangan,
   });
+
+  const rows = base.map((b) => build(b.namaBarang, b.stokAwal, b.id, b.keterangan));
+  const baseNames = new Set(base.map((b) => b.namaBarang));
+  for (const nama of historyNames) {
+    if (baseNames.has(nama)) continue;
+    rows.push(build(nama, 0, `auto:${nama}`));
+  }
+  return rows;
 }
 
 export interface RekapPihakRow {

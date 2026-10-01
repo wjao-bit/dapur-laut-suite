@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { BarChart3, Printer } from "lucide-react";
+import { BarChart3, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
+import { ExportButton } from "@/components/app/ExportButton";
 import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
 import { formatRupiah, formatDate, formatMonth, formatNum } from "@/lib/format";
+import { downloadCsv, type ExportColumn } from "@/lib/export";
 import { cn } from "@/lib/utils";
 
 type Tab = "stok" | "keuangan" | "rekapBarang" | "rekapPihak" | "margin";
@@ -33,6 +35,143 @@ export default function LaporanPage() {
     return `${from || "awal"} — ${to || "sekarang"}`;
   }, [from, to]);
 
+  // -------------------------------------------------------------------------
+  // Dataset untuk UNDUH (CSV). `rows` = data yang sedang tampil pada tab itu.
+  // -------------------------------------------------------------------------
+  const datasets = useMemo(() => {
+    const keuanganRows = [
+      ...(keuangan?.rincianPendapatan ?? []).map((r: any) => ({
+        tanggal: r.tanggal,
+        kelompok: "Pendapatan",
+        tipe: r.tipe,
+        pihak: r.pihak,
+        nominal: r.nominal,
+      })),
+      ...(keuangan?.rincianPengeluaran ?? []).map((r: any) => ({
+        tanggal: r.tanggal,
+        kelompok: "Pengeluaran",
+        tipe: r.tipe,
+        pihak: r.tipe === "Slip Gaji" ? namaKaryawan(r.pihak) : r.pihak,
+        nominal: r.nominal,
+      })),
+    ];
+
+    const marginRows = [
+      ...(margin?.perProduk ?? []).map((r: any) => ({
+        kategori: "Produk",
+        nama: r.namaBarang,
+        kode: r.kodeBarang,
+        totalModal: r.totalModal,
+        totalPenjualan: r.totalPenjualan,
+        margin: r.margin,
+        marginPct: r.marginPct,
+      })),
+      ...(margin?.perPasar ?? []).map((r: any) => ({
+        kategori: "Pasar",
+        nama: r.pihak,
+        kode: "",
+        totalModal: 0,
+        totalPenjualan: 0,
+        margin: r.margin,
+        marginPct: r.marginPct,
+      })),
+      ...(margin?.perReseller ?? []).map((r: any) => ({
+        kategori: "Reseller",
+        nama: r.pihak,
+        kode: "",
+        totalModal: 0,
+        totalPenjualan: 0,
+        margin: r.margin,
+        marginPct: r.marginPct,
+      })),
+    ];
+
+    const common = (rows: any[]): ExportColumn<any>[] =>
+      (rows[0] ? Object.keys(rows[0]) : []).map((k) => ({ key: k, label: k }));
+
+    return {
+      stok: {
+        label: "Laporan Stok Gudang",
+        filename: `laporan-stok-${periodLabel.replace(/[^\w-]+/g, "_")}`,
+        rows: (laporanStok ?? []) as any[],
+        columns: [
+          { key: "namaBarang", label: "Barang" },
+          { key: "stokAwal", label: "Stok Awal" },
+          { key: "stokMasuk", label: "Masuk" },
+          { key: "stokKeluar", label: "Keluar" },
+          { key: "stokAkhir", label: "Stok Akhir" },
+        ] as ExportColumn<any>[],
+      },
+      keuangan: {
+        label: "Laporan Keuangan",
+        filename: `laporan-keuangan-${periodLabel.replace(/[^\w-]+/g, "_")}`,
+        rows: keuanganRows,
+        columns: (keuanganRows.length
+          ? [
+              { key: "tanggal", label: "Tanggal" },
+              { key: "kelompok", label: "Kelompok" },
+              { key: "tipe", label: "Tipe" },
+              { key: "pihak", label: "Pihak" },
+              { key: "nominal", label: "Nominal" },
+            ]
+          : common(keuanganRows)) as ExportColumn<any>[],
+      },
+      rekapBarang: {
+        label: "Rekap Barang",
+        filename: `rekap-barang-${periodLabel.replace(/[^\w-]+/g, "_")}`,
+        rows: (rekapBarang?.rows ?? []) as any[],
+        columns: [
+          { key: "namaBarang", label: "Barang" },
+          { key: "masuk", label: "Masuk" },
+          { key: "keluar", label: "Keluar" },
+          { key: "net", label: "Net" },
+        ] as ExportColumn<any>[],
+      },
+      rekapPihak: {
+        label: "Rekap Per Pihak",
+        filename: `rekap-pihak-${periodLabel.replace(/[^\w-]+/g, "_")}`,
+        rows: (rekapPihak ?? []) as any[],
+        columns: [
+          { key: "tipe", label: "Tipe" },
+          { key: "namaPihak", label: "Pihak" },
+          { key: "totalTransaksi", label: "Jml Transaksi" },
+          { key: "totalBarang", label: "Jml Barang" },
+          { key: "totalNilai", label: "Total Nilai" },
+        ] as ExportColumn<any>[],
+      },
+      margin: {
+        label: "Analisis Margin",
+        filename: `analisis-margin-${periodLabel.replace(/[^\w-]+/g, "_")}`,
+        rows: marginRows,
+        columns: (marginRows.length
+          ? [
+              { key: "kategori", label: "Kategori" },
+              { key: "nama", label: "Nama" },
+              { key: "kode", label: "Kode" },
+              { key: "totalModal", label: "Total Modal" },
+              { key: "totalPenjualan", label: "Total Penjualan" },
+              { key: "margin", label: "Margin" },
+              { key: "marginPct", label: "Margin %" },
+            ]
+          : common(marginRows)) as ExportColumn<any>[],
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laporanStok, keuangan, rekapBarang, rekapPihak, margin, karyawan, periodLabel]);
+
+  const handleDownloadCurrent = () => {
+    const d = datasets[tab];
+    downloadCsv(d.filename, d.rows, d.columns);
+  };
+
+  /** Unduh SEMUA laporan sekaligus (5 file CSV). */
+  const handleDownloadAll = () => {
+    (Object.keys(datasets) as Tab[]).forEach((key) => {
+      const d = datasets[key];
+      downloadCsv(d.filename, d.rows, d.columns);
+    });
+  };
+
   const th = "border border-slate-200 px-2 py-1.5 text-left text-xs text-slate-600 uppercase";
   const thr = "border border-slate-200 px-2 py-1.5 text-right text-xs text-slate-600 uppercase";
   const td = "border border-slate-200 px-2 py-1.5 text-[13px]";
@@ -42,13 +181,25 @@ export default function LaporanPage() {
     <div>
       <PageHeader
         title="Laporan & Rekap"
-        description="Laporan stok, keuangan, rekap barang, rekap per pihak, dan analisis margin — dapat dicetak sebagai PDF."
+        description="Laporan stok, keuangan, rekap barang, rekap per pihak, dan analisis margin — bisa dicetak PDF atau diunduh sebagai CSV (Excel)."
         icon={BarChart3}
         actions={
-          <Button onClick={() => setPrintTab(tab)}>
-            <Printer className="mr-2 size-4" />
-            Cetak Laporan Ini
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton
+              rows={datasets[tab].rows}
+              columns={datasets[tab].columns}
+              filename={datasets[tab].filename}
+              label="Unduh Laporan Ini"
+            />
+            <Button variant="outline" onClick={handleDownloadAll} className="cursor-pointer" title="Unduh kelima laporan sekaligus (CSV)">
+              <Download className="mr-2 size-4" />
+              Unduh Semua
+            </Button>
+            <Button onClick={() => setPrintTab(tab)} className="cursor-pointer">
+              <Printer className="mr-2 size-4" />
+              Cetak Laporan Ini
+            </Button>
+          </div>
         }
       />
 
@@ -62,7 +213,7 @@ export default function LaporanPage() {
           <Input type="date" className="mt-1.5 w-40" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         {(from || to) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFrom(""); setTo(""); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setFrom(""); setTo(""); }} className="cursor-pointer">
             Reset
           </Button>
         )}
@@ -80,7 +231,19 @@ export default function LaporanPage() {
 
         {/* Stok */}
         <TabsContent value="stok">
-          <SectionCard title="Laporan Stok Gudang" description="Posisi stok saat ini berdasarkan riwayat perubahan">
+          <SectionCard
+            title="Laporan Stok Gudang"
+            description="Posisi stok saat ini berdasarkan riwayat perubahan"
+            actions={
+              <ExportButton
+                rows={datasets.stok.rows}
+                columns={datasets.stok.columns}
+                filename={datasets.stok.filename}
+                label="Unduh"
+                variant="ghost"
+              />
+            }
+          >
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
@@ -137,7 +300,23 @@ export default function LaporanPage() {
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <SectionCard title="Rincian Pendapatan">
+            <SectionCard
+              title="Rincian Pendapatan"
+              actions={
+                <ExportButton
+                  rows={(keuangan?.rincianPendapatan ?? []) as any[]}
+                  columns={[
+                    { key: "tanggal", label: "Tanggal" },
+                    { key: "tipe", label: "Tipe" },
+                    { key: "pihak", label: "Pihak" },
+                    { key: "nominal", label: "Nominal" },
+                  ]}
+                  filename="rincian-pendapatan"
+                  label="Unduh"
+                  variant="ghost"
+                />
+              }
+            >
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -164,7 +343,23 @@ export default function LaporanPage() {
                 </table>
               </div>
             </SectionCard>
-            <SectionCard title="Rincian Pengeluaran">
+            <SectionCard
+              title="Rincian Pengeluaran"
+              actions={
+                <ExportButton
+                  rows={(keuangan?.rincianPengeluaran ?? []) as any[]}
+                  columns={[
+                    { key: "tanggal", label: "Tanggal" },
+                    { key: "tipe", label: "Tipe" },
+                    { key: "pihak", label: "Pihak", value: (r: any) => (r.tipe === "Slip Gaji" ? namaKaryawan(r.pihak) : r.pihak) },
+                    { key: "nominal", label: "Nominal" },
+                  ]}
+                  filename="rincian-pengeluaran"
+                  label="Unduh"
+                  variant="ghost"
+                />
+              }
+            >
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -196,7 +391,19 @@ export default function LaporanPage() {
 
         {/* Rekap barang */}
         <TabsContent value="rekapBarang">
-          <SectionCard title="Rekap Barang Keluar/Masuk" description={`Semua pergerakan stok · ${periodLabel}`}>
+          <SectionCard
+            title="Rekap Barang Keluar/Masuk"
+            description={`Semua pergerakan stok · ${periodLabel}`}
+            actions={
+              <ExportButton
+                rows={datasets.rekapBarang.rows}
+                columns={datasets.rekapBarang.columns}
+                filename={datasets.rekapBarang.filename}
+                label="Unduh"
+                variant="ghost"
+              />
+            }
+          >
             <div className="mb-3 flex gap-4 text-sm">
               <span className="text-emerald-600 font-medium">Total Masuk: {formatNum(rekapBarang?.totalMasuk ?? 0)}</span>
               <span className="text-rose-600 font-medium">Total Keluar: {formatNum(rekapBarang?.totalKeluar ?? 0)}</span>
@@ -231,7 +438,19 @@ export default function LaporanPage() {
 
         {/* Rekap pihak */}
         <TabsContent value="rekapPihak">
-          <SectionCard title="Rekap Per Pihak" description="Total transaksi, total barang, dan total nilai per Supplier/Reseller/DPL/Pasar">
+          <SectionCard
+            title="Rekap Per Pihak"
+            description="Total transaksi, total barang, dan total nilai per Supplier/Reseller/DPL/Pasar"
+            actions={
+              <ExportButton
+                rows={datasets.rekapPihak.rows}
+                columns={datasets.rekapPihak.columns}
+                filename={datasets.rekapPihak.filename}
+                label="Unduh"
+                variant="ghost"
+              />
+            }
+          >
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
@@ -265,7 +484,19 @@ export default function LaporanPage() {
         {/* Margin */}
         <TabsContent value="margin">
           <div className="grid gap-4 lg:grid-cols-3">
-            <SectionCard title="Margin per Produk" className="lg:col-span-3">
+            <SectionCard
+              title="Margin per Produk"
+              className="lg:col-span-3"
+              actions={
+                <ExportButton
+                  rows={datasets.margin.rows}
+                  columns={datasets.margin.columns}
+                  filename={datasets.margin.filename}
+                  label="Unduh"
+                  variant="ghost"
+                />
+              }
+            >
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>

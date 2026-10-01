@@ -13,6 +13,11 @@ import { cn } from "@/lib/utils";
  * `@media print` di index.css (body * { visibility: hidden }) hanya menampilkan
  * dokumen ini — tanpa class tersebut hasil cetak/PDF akan blank.
  *
+ * `autoPrint` (default true): bila true, dialog cetak browser terbuka otomatis
+ * setelah dokumen tampil. Untuk PRATINJAU (mis. klik "Lihat" invoice), set
+ * `autoPrint={false}` agar pengguna melihat dokumennya dulu dan menekan
+ * "Cetak / Simpan PDF" saat memang ingin mencetak.
+ *
  * Tampilan mobile: toolbar menumpuk (title + tombol tidak terpotong di layar
  * sempit), padding dokumen diperkecil, dan tombol cetak memakai label pendek.
  *
@@ -26,6 +31,7 @@ export function PrintFrame({
   children,
   className,
   waText,
+  autoPrint = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,9 +39,11 @@ export function PrintFrame({
   children: React.ReactNode;
   className?: string;
   waText?: string;
+  /** Buka dialog cetak otomatis setelah dokumen tampil (default true). */
+  autoPrint?: boolean;
 }) {
   useEffect(() => {
-    if (open) {
+    if (open && autoPrint) {
       const t = setTimeout(() => {
         // dialog print muncul otomatis setelah render dokumen
         try {
@@ -46,7 +54,7 @@ export function PrintFrame({
       }, 400);
       return () => clearTimeout(t);
     }
-  }, [open]);
+  }, [open, autoPrint]);
 
   if (!open) return null;
 

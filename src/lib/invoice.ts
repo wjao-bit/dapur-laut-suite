@@ -39,6 +39,10 @@ export function buildInvoiceWaText(inv: any): string {
   lines.push("------------------------------");
   lines.push(`Total: ${formatCurrency(invoiceTotal(inv), mu)}`);
   lines.push(`Sisa: ${formatCurrency(invoiceSisa(inv), mu)}`);
+  if (inv?.catatan) {
+    lines.push("------------------------------");
+    lines.push(`Catatan: ${inv.catatan}`);
+  }
   lines.push("Terima kasih 🙏");
   return lines.join("\n");
 }

@@ -30,8 +30,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { ExportButton } from "@/components/app/ExportButton";
 import { NumInput } from "@/components/app/NumInput";
 import { genId, parseNum } from "@/lib/format";
+import { datedFilename } from "@/lib/export";
 import { upsertToSupabase, deleteFromSupabase } from "@/lib/dual-write";
 
 export interface FieldDef {
@@ -195,10 +197,17 @@ export function MasterCrud({
         description={description}
         icon={icon}
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 size-4" />
-            Tambah {title}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton
+              rows={filtered as any}
+              filename={datedFilename(table)}
+              columns={fields.map((f) => ({ key: f.key, label: f.label }))}
+            />
+            <Button onClick={openCreate} className="cursor-pointer">
+              <Plus className="mr-2 size-4" />
+              Tambah {title}
+            </Button>
+          </div>
         }
       />
 

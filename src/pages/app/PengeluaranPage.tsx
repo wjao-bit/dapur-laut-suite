@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { ReceiptText, Plus, Trash2 } from "lucide-react";
+import { ReceiptText, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,9 @@ import {
 } from "@/components/ui/select";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { ExportButton } from "@/components/app/ExportButton";
 import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
+import { datedFilename } from "@/lib/export";
 import { NumInput } from "@/components/app/NumInput";
 import { PENGELUARAN_JENISES } from "@/lib/business";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -35,6 +37,8 @@ export default function PengeluaranPage() {
   const deletePengeluaran = useMutation(api.business.deleteMaster as any);
 
   const [open, setOpen] = useState(false);
+  /** true = sedang mengubah pengeluaran yang sudah ada (ID tidak boleh diubah). */
+  const [editing, setEditing] = useState(false);
   const [id, setId] = useState(() => genId("PEN"));
   const [tanggal, setTanggal] = useState(todayStr());
   const [jenis, setJenis] = useState("Operasional");
@@ -61,6 +65,7 @@ export default function PengeluaranPage() {
   const namaKaryawan = (id: string) => karyawan?.find((k: any) => k.id === id)?.nama ?? id;
 
   const resetForm = () => {
+    setEditing(false);
     setId(genId("PEN"));
     setTanggal(todayStr());
     setJenis("Operasional");
@@ -69,14 +74,39 @@ export default function PengeluaranPage() {
     setIdKaryawan("");
   };
 
+  /** Buka dialog untuk MENCATAT pengeluaran baru. */
+  const openCreate = () => {
+    resetForm();
+    setOpen(true);
+  };
+
+  /** Buka dialog untuk MENGUBAH pengeluaran yang sudah ada (fix: tidak bisa edit). */
+  const openEdit = (r: any) => {
+    setEditing(true);
+    setId(r.id);
+    setTanggal(r.tanggal);
+    setJenis(r.jenis);
+    setNominal(parseNum(r.nominal));
+    setKeterangan(r.keterangan ?? "");
+    setIdKaryawan(r.idKaryawan ?? "");
+    setOpen(true);
+  };
+
+  const handleOpenChange = (o: boolean) => {
+    setOpen(o);
+    if (!o) resetForm();
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       await upsertPengeluaran({ doc: { id, tanggal, jenis, nominal: parseNum(nominal), keterangan, idKaryawan } });
       toast.success(
-        jenis === "Utang Karyawan" && idKaryawan
-          ? `Pengeluaran dicatat — utang ${namaKaryawan(idKaryawan)} bertambah otomatis`
-          : "Pengeluaran dicatat — kas berkurang",
+        editing
+          ? `Pengeluaran ${id} diperbarui`
+          : jenis === "Utang Karyawan" && idKaryawan
+            ? `Pengeluaran dicatat — utang ${namaKaryawan(idKaryawan)} bertambah otomatis`
+            : "Pengeluaran dicatat — kas berkurang",
       );
       setOpen(false);
       resetForm();
@@ -98,32 +128,43 @@ export default function PengeluaranPage() {
       label: "",
       align: "right",
       render: (r) => (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-7 text-rose-600 hover:text-rose-600">
-              <Trash2 className="size-3.5" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Hapus pengeluaran?</AlertDialogTitle>
-              <AlertDialogDescription>Kas keluar terkait juga akan dihapus.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Batal</AlertDialogCancel>
-              <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={async () => {
-                try {
-                  await deletePengeluaran({ table: "pengeluaran", id: r.id });
-                  toast.success("Pengeluaran dihapus");
-                } catch (e: any) {
-                  toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus");
-                }
-              }}>
-                Hapus
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-sky-600 hover:text-sky-700"
+            title="Ubah pengeluaran"
+            onClick={() => openEdit(r)}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7 text-rose-600 hover:text-rose-600" title="Hapus">
+                <Trash2 className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus pengeluaran?</AlertDialogTitle>
+                <AlertDialogDescription>Kas keluar terkait juga akan dihapus.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Batal</AlertDialogCancel>
+                <AlertDialogAction className="bg-rose-600 hover:bg-rose-700" onClick={async () => {
+                  try {
+                    await deletePengeluaran({ table: "pengeluaran", id: r.id });
+                    toast.success("Pengeluaran dihapus");
+                  } catch (e: any) {
+                    toast.error(e?.data?.error ?? e?.message ?? "Gagal menghapus");
+                  }
+                }}>
+                  Hapus
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       ),
     },
   ];
@@ -135,10 +176,24 @@ export default function PengeluaranPage() {
         description="Pengeluaran operasional & lainnya. Jenis 'Utang Karyawan' otomatis menambah record utang karyawan."
         icon={ReceiptText}
         actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 size-4" />
-            Catat Pengeluaran
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton
+              rows={filtered as any}
+              filename={datedFilename("pengeluaran")}
+              columns={[
+                { key: "id", label: "ID" },
+                { key: "tanggal", label: "Tanggal" },
+                { key: "jenis", label: "Jenis" },
+                { key: "nominal", label: "Nominal" },
+                { key: "keterangan", label: "Keterangan" },
+                { key: "idKaryawan", label: "ID Karyawan", value: (r: any) => (r.idKaryawan ? namaKaryawan(r.idKaryawan) : "") },
+              ]}
+            />
+            <Button onClick={openCreate} className="cursor-pointer">
+              <Plus className="mr-2 size-4" />
+              Catat Pengeluaran
+            </Button>
+          </div>
         }
       />
 
@@ -182,21 +237,29 @@ export default function PengeluaranPage() {
         emptyDescription="Catat pengeluaran operasional perusahaan."
       />
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Catat Pengeluaran</DialogTitle>
+            <DialogTitle>{editing ? `Ubah Pengeluaran ${id}` : "Catat Pengeluaran"}</DialogTitle>
             <DialogDescription>
-              {jenis === "Utang Karyawan" && idKaryawan
-                ? "Pengeluaran ini otomatis menjadi record utang karyawan."
-                : "Kas keluar tercatat otomatis."}
+              {editing
+                ? "Ubah tanggal, jenis, nominal, atau keterangan. Kas terkait otomatis disesuaikan."
+                : jenis === "Utang Karyawan" && idKaryawan
+                  ? "Pengeluaran ini otomatis menjadi record utang karyawan."
+                  : "Kas keluar tercatat otomatis."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs font-medium">ID *</Label>
-                <Input className="mt-1.5" value={id} onChange={(e) => setId(e.target.value)} />
+                <Input
+                  className="mt-1.5"
+                  value={id}
+                  onChange={(e) => setId(e.target.value)}
+                  disabled={editing}
+                />
+                {editing && <p className="mt-1 text-[11px] text-muted-foreground">ID tidak bisa diubah saat mengubah data.</p>}
               </div>
               <div>
                 <Label className="text-xs font-medium">Tanggal *</Label>
@@ -245,9 +308,9 @@ export default function PengeluaranPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={handleSave} disabled={saving || parseNum(nominal) <= 0 || (jenis === "Utang Karyawan" && !idKaryawan)}>
-              {saving ? "Menyimpan..." : "Simpan"}
+            <Button variant="outline" onClick={() => handleOpenChange(false)}>Batal</Button>
+            <Button onClick={handleSave} disabled={saving || !id || parseNum(nominal) <= 0 || (jenis === "Utang Karyawan" && !idKaryawan)}>
+              {saving ? "Menyimpan..." : editing ? "Simpan Perubahan" : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>

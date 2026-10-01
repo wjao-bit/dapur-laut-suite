@@ -239,6 +239,14 @@ export function InvoicePrintDoc({ invoice }: { invoice: any }) {
           </div>
         </div>
 
+        {/* Catatan invoice (opsional) */}
+        {invoice.catatan && (
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm print:break-inside-avoid print:mt-3 print:px-2 print:py-1">
+            <p className="text-xs font-semibold text-slate-500">Catatan</p>
+            <p className="whitespace-pre-wrap text-slate-800">{invoice.catatan}</p>
+          </div>
+        )}
+
         <div className="mt-12 print:break-inside-avoid print:mt-8">
           <div className="grid grid-cols-2 gap-8 text-sm">
             <div>
