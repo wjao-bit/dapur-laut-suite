@@ -13,7 +13,9 @@
     "test:invoice": "node scripts/test-invoice.mjs",
     "test:unit": "node scripts/run-unit-tests.mjs",
     "test:katalog": "node scripts/test-katalog.mjs",
-    "test:all": "npm run test:unit && npm run test:invoice && npm run test:katalog && node scripts/test-next-kode.mjs"
+    "test:all": "npm run test:unit && npm run test:invoice && npm run test:katalog && npm run test:next-kode && npm run test:app",
+    "test:app": "node scripts/test-app-e2e.mjs",
+    "test:next-kode": "node scripts/test-next-kode.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",

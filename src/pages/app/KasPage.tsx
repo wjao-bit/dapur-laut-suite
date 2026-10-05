@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import { Wallet, Plus, ArrowDownCircle, ArrowUpCircle, PiggyBank, Pencil, Trash2 } from "lucide-react";
+import { Wallet, Plus, ArrowDownCircle, ArrowUpCircle, PiggyBank, Pencil, Trash2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,10 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { ExportButton } from "@/components/app/ExportButton";
+import { PrintFrame, SignatureRow } from "@/components/app/PrintFrame";
 import { formatRupiah, formatDate, todayStr, genId, parseNum } from "@/lib/format";
+import { datedFilename } from "@/lib/export";
 import { NumInput } from "@/components/app/NumInput";
 import { cn } from "@/lib/utils";
 import {
@@ -56,6 +59,7 @@ export default function KasPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [saving, setSaving] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!kas) return kas;
@@ -223,7 +227,23 @@ export default function KasPage() {
         description="Kas masuk otomatis dari invoice penjualan & pembayaran utang; kas keluar dari pembelian, slip gaji, dan pengeluaran. SaldoAkhir = SaldoAwal + Masuk − Keluar."
         icon={Wallet}
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton
+              rows={filtered as any}
+              filename={datedFilename("kas-harian")}
+              columns={[
+                { key: "tanggal", label: "Tanggal" },
+                { key: "keterangan", label: "Keterangan" },
+                { key: "sumber", label: "Sumber" },
+                { key: "kasMasuk", label: "Kas Masuk" },
+                { key: "kasKeluar", label: "Kas Keluar" },
+                { key: "saldoAkhir", label: "Saldo Akhir" },
+              ]}
+            />
+            <Button variant="outline" onClick={() => setPrintOpen(true)}>
+              <Printer className="mr-2 size-4" />
+              Cetak
+            </Button>
             <Button variant="outline" onClick={() => setSaldoDialog(true)}>
               <PiggyBank className="mr-2 size-4" />
               Set Saldo Awal
@@ -232,7 +252,7 @@ export default function KasPage() {
               <Plus className="mr-2 size-4" />
               Transaksi Kas Manual
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -347,6 +367,104 @@ export default function KasPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PrintFrame
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        title="Laporan Kas Harian — Dapur Laut"
+        autoPrint={false}
+      >
+        <KasPrintDoc rows={(filtered ?? []) as any} summary={summary} from={from} to={to} />
+      </PrintFrame>
+    </div>
+  );
+}
+
+export function KasPrintDoc({
+  rows,
+  summary,
+  from,
+  to,
+}: {
+  rows: any[];
+  summary: { masuk: number; keluar: number; saldo: number };
+  from?: string;
+  to?: string;
+}) {
+  const td = "border border-slate-200 px-2 py-1.5 text-[13px]";
+  const tdr = "border border-slate-200 px-2 py-1.5 text-right text-[13px] tabular-nums";
+  const periode =
+    from || to ? `${from ? formatDate(from) : "awal"} — ${to ? formatDate(to) : "akhir"}` : "Semua periode";
+  return (
+    <div>
+      <div className="mb-4 flex items-start justify-between text-sm">
+        <div>
+          <p className="text-xs text-slate-500">Laporan Kas</p>
+          <p className="text-lg font-bold text-slate-900">Laporan Kas Harian</p>
+          <p className="mt-0.5 text-xs text-slate-500">Periode: {periode}</p>
+        </div>
+        <div className="text-right text-xs text-slate-500">
+          <p>Tgl Cetak: {formatDate(todayStr())}</p>
+          <p className="mt-0.5 font-semibold text-slate-700">Saldo: {formatRupiah(summary.saldo)}</p>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded border border-sky-200 bg-sky-50 px-2 py-2">
+          <p className="text-[10px] uppercase text-sky-700">Kas Masuk</p>
+          <p className="text-sm font-bold text-sky-700 tabular-nums">{formatRupiah(summary.masuk)}</p>
+        </div>
+        <div className="rounded border border-rose-200 bg-rose-50 px-2 py-2">
+          <p className="text-[10px] uppercase text-rose-700">Kas Keluar</p>
+          <p className="text-sm font-bold text-rose-700 tabular-nums">{formatRupiah(summary.keluar)}</p>
+        </div>
+        <div className="rounded border border-teal-200 bg-teal-50 px-2 py-2">
+          <p className="text-[10px] uppercase text-teal-700">Saldo</p>
+          <p className="text-sm font-bold text-teal-700 tabular-nums">{formatRupiah(summary.saldo)}</p>
+        </div>
+      </div>
+
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-slate-100 text-left text-xs text-slate-600 uppercase">
+            <th className="border border-slate-200 px-2 py-2">Tanggal</th>
+            <th className="border border-slate-200 px-2 py-2">Keterangan</th>
+            <th className="border border-slate-200 px-2 py-2">Sumber</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Masuk</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Keluar</th>
+            <th className="border border-slate-200 px-2 py-2 text-right">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any) => (
+            <tr key={r.id}>
+              <td className={td}>{formatDate(r.tanggal)}</td>
+              <td className={td}>{r.keterangan || "—"}</td>
+              <td className={td}>{r.sumber || "—"}</td>
+              <td className={tdr}>{r.kasMasuk > 0 ? formatRupiah(r.kasMasuk) : "—"}</td>
+              <td className={tdr}>{r.kasKeluar > 0 ? formatRupiah(r.kasKeluar) : "—"}</td>
+              <td className={tdr + " font-bold"}>{formatRupiah(r.saldoAkhir ?? 0)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={6} className={td + " text-center text-muted-foreground"}>Belum ada transaksi kas.</td>
+            </tr>
+          )}
+        </tbody>
+        <tfoot>
+          <tr className="bg-slate-50 font-semibold">
+            <td className={td} colSpan={3}>Total</td>
+            <td className={tdr}>{formatRupiah(summary.masuk)}</td>
+            <td className={tdr}>{formatRupiah(summary.keluar)}</td>
+            <td className={tdr}>{formatRupiah(summary.saldo)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div className="mt-8">
+        <SignatureRow label="Mengetahui" />
+      </div>
     </div>
   );
 }

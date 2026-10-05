@@ -110,8 +110,10 @@ const sidebarSections = [
 ];
 
 const missingSections = sidebarSections.filter((s) => !layoutTSX.includes(`label: "${s}"`));
-check("Kelompok sidebar lengkap (8 grup)", () => {});
-expect(missingSections.length === 0, `grup hilang: ${missingSections.join(", ")}`);
+check("Kelompok sidebar lengkap (8 grup)", () => {
+  expect(missingSections.length === 0, `grup hilang: ${missingSections.join(", ")}`);
+  return true;
+});
 
 const icons = [
   "LayoutDashboard",
@@ -163,8 +165,11 @@ check("RequireAuth pakai useAuth dan ada loading state", () => {
 });
 
 check("RequireAuth: belum login -> Navigate ke /auth?returnTo=...", () => {
-  return (requireAuthTSX.includes("Navigate") || requireAuthTSX.includes("Navigate")) &&
-    (requireAuthTSX.includes("returnTo") || requireAuthTSX.includes("returnTo"));
+  return (
+    requireAuthTSX.includes("Navigate") &&
+    requireAuthTSX.includes("returnTo") &&
+    requireAuthTSX.includes("/auth")
+  );
 });
 
 check("RequireAuth: status pending/rejected -> gate screen", () => {
@@ -180,15 +185,17 @@ check("RequireAuth: sudah login -> BackupWorker + children", () => {
 // ============================================================================
 // 3. AUTH PAGE — form login/register/reset
 // ============================================================================
-console.log("\n=== 3. AUTH PAGE: form, toasts, redirect ===");
+console.log("\n=== 3. AUTH PAGE: form, notifikasi, redirect ===");
 section = "AUTH PAGE";
 
 const authTSX = readFileSync(join(root, "src/pages/Auth.tsx"), "utf8");
 
 check("AuthPage ada form login (phone, password, submit)", () => {
-  return authTSX.includes('name="phone"') &&
+  return (
+    authTSX.includes('name="phone"') &&
     authTSX.includes('type="password"') &&
-    (authTSX.includes("handleLogin") || authTSX.includes("onSubmit") || authTSX.includes("submit"));
+    (authTSX.includes("handleLogin") || authTSX.includes("onSubmit") || authTSX.includes("submit"))
+  );
 });
 
 check("AuthPage ada mode login, register, reset password", () => {
@@ -199,14 +206,13 @@ check("AuthPage pakai useAuth dan useMutation", () => {
   return authTSX.includes("useAuth") && authTSX.includes("useMutation");
 });
 
-// Deteksi Toast : cek import dan penggunaan (bisa import { toast as t } atau const { toast } = useToast())
-const hasToastImport = /from\s+"@\/\/components\/ui\/sonner"|useToast\(|from\s+"sonner"/.test(authTSX);
-const hasToastCall = /(toast\.(success|error|info|warning|message))/.test(authTSX) ||
-  /(Toast)/i.test(authTSX) && /showToast|toast\./.test(authTSX) ||
-  /sonner/.test(authTSX) && /Toast/.test(authTSX);
-const hasToast = hasToastImport && (hasToastCall || authTSX.includes("Toast"));
-check("AuthPage pakai sonner/toast untuk notifikasi", () => {
-  return hasToast;
+// Notifikasi Auth: Auth.tsx sengaja memakai banner inline (error/notice),
+// BUKAN toast — jadi yang dicek adalah adanya umpan balik ke pengguna.
+const hasInlineNotice = authTSX.includes("setError(") && authTSX.includes("setNotice(");
+const hasToast = /from\s+"sonner"/.test(authTSX) || /useToast\(/.test(authTSX);
+check("AuthPage memberi umpan balik notifikasi (banner error/notice)", () => {
+  expect(hasInlineNotice || hasToast, "tidak ada banner error/notice maupun toast");
+  return true;
 });
 
 check("AuthPage ada redirectAfterAuth dan returnTo query", () => {
@@ -233,15 +239,11 @@ for (const file of appPages) {
   const buttonCount = countComponent(text, "Button");
   const exportCount = countComponent(text, "ExportButton");
   const printFrameCount = countComponent(text, "PrintFrame");
-  const dialogCount = countComponent(text, "Dialog", "Dialog") +
-    countComponent(text, "DialogContent", "DialogContent");
-  const tabsCount = countComponent(text, "Tabs", "Tabs") +
-    countComponent(text, "TabsList", "TabsList") +
-    countComponent(text, "TabsTrigger", "TabsTrigger");
+  const dialogCount = countComponent(text, "Dialog") + countComponent(text, "DialogContent");
+  const tabsCount =
+    countComponent(text, "Tabs") + countComponent(text, "TabsList") + countComponent(text, "TabsTrigger");
 
-  const hasDelete = /Hapus|Hapus|Hapus|Destroy|deleteMaster|indexOf=/.test(text) ||
-    text.includes("hapus") || text.includes("hapus") || /title="Hapus"/.test(text) ||
-    /Hapus|delete|destroy/i.test(text);
+  const hasDelete = /Hapus|delete|destroy/i.test(text) || /Trash2|Trash/.test(text);
   const hasEdit = /Ubah|Edit|edit|updateMaster|updateInvoice|upsert|openEdit/.test(text);
   const hasPrint = printFrameCount > 0 || /Cetak|Print|Lihat/i.test(text);
   const hasExport = exportCount > 0 || /Unduh|download|Ekspor/i.test(text);
@@ -274,7 +276,8 @@ for (const r of scanResults) {
   ]
     .filter(Boolean)
     .join(" ");
-  const count = `tombol: ${r.buttonCount}` +
+  const count =
+    `tombol: ${r.buttonCount}` +
     (r.exportCount ? `, export: ${r.exportCount}` : "") +
     (r.printFrameCount ? `, print: ${r.printFrameCount}` : "") +
     (r.dialogCount ? `, dialog: ${r.dialogCount}` : "") +
@@ -328,21 +331,24 @@ check("GudangPage: tabel stok & ExportButton", () => {
   const gdg = scanResults.find((r) => r.name === "GudangPage");
   if (!gdg) return false;
   expect(gdg.hasDataTable, "GudangPage tidak pakai DataTable");
-  expect(gdg.hasExport, "GudangPage tidak ada export CSV");
+  expect(gdg.exportCount > 0, "GudangPage tidak punya ExportButton");
+  expect(gdg.printFrameCount > 0, "GudangPage tidak punya PrintFrame");
   return true;
 });
 
 // KasPage
-check("KasPage: tabel kas, cetak & hapus", () => {
+check("KasPage: tabel kas, export, cetak & hapus", () => {
   const kas = scanResults.find((r) => r.name === "KasPage");
   if (!kas) return false;
+  expect(kas.hasDataTable, "KasPage tidak pakai DataTable");
   expect(kas.hasDelete, "KasPage tidak ada tombol hapus");
-  expect(kas.hasPrint || kas.printFrameCount > 0, "KasPage tidak ada fitur cetak");
+  expect(kas.exportCount > 0, "KasPage tidak punya ExportButton");
+  expect(kas.printFrameCount > 0, "KasPage tidak ada PrintFrame/cetak");
   return true;
 });
 
 // ============================================================================
-// 5. RENDER IS IN THE CORRECT ORIENTATION
+// 5. HALAMAN CRUCIAL — fitur spesifik hasil perbaikan
 // ============================================================================
 console.log("\n=== 5. HALAMAN CRUCIAL: fitur spesifik ===");
 section = "FITUR";
@@ -359,18 +365,25 @@ check("PengeluaranPage: form edit (ID terkunci, Simpan Perubahan)", () => {
 
 check("InvoiceFormDialog: tombol items tidak hilang saat ganti pihak", () => {
   const dialog = readFileSync(join(root, "src/components/app/InvoiceFormDialog.tsx"), "utf8");
-  return dialog.includes("appliedSession") && dialog.includes("changeTipe") && dialog.includes("max-h-[92vh]");
+  return (
+    dialog.includes("appliedSession") && dialog.includes("changeTipe") && dialog.includes("max-h-[92vh]")
+  );
 });
 
 check("PrintFrame: ada autoPrint prop (default true)", () => {
   const pf = readFileSync(join(root, "src/components/app/PrintFrame.tsx"), "utf8");
-  return pf.includes("autoPrint?") && pf.includes("boolean");
+  return pf.includes("autoPrint?") && pf.includes("boolean") && pf.includes("= true");
 });
 
 check("ExportButton: unduh CSV berfungsi", () => {
   const eb = readFileSync(join(root, "src/components/app/ExportButton.tsx"), "utf8");
   const exp = readFileSync(join(root, "src/lib/export.ts"), "utf8");
-  return eb.includes("downloadCsv") && exp.includes("downloadCsv") && exp.includes("\uFEFF") && exp.includes(";");
+  expect(eb.includes("downloadCsv"), "ExportButton tidak memanggil downloadCsv");
+  expect(eb.includes("<Download"), "ExportButton tidak punya ikon Download");
+  expect(/export function downloadCsv/.test(exp), "lib/export.ts tidak mengekspor downloadCsv");
+  expect(exp.includes("\\uFEFF"), "CSV tidak memakai BOM UTF-8 (Excel locale Indonesia)");
+  expect(exp.includes('";"'), "CSV tidak memakai pemisah ';'");
+  return true;
 });
 
 check("Notes / catatan invoice tersedia di InvoiceFormDialog", () => {
@@ -385,8 +398,14 @@ check("Catatan invoice muncul di cetakan (InvoicePrintDoc)", () => {
 
 check("LaporanPage: dataset 5 dan Unduh Semua (slip gaji & keuangan)", () => {
   const lap = readFileSync(join(root, "src/pages/app/LaporanPage.tsx"), "utf8");
-  return lap.includes("handleDownloadAll") && lap.includes("laporan-stok") && lap.includes("laporan-keuangan") &&
-    lap.includes("rekap-barang") && lap.includes("rekap-pihak") && lap.includes("analisis-margin");
+  return (
+    lap.includes("handleDownloadAll") &&
+    lap.includes("laporan-stok") &&
+    lap.includes("laporan-keuangan") &&
+    lap.includes("rekap-barang") &&
+    lap.includes("rekap-pihak") &&
+    lap.includes("analisis-margin")
+  );
 });
 
 // ============================================================================
@@ -399,5 +418,7 @@ if (failures.length) {
   console.log("\nGAGAL:");
   for (const f of failures) console.log(`  ❌ ${f}`);
 }
-console.log("\nNota: cek statik tanpa bundling. Tombol asli dipakai pengguna = render React DOM sungguhan (butuh bundler).");
+console.log(
+  "\nNota: cek statik tanpa bundling. Tombol asli dipakai pengguna = render React DOM sungguhan (butuh bundler).",
+);
 process.exit(fail === 0 ? 0 : 1);

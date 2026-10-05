@@ -23,10 +23,12 @@ import {
 } from "@/components/ui/sheet";
 import { PageHeader, SectionCard, BadgeStatus } from "@/components/app/ui";
 import { DataTable, type Column } from "@/components/app/DataTable";
+import { ExportButton } from "@/components/app/ExportButton";
 import { PrintFrame } from "@/components/app/PrintFrame";
 import { BarangSearch } from "@/components/app/BarangSearch";
 import { NumInput } from "@/components/app/NumInput";
 import { formatDate, todayStr, parseNum, formatNum, genId } from "@/lib/format";
+import { datedFilename } from "@/lib/export";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_STOK_MIN = 5;
@@ -181,7 +183,20 @@ export default function GudangPage() {
         description="Posisi stok dihitung dari riwayat perubahan. Stok boleh minus."
         icon={Boxes}
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton
+              rows={gudang as any}
+              filename={datedFilename("stok-gudang")}
+              columns={[
+                { key: "nama_barang", label: "Nama Barang" },
+                { key: "stok_awal", label: "Stok Awal" },
+                { key: "stok_masuk", label: "Stok Masuk" },
+                { key: "stok_keluar", label: "Stok Keluar" },
+                { key: "stok_min", label: "Batas Min" },
+                { key: "stok_akhir", label: "Stok Akhir" },
+                { key: "keterangan", label: "Keterangan" },
+              ]}
+            />
             <Button variant="outline" className="cursor-pointer" onClick={() => setPrintOpen(true)}>
               <Printer className="mr-2 size-4" />
               Cetak PDF
@@ -190,7 +205,7 @@ export default function GudangPage() {
               <Plus className="mr-2 size-4" />
               Tambah ke Gudang
             </Button>
-          </>
+          </div>
         }
       />
 
